@@ -28,6 +28,8 @@ Project viewer: save a project as a collection of strokes; insert and delete str
 
 ##Desired Features (but not currently under development)
 
+Get permission to distribute the plover default dictionary
+
 Take input from only some keyboards rather than every keyboard indiscriminately.  This requires me to obtain another NKRO keyboard to test with.
 
 Support more stenograph machines (over USB where possible).  Again, this requires me to have access to other machines to test with.
