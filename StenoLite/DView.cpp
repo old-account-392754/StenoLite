@@ -8,6 +8,7 @@
 #include <queue>
 #include "texthelpers.h"
 #include "fileops.h"
+#include "setmode.h"
 
 dstruct dviewdata;
 
@@ -634,12 +635,14 @@ DWORD WINAPI addAll(LPVOID lpParam)
 	file.nMaxFile = MAX_PATH;
 	file.Flags = OFN_DONTADDTORECENT | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR | OFN_PATHMUSTEXIST;
 	if (GetOpenFileName(&file)) {
+		//setMode(0);
 		if (file.lpstrFile[file.nFileExtension] == TEXT('J') || file.lpstrFile[file.nFileExtension] == TEXT('j')) {
 			LoadJson(dviewdata.d, TCHARtostr(file.lpstrFile, MAX_PATH), GetDlgItem(dlg, IDC_PROGRESS), true);
 		}
 		else {
 			LoadRTF(dviewdata.d, TCHARtostr(file.lpstrFile, MAX_PATH), GetDlgItem(dlg, IDC_PROGRESS), true);
 		}
+		//setMode(settings.mode);
 		addDVEvent(DVE_RESET);
 	}
 	EndDialog(dlg, 0);
@@ -660,12 +663,14 @@ DWORD WINAPI addNew(LPVOID lpParam)
 	file.nMaxFile = MAX_PATH;
 	file.Flags = OFN_DONTADDTORECENT | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR | OFN_PATHMUSTEXIST;
 	if (GetOpenFileName(&file)) {
+		//setMode(0);
 		if (file.lpstrFile[file.nFileExtension] == TEXT('J') || file.lpstrFile[file.nFileExtension] == TEXT('j')) {
 			LoadJson(dviewdata.d, TCHARtostr(file.lpstrFile, MAX_PATH), GetDlgItem(dlg, IDC_PROGRESS), false);
 		}
 		else {
 			LoadRTF(dviewdata.d, TCHARtostr(file.lpstrFile, MAX_PATH), GetDlgItem(dlg, IDC_PROGRESS), false);
 		}
+		//setMode(settings.mode);
 		addDVEvent(DVE_RESET);
 	}
 	EndDialog(dlg, 0);
@@ -958,6 +963,10 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 
 void LaunchViewDlg(HINSTANCE hInst, dictionary *d) {
 	hlocalInst = hInst;
+	if (d == NULL) {
+		MessageBox(NULL, TEXT("No dictionary selected"), TEXT(""), MB_OK);
+		return;
+	}
 	if (dviewdata.dlgwnd == NULL) {
 		dviewdata.dlgwnd = CreateDialog(hInst, MAKEINTRESOURCE(IDD_DICTVIEW), NULL, ViewProc);
 		ShowWindow(dviewdata.dlgwnd, SW_SHOW);

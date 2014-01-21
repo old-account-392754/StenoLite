@@ -28,7 +28,6 @@ struct dictionary {
 	DB* contents = NULL;
 	DB* secondary = NULL;
 	DB_ENV* env = NULL;
-	DB_TXN* readtrans = NULL;
 
 	dictionary(const char* home);
 	void open(const char* file, const char* file2, bool newd);

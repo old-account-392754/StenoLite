@@ -42,8 +42,9 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 	bool inescape = false;
 
 	std::string finaltext("");
-	INPUT* inputs = new INPUT[fulltext.length() * 4 + 2];
-	memset(inputs, 0, sizeof(INPUT)*(fulltext.length() * 4 + 2));
+
+	INPUT* inputs = new INPUT[fulltext.length() * 4 + 4];
+	memset(inputs, 0, sizeof(INPUT)*(fulltext.length() * 4 + 4));
 	int index = 2;
 	std::stack<WORD> subseqstack;
 
@@ -51,7 +52,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 	bool first = true;
 	bool poped = false;
 
-	while (i != fulltext.cend()) {
+	while (i != fulltext.cend() ) {
 		if (inescape) {
 			if (*i == 'p') {
 				inescape = false;
@@ -407,7 +408,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 
 	if ((flags & TF_INOSPACE) == TF_INOSPACE || (prevflags & TF_ENOSPACE) == TF_ENOSPACE || ((flags & TF_IPSPACE) == TF_IPSPACE && (prevflags & TF_EPSPACE) == TF_EPSPACE)) {
 		//no additionalspace
-		if (settings.space == 1) {
+		if (settings.space == 1 && (prevflags & TF_ENOSPACE) == 0) {
 			inputs[0].type = INPUT_KEYBOARD;
 			inputs[0].ki.wVk = VK_BACK;
 
@@ -563,7 +564,14 @@ void findanentry(unsigned __int8* stroke, dictionary * d, std::list<singlestroke
 	sbuffer[index*3 + 1] = stroke[1];
 	sbuffer[index*3 + 2] = stroke[2];
 
-	if (d->findDItem(&(sbuffer[index * 3]), 3, text, d->readtrans)) {
+	DB_TXN* trans;
+	d->env->txn_begin(d->env, NULL, &trans, DB_READ_COMMITTED | DB_TXN_NOWAIT);
+
+	trans->set_priority(trans, 200);
+	//trans->set_timeout(trans, 1000, DB_SET_LOCK_TIMEOUT);
+	
+
+	if (d->findDItem(&(sbuffer[index * 3]), 3, text, trans)) {
 		length = 1;
 	}
 
@@ -575,14 +583,17 @@ void findanentry(unsigned __int8* stroke, dictionary * d, std::list<singlestroke
 		sbuffer[index * 3 + 1] = (*li)->value.ival[1];
 		sbuffer[index * 3 + 2] = (*li)->value.ival[2];
 
-
-		if (d->findDItem( &(sbuffer[index * 3]), (d->longest - index) * 3, text, d->readtrans)) {
+		
+		if (d->findDItem(&(sbuffer[index * 3]), (d->longest - index) * 3, text, trans)) {
 			length = (d->longest-index);
 		}
+		
 
 		index--;
 		li++;
 	}
+
+	trans->commit(trans, 0);
 
 	delete sbuffer;
 }
@@ -880,12 +891,14 @@ void processSingleStroke(unsigned __int8* stroke) {
 					std::reverse(data.begin(), data.end());
 				}
 			}
+
+			data = "&" + data + "&";
 		}
 		else {
 			stroketocsteno(stroke, data);
 		}
 
-		data = "&" + data + "&";
+		
 
 
 		if (number || settings.mistrans == FALSE) {

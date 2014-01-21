@@ -298,9 +298,6 @@ bool dictionary::findDItem(unsigned __int8 *s, const int &len, std::string &str,
 	keyin.ulen = len;
 	keyin.flags = DB_DBT_USERMEM;
 
-	if (trans == NULL) {
-		trans = readtrans;
-	}
 
 	if (contents->exists(contents, trans, &keyin, 0) == DB_NOTFOUND) {
 		return false;
@@ -312,17 +309,17 @@ bool dictionary::findDItem(unsigned __int8 *s, const int &len, std::string &str,
 	strin.ulen = lchars + 1;
 	strin.flags = DB_DBT_USERMEM;
 
-	DB_TXN* newtrans;
-	env->txn_begin(env, NULL, &newtrans, DB_READ_UNCOMMITTED);
 
-	contents->get(contents, newtrans, &keyin, &strin, DB_READ_UNCOMMITTED);
-	newtrans->commit(newtrans, 0);
-		
+	if (contents->get(contents, trans, &keyin, &strin, 0) == 0) {
+		str = std::string((char*)(strin.data));
+		delete strin.data;
 
-	str = std::string((char*)(strin.data));
-	delete strin.data;
+		return true;
+	}
 
-	return true;
+	return false;
+
+	
 }
 
 void stroketocsteno(unsigned __int8* keys, std::string &buffer, bool number) {
@@ -685,9 +682,8 @@ void dictionary::open(const char* file, const char* file2, bool newd) {
 	if ((contents->associate(contents, NULL, secondary, getsecondary, DB_AUTO_COMMIT)) != 0)
 		MessageBox(NULL, TEXT("Failed to associate index"), TEXT("Error"), MB_OK);
 
-	readtrans = NULL; 
-	env->txn_begin(env, NULL, &readtrans, DB_READ_UNCOMMITTED);
-	readtrans->set_priority(readtrans, 200);
+
+
 }
 
 void errcall(const DB_ENV* env, const char *a, const char*b){
@@ -709,7 +705,6 @@ dictionary::dictionary(const char *home) {
 }
 
 void dictionary::close() {
-	readtrans->commit(readtrans, 0);
 	env->txn_checkpoint(env, 0, 0, DB_FORCE);
 	secondary->close(secondary, 0);
 	contents->close(contents, 0);
