@@ -137,8 +137,6 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	}
 
 	sharedData.sevenorbetter = MyIsWindowsVersionOrGreater(6, 1, 0);
-	if (sharedData.sevenorbetter)
-		MessageBoxA(NULL, "7+", "7+", MB_OK);
 
 	HRESULT hr = CoInitializeEx(NULL, 0);
 	if (FAILED(hr))
