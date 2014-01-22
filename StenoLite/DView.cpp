@@ -754,6 +754,7 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 	HDC hdc;
 
 	switch (uMsg) {
+	
 	case WM_PAINT:
 		hdc = BeginPaint(hwndDlg, &ps);
 		EndPaint(hwndDlg, &ps);
@@ -799,11 +800,12 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 		SendMessage(GetDlgItem(hwndDlg, IDC_DOWN), BM_SETIMAGE, IMAGE_ICON, (LPARAM)LoadIcon(hlocalInst, MAKEINTRESOURCE(IDI_DOWN)));
 		SetWindowSubclass(GetDlgItem(hwndDlg, IDC_FSTROKE), &DetectLoseFocus, 1239, NULL);
 		SetWindowSubclass(GetDlgItem(hwndDlg, IDC_VIEW), &KickUpMouse, 1240, NULL);
-		PostMessage(hwndDlg, WM_NEXTDLGCTL, (WPARAM)(GetDlgItem(hwndDlg, IDC_UP)), TRUE);
+		
 		dviewdata.running = true;
 		addDVEvent(DVE_RESET);
 		ViewProc(hwndDlg, WM_SIZE, 0, 0);
-		return TRUE;
+		SetFocus(hwndDlg);
+		return FALSE;
 	case WM_NOTIFY:
 		if (LOWORD(wParam) == IDC_VIEW) {
 			if (dviewdata.d == NULL)
@@ -844,6 +846,12 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
+		case ID_A_N:
+			addDVEvent(DVE_DOWN, dviewdata.displayitems - 2);
+			return TRUE;
+		case ID_A_P:
+			addDVEvent(DVE_UP, dviewdata.displayitems - 2);
+			return TRUE;
 		case IDM_IALL:
 			DialogBoxParam(hlocalInst, MAKEINTRESOURCE(IDD_PROCESS), hwndDlg, (DLGPROC)PdlgProc, MODE_ALL);
 			return TRUE;

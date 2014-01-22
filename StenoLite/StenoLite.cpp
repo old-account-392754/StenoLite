@@ -110,7 +110,6 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	textToStroke(std::string("1234567890"), sharedData.number);
 
 	MSG msg;
-	HACCEL hAccelTable;
 
 	memset(inputstate.keys, 0, 4);
 	memset(inputstate.stroke, 0, 4);
@@ -138,6 +137,8 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 
 	sharedData.sevenorbetter = MyIsWindowsVersionOrGreater(6, 1, 0);
 
+	HACCEL acc = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_DVACCELERATOR));
+
 	HRESULT hr = CoInitializeEx(NULL, 0);
 	if (FAILED(hr))
 	{
@@ -152,15 +153,15 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 			tskbrlst = NULL;
 		}
 	}
-
-	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_STENOLITE));
+	
 
 	// Main message loop:
-	BOOL dlgresult = FALSE;
 	while (GetMessage(&msg, NULL, 0, 0)) {
-		if (!IsDialogMessage(newwordwin.dlgwnd, &msg)) {
+		if (!TranslateAccelerator(dviewdata.dlgwnd, acc, &msg)) {
 			TranslateMessage(&msg);
-			DispatchMessage(&msg);
+			if (!IsDialogMessage(newwordwin.dlgwnd, &msg)) {
+				DispatchMessage(&msg);
+			}
 		}
 	}
 	setMode(0);
