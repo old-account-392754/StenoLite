@@ -14,7 +14,7 @@
 #include <Strsafe.h>
 #include <Richedit.h>
 #include <gdiplus.h>
-#include <VersionHelpers.h>
+//#include <VersionHelpers.h>
 
 #include "globals.h"
 #include "stenodata.h"
@@ -62,6 +62,24 @@ void stdstrMB(std::string msg, TCHAR* title){
 	MessageBox(NULL, param, title, MB_OK);
 }
 
+
+bool MyIsWindowsVersionOrGreater(WORD wMajorVersion, WORD wMinorVersion, WORD wServicePackMajor)
+{
+	OSVERSIONINFOEXW osvi = { sizeof(osvi), 0, 0, 0, 0, { 0 }, 0, 0 };
+	DWORDLONG        const dwlConditionMask = VerSetConditionMask(
+		VerSetConditionMask(
+		VerSetConditionMask(
+		0, VER_MAJORVERSION, VER_GREATER_EQUAL),
+		VER_MINORVERSION, VER_GREATER_EQUAL),
+		VER_SERVICEPACKMAJOR, VER_GREATER_EQUAL);
+
+	osvi.dwMajorVersion = wMajorVersion;
+	osvi.dwMinorVersion = wMinorVersion;
+	osvi.wServicePackMajor = wServicePackMajor;
+
+	return VerifyVersionInfoW(&osvi, VER_MAJORVERSION |
+		VER_MINORVERSION | VER_SERVICEPACKMAJOR, dwlConditionMask) != FALSE;
+}
 
 
 LRESULT CALLBACK NoCaret(HWND hUserInfoWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
@@ -118,7 +136,9 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 		return FALSE;
 	}
 
-	sharedData.sevenorbetter = (IsWindows7OrGreater() == TRUE);
+	sharedData.sevenorbetter = MyIsWindowsVersionOrGreater(6, 1, 0);
+	if (sharedData.sevenorbetter)
+		MessageBoxA(NULL, "7+", "7+", MB_OK);
 
 	HRESULT hr = CoInitializeEx(NULL, 0);
 	if (FAILED(hr))
