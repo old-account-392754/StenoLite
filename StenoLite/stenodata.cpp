@@ -298,7 +298,6 @@ bool dictionary::findDItem(unsigned __int8 *s, const int &len, std::string &str,
 	keyin.ulen = len;
 	keyin.flags = DB_DBT_USERMEM;
 
-
 	if (contents->exists(contents, trans, &keyin, 0) == DB_NOTFOUND) {
 		return false;
 	}
@@ -323,6 +322,7 @@ bool dictionary::findDItem(unsigned __int8 *s, const int &len, std::string &str,
 void stroketocsteno(unsigned __int8* keys, std::string &buffer, bool number) {
 	static TCHAR internal[200];
 	//buffer.clear();
+	
 	stroketocsteno(keys, internal, number);
 	for (int i = 0; internal[i] != 0; i++) {
 		buffer += (char)(internal[i]);

@@ -20,6 +20,21 @@ void writestr(HANDLE hfile, const std::string& data) {
 }
 
 
+std::string GetDictDir() {
+	DWORD len = MAX_PATH;
+	const static std::regex rx("\\\\[^\\\\]*$");
+
+	HKEY hkeyDXVer;
+	if (RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("SOFTWARE\\STENOLITE\\DICTDIR"), 0, KEY_READ, &hkeyDXVer) == ERROR_SUCCESS) {
+		if (RegQueryValueEx(hkeyDXVer, NULL, NULL, NULL, (LPBYTE)pathbuffer, &len) == ERROR_SUCCESS) {
+			return TCHARtostr(pathbuffer, MAX_PATH);
+		}
+	}
+
+	GetModuleFileName(NULL, pathbuffer, MAX_PATH);
+	return std::regex_replace(TCHARtostr(pathbuffer, MAX_PATH), rx, "\\");
+}
+
 void saveSettings() {
 
 	int trans = 0;
@@ -39,15 +54,7 @@ void saveSettings() {
 
 	
 	DWORD len = MAX_PATH;
-	std::string res;
-	if (RegGetValue(HKEY_CURRENT_USER, TEXT("Software\\StenoLite\\DictDir"), NULL, RRF_RT_REG_SZ, NULL, pathbuffer, &len) != ERROR_SUCCESS) {
-		GetModuleFileName(NULL, pathbuffer, MAX_PATH);
-		const static std::regex rx("\\\\[^\\\\]*$");
-		res = std::regex_replace(TCHARtostr(pathbuffer, MAX_PATH), rx, "\\");
-	}
-	else {
-		res = TCHARtostr(pathbuffer, MAX_PATH);
-	}
+	std::string res = GetDictDir();
 
 	
 	std::string file = res + "settings";
@@ -568,15 +575,7 @@ void LoadRTF(dictionary* d, const std::string &file, HWND progress, bool overwri
 std::list<std::string> EnumDicts() {
 
 	DWORD len = MAX_PATH;
-	std::string res;
-	if (RegGetValue(HKEY_CURRENT_USER, TEXT("Software\\StenoLite\\DictDir"), NULL, RRF_RT_REG_SZ, NULL, pathbuffer, &len) != ERROR_SUCCESS) {
-		GetModuleFileName(NULL, pathbuffer, MAX_PATH);
-		const static std::regex rx("\\\\[^\\\\]*$");
-		res = std::regex_replace(TCHARtostr(pathbuffer, MAX_PATH), rx, "\\dicts\\");
-	}
-	else {
-		res = TCHARtostr(pathbuffer, MAX_PATH);
-	}
+	std::string res = GetDictDir();
 
 	std::list<std::string> results;
 
@@ -603,15 +602,7 @@ std::list<std::string> EnumDicts() {
 
 void loadDictionaries() {
 	DWORD len = MAX_PATH;
-	std::string root;
-	if (RegGetValue(HKEY_CURRENT_USER, TEXT("Software\\StenoLite\\DictDir"), NULL, RRF_RT_REG_SZ, NULL, pathbuffer, &len) != ERROR_SUCCESS) {
-		GetModuleFileName(NULL, pathbuffer, MAX_PATH);
-		const static std::regex rx("\\\\[^\\\\]*$");
-		root = std::regex_replace(TCHARtostr(pathbuffer, MAX_PATH), rx, "\\dicts\\");
-	}
-	else {
-		root = TCHARtostr(pathbuffer, MAX_PATH);
-	}
+	std::string root = GetDictDir();
 
 
 		std::string filename = root + "*";
@@ -760,16 +751,9 @@ void strtosetting(const std::string& setting, const std::string& value) {
 
 void loadSettings() {
 	DWORD len = MAX_PATH;
-	std::string root;
-	if (RegGetValue(HKEY_CURRENT_USER, TEXT("Software\\StenoLite\\DictDir"), NULL, RRF_RT_REG_SZ, NULL, pathbuffer, &len) != ERROR_SUCCESS) {
-		GetModuleFileName(NULL, pathbuffer, MAX_PATH);
-		const static std::regex rx("\\\\[^\\\\]*$");
-		root = std::regex_replace(TCHARtostr(pathbuffer, MAX_PATH), rx, "\\");
-	}
-	else {
-		root = TCHARtostr(pathbuffer, MAX_PATH);
-	}
+	std::string root = GetDictDir();
 
+	
 	std::string file = root + "settings";
 
 	settings.trans = FALSE;

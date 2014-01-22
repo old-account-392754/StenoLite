@@ -77,7 +77,8 @@ DWORD WINAPI searchDictionary(LPVOID lpParam)
 					strin.size = stripped.length() + 1;
 
 					DB_TXN* trans;
-					sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, DB_READ_UNCOMMITTED);
+					sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, DB_READ_COMMITTED | DB_TXN_NOWAIT);
+					trans->set_priority(trans, 200);
 
 					sharedData.currentd->secondary->cursor(sharedData.currentd->secondary, trans, &cursor, 0);
 
@@ -157,7 +158,8 @@ DWORD WINAPI searchDictionary(LPVOID lpParam)
 					strin.size = current.length() + 1;
 
 					DB_TXN* trans;
-					sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, DB_READ_UNCOMMITTED);
+					sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, DB_READ_COMMITTED | DB_TXN_NOWAIT);
+					trans->set_priority(trans, 200);
 
 					sharedData.currentd->secondary->cursor(sharedData.currentd->secondary, trans, &cursor, 0);
 					int result = cursor->pget(cursor, &strin, &pkey, &keyin, DB_SET_RANGE);
