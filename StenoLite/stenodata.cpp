@@ -313,13 +313,11 @@ bool dictionary::findDItem(unsigned __int8 *s, const int &len, std::string &str,
 	if (contents->get(contents, trans, &keyin, &strin, 0) == 0) {
 		str = std::string((char*)(strin.data));
 		delete strin.data;
-
 		return true;
 	}
 
+	delete strin.data;
 	return false;
-
-	
 }
 
 void stroketocsteno(unsigned __int8* keys, std::string &buffer, bool number) {
