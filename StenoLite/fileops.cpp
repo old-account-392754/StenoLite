@@ -586,7 +586,7 @@ std::list<std::string> EnumDicts() {
 
 	int found = 0;
 
-	HANDLE hFind = FindFirstFileExA(filename.c_str(), FindExInfoBasic, &FindFileData, FindExSearchLimitToDirectories, NULL, 0);
+	HANDLE hFind = FindFirstFileExA(filename.c_str(), FindExInfoStandard, &FindFileData, FindExSearchNameMatch, NULL, 0);
 	while (hFind != INVALID_HANDLE_VALUE)
 	{
 		if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 && std::string(".").compare(FindFileData.cFileName) != 0 && std::string("..").compare(FindFileData.cFileName) != 0) {
@@ -674,7 +674,7 @@ void loadDictionaries() {
 
 		WIN32_FIND_DATAA FindFileData;
 
-		HANDLE hFind = FindFirstFileExA(filename.c_str(), FindExInfoBasic, &FindFileData, FindExSearchLimitToDirectories, NULL, 0);
+		HANDLE hFind = FindFirstFileExA(filename.c_str(), FindExInfoStandard, &FindFileData, FindExSearchNameMatch, NULL, 0);
 		while (hFind != INVALID_HANDLE_VALUE)
 		{
 			if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 && std::string(".").compare(FindFileData.cFileName) != 0 && std::string("..").compare(FindFileData.cFileName) != 0) {
@@ -721,7 +721,7 @@ void loadDictionaries() {
 						}
 
 						WIN32_FIND_DATAA innerFindFileData;
-						HANDLE hinnerFind = FindFirstFileExA((root + dir + "\\*.json").c_str(), FindExInfoBasic, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
+						HANDLE hinnerFind = FindFirstFileExA((root + dir + "\\*.json").c_str(), FindExInfoStandard, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
 						while (hinnerFind != INVALID_HANDLE_VALUE)
 						{
 							if ((innerFindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
@@ -734,7 +734,7 @@ void loadDictionaries() {
 							}
 						}
 
-						hinnerFind = FindFirstFileExA((root + dir + "\\*.rtf").c_str(), FindExInfoBasic, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
+						hinnerFind = FindFirstFileExA((root + dir + "\\*.rtf").c_str(), FindExInfoStandard, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
 						while (hinnerFind != INVALID_HANDLE_VALUE)
 						{
 							if ((innerFindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {

@@ -9,7 +9,7 @@ Windows only (sorry)
 Supports only keyboard and Treal input for the moment
 
 
-###　But it does have the following features:
+### But it does have the following features:
 
 Built in dictionary look-up as you type, with two search modes
 
