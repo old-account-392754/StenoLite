@@ -290,7 +290,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	TabCtrl_AdjustRect(controls.hTab, FALSE, &rt);
 
 	controls.mestroke = CreateWindow(TEXT("EDIT"), TEXT("#STKPWHRAO*EUFRPBLGTSDZ"),
-		WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_LEFT | WS_DISABLED | ES_READONLY,
+		WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_LEFT | ES_READONLY,
 		rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, controls.hTab, NULL, hInstance, NULL);
 	SendMessage(controls.mestroke, WM_SETFONT, (WPARAM)GetStockObject(ANSI_FIXED_FONT), (LPARAM)true);
 	controls.numlines = (rt.bottom - rt.top) / controls.lineheight;
@@ -841,15 +841,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 LRESULT CALLBACK PassBack(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
-	switch (message) {
-	case WM_KEYDOWN:
-	case WM_KEYUP:
-		WndProc(controls.main, message, wParam, lParam);
-		break;
-	default:
-		break;
-	}
-	return DefSubclassProc(hWnd, message, wParam, lParam);
+	LRESULT lRes = DefSubclassProc(hWnd, message, wParam, lParam);
+	if (message == WM_SETFOCUS)
+		HideCaret(hWnd);
+	return lRes;
 }
 
 LRESULT CALLBACK TabProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
@@ -968,13 +963,20 @@ LRESULT CALLBACK StaticProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 										  item += ListItem[i];
 									  }
 									  std::list<std::tuple<std::string, dictionary*>>::iterator di = sharedData.dicts.begin();
+									  bool found = false;
 									  while (di != sharedData.dicts.cend()) {
 										  if (std::get<0, std::string, dictionary*>(*di).compare(item) == 0) {
 											 settings.dict = item;
 											 sharedData.currentd = std::get<1, std::string, dictionary*>(*di);
+											 found = true;
 										  }
 										  di++;
 									  }
+
+									  if (!found) {
+										  sharedData.currentd = NULL;
+									  }
+
 								  }
 		}
 			break;

@@ -24,11 +24,12 @@ std::string GetDictDir() {
 	DWORD len = MAX_PATH;
 	const static std::regex rx("\\\\[^\\\\]*$");
 
-	HKEY hkeyDXVer;
-	if (RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("SOFTWARE\\STENOLITE\\DICTDIR"), 0, KEY_READ, &hkeyDXVer) == ERROR_SUCCESS) {
-		if (RegQueryValueEx(hkeyDXVer, NULL, NULL, NULL, (LPBYTE)pathbuffer, &len) == ERROR_SUCCESS) {
+	HKEY hkey;
+	if (RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("SOFTWARE\\STENOLITE\\DICTDIR"), 0, KEY_READ, &hkey) == ERROR_SUCCESS) {
+		if (RegQueryValueEx(hkey, NULL, NULL, NULL, (LPBYTE)pathbuffer, &len) == ERROR_SUCCESS) {
 			return TCHARtostr(pathbuffer, MAX_PATH);
 		}
+		RegCloseKey(hkey);
 	}
 
 	GetModuleFileName(NULL, pathbuffer, MAX_PATH);
@@ -583,11 +584,14 @@ std::list<std::string> EnumDicts() {
 
 	WIN32_FIND_DATAA FindFileData;
 
+	int found = 0;
+
 	HANDLE hFind = FindFirstFileExA(filename.c_str(), FindExInfoBasic, &FindFileData, FindExSearchLimitToDirectories, NULL, 0);
 	while (hFind != INVALID_HANDLE_VALUE)
 	{
 		if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 && std::string(".").compare(FindFileData.cFileName) != 0 && std::string("..").compare(FindFileData.cFileName) != 0) {
 			results.push_back(std::string(FindFileData.cFileName));
+			found++;
 		}
 		if (!FindNextFileA(hFind, &FindFileData))
 		{
@@ -596,9 +600,70 @@ std::list<std::string> EnumDicts() {
 		}
 	}
 
+	if (found == 0) {
+		MessageBox(NULL, (tstring(TEXT("No dictionary directories found in: ")) + strtotstr(res)).c_str(), TEXT("Error"), MB_OK);
+	}
+
 	return results;
 }
 
+
+DWORD WINAPI OpenDB(_In_  LPVOID lpParameter) {
+	dictionary* d = (dictionary*)lpParameter;
+	if (d->open("bin", "bin2", false)) {
+		return 1;
+	}
+	return 0;
+}
+
+DWORD WINAPI OpenRDB(_In_  LPVOID lpParameter) {
+	dictionary* d = (dictionary*)lpParameter;
+	if (d->openrecovery("bin", "bin2")) {
+		return 1;
+	}
+	return 0;
+}
+
+DWORD WINAPI OpenCRDB(_In_  LPVOID lpParameter) {
+	dictionary* d = (dictionary*)lpParameter;
+	if (d->opencrecovery("bin", "bin2")) {
+		return 1;
+	}
+	return 0;
+}
+
+bool OpenDictionary(dictionary*d, const std::string& dir) {
+	HANDLE h = CreateThread(NULL, 0, &OpenDB, (LPVOID)d, 0, NULL);
+	DWORD exit = STILL_ACTIVE;
+	for (int i = 0; exit == STILL_ACTIVE && i < 200; i++) {
+		GetExitCodeThread(h, &exit);
+		Sleep(10);
+	}
+
+	if (exit == 0 || exit == STILL_ACTIVE) {
+		TerminateThread(h, 0);
+		MessageBox(NULL, (tstring(TEXT("Failed to open database, attempting recovery\r\nFor dictionary in: ")) + strtotstr(d->hm)).c_str(), TEXT("Error"), MB_OK);
+
+		h = CreateThread(NULL, 0, &OpenRDB, (LPVOID)d, 0, NULL);
+
+		Sleep(10000);
+		GetExitCodeThread(h, &exit);
+		if (exit == 0 || exit == STILL_ACTIVE) {
+			TerminateThread(h, 0);
+			MessageBox(NULL, TEXT("Normal recovery failed, attempting catastrophic recovery"), TEXT("Error"), MB_OK);
+
+			h = CreateThread(NULL, 0, &OpenCRDB, (LPVOID)d, 0, NULL);
+
+			Sleep(10000);
+			GetExitCodeThread(h, &exit);
+			if (exit == 0 || exit == STILL_ACTIVE) {
+				MessageBox(NULL, TEXT("All attempts failed, dictionary database files are unrecoverable"), TEXT("Error"), MB_OK);
+				return false;
+			}
+		}
+	}
+	return true;
+}
 
 void loadDictionaries() {
 	DWORD len = MAX_PATH;
@@ -624,14 +689,21 @@ void loadDictionaries() {
 
 
 					//d->open(compiled.c_str(), (root + dir + std::string("\\bin2")).c_str(), false);
-					d->open("bin", "bin2", false);
+					if (OpenDictionary(d, dir)) {
+						sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
 
-					sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
-
-
-					if (settings.dict.compare(dir) == 0) {
-						sharedData.currentd = d;
+						if (settings.dict.compare(dir) == 0) {
+							sharedData.currentd = d;
+						}
 					}
+
+					/*if (d->open("bin", "bin2", false)) {
+						sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
+
+						if (settings.dict.compare(dir) == 0) {
+							sharedData.currentd = d;
+						}
+					}*/
 				}
 				else {
 					dictionary* d = new dictionary((root + dir).c_str());
@@ -641,44 +713,48 @@ void loadDictionaries() {
 					d->longest = 0;
 
 					//d->open(compiled.c_str(), (root + dir + std::string("\\bin2")).c_str(), true);
-					d->open("bin", "bin2", true);
+					if (d->open("bin", "bin2", true)) {
 
-					if (GetFileAttributesA((root + dir + "\\user").c_str()) != INVALID_FILE_ATTRIBUTES)
-					{
-						LoadJson(d, (root + dir + "\\user"), NULL, true);
-					}
-					
-					WIN32_FIND_DATAA innerFindFileData;
-					HANDLE hinnerFind = FindFirstFileExA((root + dir + "\\*.json").c_str(), FindExInfoBasic, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
-					while (hinnerFind != INVALID_HANDLE_VALUE)
-					{
-						if ((innerFindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-							LoadJson(d, root + dir + "\\" + innerFindFileData.cFileName, NULL);
-						}
-						if (!FindNextFileA(hinnerFind, &innerFindFileData))
+						if (GetFileAttributesA((root + dir + "\\user").c_str()) != INVALID_FILE_ATTRIBUTES)
 						{
-							FindClose(hinnerFind);
-							hinnerFind = INVALID_HANDLE_VALUE;
+							LoadJson(d, (root + dir + "\\user"), NULL, true);
 						}
-					}
 
-					hinnerFind = FindFirstFileExA((root + dir + "\\*.rtf").c_str(), FindExInfoBasic, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
-					while (hinnerFind != INVALID_HANDLE_VALUE)
-					{
-						if ((innerFindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-							LoadRTF(d, root + dir + "\\" + innerFindFileData.cFileName, NULL);
-						}
-						if (!FindNextFileA(hinnerFind, &innerFindFileData))
+						WIN32_FIND_DATAA innerFindFileData;
+						HANDLE hinnerFind = FindFirstFileExA((root + dir + "\\*.json").c_str(), FindExInfoBasic, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
+						while (hinnerFind != INVALID_HANDLE_VALUE)
 						{
-							FindClose(hinnerFind);
-							hinnerFind = INVALID_HANDLE_VALUE;
+							if ((innerFindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+								LoadJson(d, root + dir + "\\" + innerFindFileData.cFileName, NULL);
+							}
+							if (!FindNextFileA(hinnerFind, &innerFindFileData))
+							{
+								FindClose(hinnerFind);
+								hinnerFind = INVALID_HANDLE_VALUE;
+							}
+						}
+
+						hinnerFind = FindFirstFileExA((root + dir + "\\*.rtf").c_str(), FindExInfoBasic, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
+						while (hinnerFind != INVALID_HANDLE_VALUE)
+						{
+							if ((innerFindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+								LoadRTF(d, root + dir + "\\" + innerFindFileData.cFileName, NULL);
+							}
+							if (!FindNextFileA(hinnerFind, &innerFindFileData))
+							{
+								FindClose(hinnerFind);
+								hinnerFind = INVALID_HANDLE_VALUE;
+							}
+						}
+
+						sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
+
+						if (settings.dict.compare(dir) == 0) {
+							sharedData.currentd = d;
 						}
 					}
-
-					sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
-
-					if (settings.dict.compare(dir) == 0) {
-						sharedData.currentd = d;
+					else {
+						MessageBox(NULL, TEXT("Failed to open database, delete ALL database files"), TEXT("Error"), MB_OK);
 					}
 				}
 			}

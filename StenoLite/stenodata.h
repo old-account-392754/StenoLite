@@ -30,11 +30,13 @@ struct dictionary {
 	DB_ENV* env = NULL;
 
 	dictionary(const char* home);
-	void open(const char* file, const char* file2, bool newd);
+	bool open(const char* file, const char* file2, bool newd);
 	void addNewDItem(unsigned __int8* s, const int &len, const std::string &str, DB_TXN* trans);
 	void addDItem(unsigned __int8 *s, const int &len, const std::string &str, DB_TXN* trans);
 	bool findDItem(unsigned __int8* s, const int &len, std::string &str, DB_TXN* trans);
 	void deleteDItem(unsigned __int8 *s, const int &len, DB_TXN* trans);
+	bool openrecovery(const char* file, const char* file2);
+	bool opencrecovery(const char* file, const char* file2);
 	void close();
 };
 

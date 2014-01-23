@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "stenodata.h"
 #include <string>
+#include "texthelpers.h"
 
 int countStrokes(const TCHAR* text, const int &len) {
 	int total = 1;
@@ -650,8 +651,84 @@ void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
 	}
 }
 
-void dictionary::open(const char* file, const char* file2, bool newd) {
+bool dictionary::openrecovery(const char* file, const char* file2) {
+	//MessageBox(NULL, (tstring(TEXT("Failed to open database, attempting recovery\r\nFor dictionary in: ")) + strtotstr(hm)).c_str(), TEXT("Error"), MB_OK);
 
+		db_env_create(&env, 0);
+		env->set_lk_detect(env, DB_LOCK_YOUNGEST);
+		env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
+		env->set_lg_max(env, 1048576);
+		env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
+
+		if (contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
+			return false;
+			MessageBox(NULL, TEXT("Normal recovery failed, attempting catastrophic recovery"), TEXT("Error"), MB_OK);
+
+			env->close(env, 0);
+
+			db_env_create(&env, 0);
+			env->set_lk_detect(env, DB_LOCK_YOUNGEST);
+			env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
+			env->set_lg_max(env, 1048576);
+			env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER_FATAL | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
+
+			if (contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
+				MessageBox(NULL, TEXT("All attempts failed, dictionary database files are unrecoverable"), TEXT("Error"), MB_OK);
+				return false;
+			}
+		}
+
+	
+
+	db_create(&secondary, env, 0);
+	secondary->set_flags(secondary, DB_DUP | DB_DUPSORT);
+
+	if ((secondary->open(secondary, NULL, file2, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT, 0)) != 0) {
+		//MessageBox(NULL, TEXT("Failed to open secondary index"), TEXT("Error"), MB_OK);
+	}
+	if ((contents->associate(contents, NULL, secondary, getsecondary, DB_AUTO_COMMIT)) != 0) {
+		//MessageBox(NULL, TEXT("Failed to associate index"), TEXT("Error"), MB_OK);
+	}
+
+
+
+	return true;
+}
+
+bool dictionary::opencrecovery(const char* file, const char* file2) {
+	
+
+		db_env_create(&env, 0);
+		env->set_lk_detect(env, DB_LOCK_YOUNGEST);
+		env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
+		env->set_lg_max(env, 1048576);
+		env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER_FATAL | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
+
+		if (contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
+			return false;
+		}
+	
+
+
+
+	db_create(&secondary, env, 0);
+	secondary->set_flags(secondary, DB_DUP | DB_DUPSORT);
+
+	if ((secondary->open(secondary, NULL, file2, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT, 0)) != 0) {
+		//MessageBox(NULL, TEXT("Failed to open secondary index"), TEXT("Error"), MB_OK);
+	}
+	if ((contents->associate(contents, NULL, secondary, getsecondary, DB_AUTO_COMMIT)) != 0) {
+		//MessageBox(NULL, TEXT("Failed to associate index"), TEXT("Error"), MB_OK);
+	}
+
+
+
+	return true;
+}
+
+bool dictionary::open(const char* file, const char* file2, bool newd) {
+
+	db_env_create(&env, 0);
 
 	//env->log_set_config(env, DB_LOG_IN_MEMORY, 1);
 	env->set_lk_detect(env, DB_LOCK_YOUNGEST);
@@ -662,8 +739,7 @@ void dictionary::open(const char* file, const char* file2, bool newd) {
 
 
 	db_create(&contents, env, 0);
-	db_create(&secondary, env, 0);
-	secondary->set_flags(secondary, DB_DUP | DB_DUPSORT);
+	
 
 	int ret = 0;
 	if (newd)
@@ -671,15 +747,49 @@ void dictionary::open(const char* file, const char* file2, bool newd) {
 	else
 		ret = contents->open(contents, NULL, file, NULL, DB_BTREE, DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0);
 	if (ret != 0) {
-		MessageBox(NULL, TEXT("Failed to open database"), TEXT("Error"), MB_OK);
+		return false;
+		MessageBox(NULL, (tstring(TEXT("Failed to open database, attempting recovery\r\nFor dictionary in: ")) + strtotstr(hm)).c_str(), TEXT("Error"), MB_OK);
+
+		env->close(env, 0);
+
+		db_env_create(&env, 0);
+		env->set_lk_detect(env, DB_LOCK_YOUNGEST);
+		env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
+		env->set_lg_max(env, 1048576);
+		env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
+
+		if (contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
+			MessageBox(NULL, TEXT("Normal recovery failed, attempting catastrophic recovery"), TEXT("Error"), MB_OK);
+
+			env->close(env, 0);
+
+			db_env_create(&env, 0);
+			env->set_lk_detect(env, DB_LOCK_YOUNGEST);
+			env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
+			env->set_lg_max(env, 1048576);
+			env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER_FATAL | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
+
+			if (contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
+				MessageBox(NULL, TEXT("All attempts failed, dictionary database files are unrecoverable"), TEXT("Error"), MB_OK);
+				return false;
+			}
+		}
+		
 	}
+	
+	db_create(&secondary, env, 0);
+	secondary->set_flags(secondary, DB_DUP | DB_DUPSORT);
+
+	if ((secondary->open(secondary, NULL, file2, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT, 0)) != 0) {
+		//MessageBox(NULL, TEXT("Failed to open secondary index"), TEXT("Error"), MB_OK);
+	}
+	if ((contents->associate(contents, NULL, secondary, getsecondary, DB_AUTO_COMMIT)) != 0) {
+		//MessageBox(NULL, TEXT("Failed to associate index"), TEXT("Error"), MB_OK);
+	}
+	
 
 
-	if ((secondary->open(secondary, NULL, file2, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT, 0)) != 0)
-		MessageBox(NULL, TEXT("Failed to open secondary index"), TEXT("Error"), MB_OK);
-	if ((contents->associate(contents, NULL, secondary, getsecondary, DB_AUTO_COMMIT)) != 0)
-		MessageBox(NULL, TEXT("Failed to associate index"), TEXT("Error"), MB_OK);
-
+	return true;
 
 
 }
@@ -692,7 +802,6 @@ void errcall(const DB_ENV* env, const char *a, const char*b){
 }
 
 dictionary::dictionary(const char *home) {
-	db_env_create(&env, 0);
 	hm = home;
 
 	
