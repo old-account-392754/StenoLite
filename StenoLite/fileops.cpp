@@ -11,6 +11,7 @@
 #include "texthelpers.h"
 #include "addendings.h"
 #include <utility>
+#include "setmode.h"
 
 TCHAR pathbuffer[MAX_PATH];
 
@@ -130,6 +131,10 @@ void saveDictSettings(dictionary* d) {
 	static std::string sbuffer;
 	HANDLE hfile = CreateFileA(d->settingslocation.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hfile != INVALID_HANDLE_VALUE) {
+		writestr(hfile, "FORMAT = ");
+		writestr(hfile, d->format);
+		writestr(hfile, "\r\n");
+
 		writestr(hfile, "LONGEST = ");
 		writestr(hfile, std::to_string(d->longest));
 		writestr(hfile, "\r\n");
@@ -147,25 +152,25 @@ void saveDictSettings(dictionary* d) {
 
 		writestr(hfile, "DELETE = ");
 		sbuffer.clear();
-		stroketocsteno(d->sdelete, sbuffer);
+		stroketocsteno(d->sdelete, sbuffer, d->format);
 		writestr(hfile, sbuffer);
 		writestr(hfile, "\r\n");
 
 		writestr(hfile, "TAB = ");
 		sbuffer.clear();
-		stroketocsteno(d->stab, sbuffer);
+		stroketocsteno(d->stab, sbuffer, d->format);
 		writestr(hfile, sbuffer);
 		writestr(hfile, "\r\n");
 
 		writestr(hfile, "RETURN = ");
 		sbuffer.clear();
-		stroketocsteno(d->sreturn, sbuffer);
+		stroketocsteno(d->sreturn, sbuffer, d->format);
 		writestr(hfile, sbuffer);
 		writestr(hfile, "\r\n");
 
 		writestr(hfile, "NUMBER = ");
 		sbuffer.clear();
-		stroketocsteno(d->number, sbuffer);
+		stroketocsteno(d->number, sbuffer, d->format);
 		writestr(hfile, sbuffer);
 		writestr(hfile, "\r\n");
 
@@ -181,7 +186,7 @@ void saveDictSettings(dictionary* d) {
 			} tstroke;
 			tstroke.ival = (*it).first;
 			sbuffer.clear();
-			stroketocsteno(tstroke.sval, sbuffer);
+			stroketocsteno(tstroke.sval, sbuffer, d->format);
 			writestr(hfile, sbuffer);
 			writestr(hfile, "->");
 			writestr(hfile, suftostr((*it).second));
@@ -206,16 +211,22 @@ void strtodsetting(dictionary* d, const std::string& setting, const std::string&
 		d->items = std::atoi(value.c_str());
 	}
 	else if (setting.compare("DELETE") == 0) {
-		textToStroke(value, d->sdelete);
+		textToStroke(value, d->sdelete, d->format);
 	}
 	else if (setting.compare("TAB") == 0) {
-		textToStroke(value, d->stab);
+		textToStroke(value, d->stab, d->format);
+	}
+	else if (setting.compare("FORMAT") == 0) {
+		d->format = value;
+		while (d->format.length() < 23) {
+			d->format += 'X';
+		}
 	}
 	else if (setting.compare("RETURN") == 0) {
-		textToStroke(value, d->sreturn);
+		textToStroke(value, d->sreturn, d->format);
 	}
 	else if (setting.compare("NUMBER") == 0) {
-		textToStroke(value, d->number);
+		textToStroke(value, d->number, d->format);
 	}
 	else if (setting.compare("EXTRAS") == 0) {
 		if (std::atoi(value.c_str()) == 1) {
@@ -230,7 +241,7 @@ void strtodsetting(dictionary* d, const std::string& setting, const std::string&
 				unsigned __int32 ival;
 			} tstroke;
 
-			textToStroke(m[1].str(), tstroke.sval);
+			textToStroke(m[1].str(), tstroke.sval, d->format);
 			int sufx = strtosuf(m[2].str());
 			d->suffix.push_back(std::make_pair(tstroke.ival, sufx));
 		}
@@ -238,15 +249,17 @@ void strtodsetting(dictionary* d, const std::string& setting, const std::string&
 }
 
 void loadDictSettings(dictionary* d, const std::string& file) {
-	textToStroke(std::string("*"), d->sdelete);
-	textToStroke(std::string("*"), d->number);
-	textToStroke(std::string("T-B"), d->stab);
-	textToStroke(std::string("R-RPB"), d->sreturn);
-	d->longest = 0;
-	d->lchars = 0;
+	d->format = "#STKPWHRAO*EUFRPBLGTSDZ";
+	textToStroke(std::string("*"), d->sdelete, d->format);
+	textToStroke(std::string("*"), d->number, d->format);
+	textToStroke(std::string("T-B"), d->stab, d->format);
+	textToStroke(std::string("R-RPB"), d->sreturn, d->format);
+	d->longest = 1;
+	d->lchars = 1;
 	d->items = 0;
 	d->settingslocation = file;
 	d->extras = FALSE;
+	
 
 	HANDLE hfile = CreateFileA(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 	std::regex property("^\\s*(\\S+)\\s*=\\s*(\\S+)\\s*");
@@ -286,7 +299,7 @@ void addentry(dictionary* d, const std::string &stroke, const std::string &text,
 	std::string::const_iterator it = stroke.cbegin();
 	int i = 0;
 	while (it != stroke.cend()) {
-		textToStroke(sdata + i * 3, it, stroke.cend());
+		textToStroke(sdata + i * 3, it, stroke.cend(), d->format);
 		i++;
 	}
 
@@ -355,11 +368,11 @@ void SaveRTF(dictionary* d, const std::string &file, HWND progress) {
 		while (result == 0) {
 			writestr(hfile, "{\\*\\cxs ");
 			std::string acc;
-			stroketocsteno((unsigned __int8*)(keyin.data), acc);
+			stroketocsteno((unsigned __int8*)(keyin.data), acc, d->format);
 			for (int i = 1; i * 3 < keyin.size; i++) {
 				acc += "/";
 				std::string tmp;
-				stroketocsteno(&(((unsigned __int8*)(keyin.data))[i * 3]), tmp);
+				stroketocsteno(&(((unsigned __int8*)(keyin.data))[i * 3]), tmp, d->format);
 				acc += tmp;
 			}
 			writestr(hfile, acc);
@@ -423,11 +436,11 @@ void SaveJson(dictionary* d, const std::string &file, HWND progress) {
 		while (result == 0) {
 			writestr(hfile, "\"");
 			std::string acc;
-			stroketocsteno((unsigned __int8*)(keyin.data), acc);
+			stroketocsteno((unsigned __int8*)(keyin.data), acc, d->format);
 			for (int i = 1; i * 3 < keyin.size; i++) {
 				acc += "/";
 				std::string tmp;
-				stroketocsteno(&(((unsigned __int8*)(keyin.data))[i*3]), tmp);
+				stroketocsteno(&(((unsigned __int8*)(keyin.data))[i * 3]), tmp, d->format);
 				acc += tmp;
 			}
 			writestr(hfile, acc);
@@ -607,64 +620,6 @@ std::list<std::string> EnumDicts() {
 	return results;
 }
 
-
-DWORD WINAPI OpenDB(_In_  LPVOID lpParameter) {
-	dictionary* d = (dictionary*)lpParameter;
-	if (d->open("bin", "bin2", false)) {
-		return 1;
-	}
-	return 0;
-}
-
-DWORD WINAPI OpenRDB(_In_  LPVOID lpParameter) {
-	dictionary* d = (dictionary*)lpParameter;
-	if (d->openrecovery("bin", "bin2")) {
-		return 1;
-	}
-	return 0;
-}
-
-DWORD WINAPI OpenCRDB(_In_  LPVOID lpParameter) {
-	dictionary* d = (dictionary*)lpParameter;
-	if (d->opencrecovery("bin", "bin2")) {
-		return 1;
-	}
-	return 0;
-}
-
-bool OpenDictionary(dictionary*d, const std::string& dir) {
-	HANDLE h = CreateThread(NULL, 0, &OpenDB, (LPVOID)d, 0, NULL);
-	DWORD exit = STILL_ACTIVE;
-	for (int i = 0; exit == STILL_ACTIVE && i < 200; i++) {
-		GetExitCodeThread(h, &exit);
-		Sleep(10);
-	}
-
-	if (exit == 0 || exit == STILL_ACTIVE) {
-		TerminateThread(h, 0);
-		MessageBox(NULL, (tstring(TEXT("Failed to open database, attempting recovery\r\nFor dictionary in: ")) + strtotstr(d->hm)).c_str(), TEXT("Error"), MB_OK);
-
-		h = CreateThread(NULL, 0, &OpenRDB, (LPVOID)d, 0, NULL);
-
-		Sleep(10000);
-		GetExitCodeThread(h, &exit);
-		if (exit == 0 || exit == STILL_ACTIVE) {
-			TerminateThread(h, 0);
-			MessageBox(NULL, TEXT("Normal recovery failed, attempting catastrophic recovery"), TEXT("Error"), MB_OK);
-
-			h = CreateThread(NULL, 0, &OpenCRDB, (LPVOID)d, 0, NULL);
-
-			Sleep(10000);
-			GetExitCodeThread(h, &exit);
-			if (exit == 0 || exit == STILL_ACTIVE) {
-				MessageBox(NULL, TEXT("All attempts failed, dictionary database files are unrecoverable"), TEXT("Error"), MB_OK);
-				return false;
-			}
-		}
-	}
-	return true;
-}
-
 void loadDictionaries() {
 	DWORD len = MAX_PATH;
 	std::string root = GetDictDir();
@@ -688,22 +643,26 @@ void loadDictionaries() {
 					loadDictSettings(d, (root + dir + std::string("\\settings.txt")));
 
 
-					//d->open(compiled.c_str(), (root + dir + std::string("\\bin2")).c_str(), false);
-					if (OpenDictionary(d, dir)) {
+					//if (OpenDictionary(d, dir)) {
+					if (d->open("bin", "bin2")) {
 						sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
-
 						if (settings.dict.compare(dir) == 0) {
-							sharedData.currentd = d;
+							setDictionary(d);
+						}
+					}
+					else {
+						MessageBox(NULL, (tstring(TEXT("Failed to open database, attempting catastrophic recovery\r\nFor dictionary in: ")) + strtotstr(d->hm)).c_str(), TEXT("Error"), MB_OK);
+						if (d->opencrecovery("bin", "bin2")) {
+							sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
+							if (settings.dict.compare(dir) == 0) {
+								setDictionary(d);
+							}
+						}
+						else {
+							MessageBox(NULL, TEXT("All attempts failed, dictionary database files are unrecoverable"), TEXT("Error"), MB_OK);
 						}
 					}
 
-					/*if (d->open("bin", "bin2", false)) {
-						sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
-
-						if (settings.dict.compare(dir) == 0) {
-							sharedData.currentd = d;
-						}
-					}*/
 				}
 				else {
 					dictionary* d = new dictionary((root + dir).c_str());
@@ -713,8 +672,8 @@ void loadDictionaries() {
 					d->longest = 0;
 
 					//d->open(compiled.c_str(), (root + dir + std::string("\\bin2")).c_str(), true);
-					if (d->open("bin", "bin2", true)) {
-
+					if (d->open("bin", "bin2")) {
+		
 						if (GetFileAttributesA((root + dir + "\\user").c_str()) != INVALID_FILE_ATTRIBUTES)
 						{
 							LoadJson(d, (root + dir + "\\user"), NULL, true);
@@ -750,7 +709,7 @@ void loadDictionaries() {
 						sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
 
 						if (settings.dict.compare(dir) == 0) {
-							sharedData.currentd = d;
+							setDictionary(d);
 						}
 					}
 					else {

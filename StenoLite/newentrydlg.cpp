@@ -96,7 +96,7 @@ INT_PTR CALLBACK NewEntryProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM 
 				tstring stroke = getWinStr(GetDlgItem(hwndDlg, IDC_STROKE));
 				int numstrokes = 0;
 				std::string cstroke = ttostr(stroke);
-				unsigned __int8* sdata = texttomultistroke(cstroke, numstrokes);
+				unsigned __int8* sdata = texttomultistroke(cstroke, numstrokes, sharedData.currentd->format);
 
 				std::string trmd = trimstr(ttostr(txt), " ");
 				DB_TXN* trans;
@@ -141,7 +141,7 @@ INT_PTR CALLBACK NewEntryProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM 
 				tstring stroke = getWinStr(GetDlgItem(hwndDlg, IDC_STROKE));
 				int numstrokes = 0;
 				std::string cstroke = ttostr(stroke);
-				unsigned __int8* sdata = texttomultistroke(cstroke, numstrokes);
+				unsigned __int8* sdata = texttomultistroke(cstroke, numstrokes, sharedData.currentd->format);
 
 				std::string result;
 				SetDlgItemText(hwndDlg, IDC_STROKEREPORT, TEXT("No existing entry"));

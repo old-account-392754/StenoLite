@@ -107,7 +107,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	sharedData.newentry = CreateEvent(NULL, FALSE, FALSE, NULL);
 	sharedData.newtext = CreateEvent(NULL, FALSE, FALSE, NULL);
 	sharedData.protectqueue = CreateMutex(NULL, FALSE, NULL);
-	textToStroke(std::string("1234567890"), sharedData.number);
+	textToStroke(std::string("1234567890"), sharedData.number, "#STKPWHRAO*EUFRPBLGTSDZ");
 
 	MSG msg;
 
@@ -246,10 +246,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	
 	loadSettings();
-	if (CreateThread(NULL, 0, processStrokes, &sharedData, 0, NULL) == NULL) {
-		MessageBox(NULL, TEXT("FAILED"), TEXT("ERROR"), MB_OK);
-	}
-	//loadDictionaries();
+	
+	
 
 	hInst = hInstance; // Store instance handle in our global variable
 
@@ -266,8 +264,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return FALSE;
 	}
 	controls.main = hWnd;
-
-	
 
 	controls.hTab = CreateTabControl(hWnd);
 
@@ -289,12 +285,18 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	SetWindowPos(controls.hTab, NULL, 0, 0, rt.right, rt.bottom, SWP_NOMOVE);
 	TabCtrl_AdjustRect(controls.hTab, FALSE, &rt);
 
-	controls.mestroke = CreateWindow(TEXT("EDIT"), TEXT("#STKPWHRAO*EUFRPBLGTSDZ"),
+	//#STKPWHRAO*EUFRPBLGTSDZ
+	controls.mestroke = CreateWindow(TEXT("EDIT"), TEXT(""),
 		WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_LEFT | ES_READONLY,
 		rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, controls.hTab, NULL, hInstance, NULL);
 	SendMessage(controls.mestroke, WM_SETFONT, (WPARAM)GetStockObject(ANSI_FIXED_FONT), (LPARAM)true);
 	controls.numlines = (rt.bottom - rt.top) / controls.lineheight;
 	SetWindowSubclass(controls.mestroke, &PassBack, 1236, NULL);
+
+	//dictionaries loaded here
+	if (CreateThread(NULL, 0, processStrokes, &sharedData, 0, NULL) == NULL) {
+		MessageBox(NULL, TEXT("FAILED"), TEXT("ERROR"), MB_OK);
+	}
 
 	controls.mesuggest = CreateWindow(TEXT("EDIT"), TEXT(""),
 		WS_CHILD | ES_MULTILINE | ES_LEFT | ES_READONLY | WS_VSCROLL,
@@ -447,7 +449,10 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 void sendstroke(unsigned __int8* keys) {
 	TCHAR buffer[32] = TEXT("\r\n");
-	stroketosteno(keys, &buffer[2]);
+	if (sharedData.currentd != NULL)
+		stroketosteno(keys, &buffer[2], sharedData.currentd->format);
+	else
+		stroketosteno(keys, &buffer[2], "#STKPWHRAO*EUFRPBLGTSDZ");
 
 	int lines = SendMessage(controls.mestroke, EM_GETLINECOUNT, 0, 0);
 	if (lines > controls.numlines-1) {
@@ -967,14 +972,14 @@ LRESULT CALLBACK StaticProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 									  while (di != sharedData.dicts.cend()) {
 										  if (std::get<0, std::string, dictionary*>(*di).compare(item) == 0) {
 											 settings.dict = item;
-											 sharedData.currentd = std::get<1, std::string, dictionary*>(*di);
+											 setDictionary(std::get<1, std::string, dictionary*>(*di));
 											 found = true;
 										  }
 										  di++;
 									  }
 
 									  if (!found) {
-										  sharedData.currentd = NULL;
+									  	sharedData.currentd = NULL;
 									  }
 
 								  }

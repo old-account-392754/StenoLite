@@ -6,6 +6,36 @@
 #include <string>
 #include "texthelpers.h"
 
+void setDictionary(dictionary* d) {
+	bool send = false;
+	if (sharedData.currentd == NULL) {
+		send = true;
+	}
+	else if (sharedData.currentd->format.compare(d->format) != 0) {
+		send = true;
+	}
+	if (send) {
+		tstring buffer;
+		if (GetWindowTextLength(controls.mestroke) > 1)
+			buffer += TEXT("\r\n");
+
+		buffer += strtotstr(d->format);
+
+		int lines = SendMessage(controls.mestroke, EM_GETLINECOUNT, 0, 0);
+		if (lines > controls.numlines - 1) {
+			int end = SendMessage(controls.mestroke, EM_LINEINDEX, 1, 0);
+			SendMessage(controls.mestroke, EM_SETSEL, 0, end);
+			SendMessage(controls.mestroke, EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
+		}
+
+		int len = SendMessage(controls.mestroke, WM_GETTEXTLENGTH, 0, 0);
+		SendMessage(controls.mestroke, EM_SETSEL, len, len);
+		SendMessage(controls.mestroke, EM_REPLACESEL, FALSE, (LPARAM)(buffer.c_str()));
+	}
+	
+	sharedData.currentd = d;
+}
+
 void setMode(int mode) {
 	static int cmode = 0;
 	if (cmode == 0) {

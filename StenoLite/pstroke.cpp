@@ -278,7 +278,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				while (di != sharedData.dicts.cend()) {
 					if (std::get<0, std::string, dictionary*>(*di).compare(dictname) == 0) {
 						settings.dict = dictname;
-						sharedData.currentd = std::get<1, std::string, dictionary*>(*di);
+						setDictionary(std::get<1, std::string, dictionary*>(*di));
 						TCHAR buffer[200];
 						std::copy(dictname.cbegin(), dictname.cend(), buffer);
 						buffer[dictname.length()] = 0;
@@ -692,12 +692,12 @@ void processSingleStroke(unsigned __int8* stroke) {
 		}
 		else {
 			if (wntxt.length() == 0) {
-				stroketocsteno(stroke, wntxt);
+				stroketocsteno(stroke, wntxt, sharedData.currentd->format);
 				SetWindowText(inputstate.redirect, wntxt.c_str());
 			}
 			else {
 				wntxt += TEXT('/');
-				stroketocsteno(stroke, wntxt);
+				stroketocsteno(stroke, wntxt, sharedData.currentd->format);
 				SetWindowText(inputstate.redirect, wntxt.c_str());
 			}
 		}
@@ -869,20 +869,18 @@ void processSingleStroke(unsigned __int8* stroke) {
 		if ((stroke[0] & (sharedData.number[0] | sharedData.currentd->number[0])) == stroke[0] &&
 			(stroke[1] & (sharedData.number[1] | sharedData.currentd->number[1])) == stroke[1] &&
 			(stroke[2] & (sharedData.number[2] | sharedData.currentd->number[2])) == stroke[2] &&
-			(stroke[3] & (sharedData.number[3] | sharedData.currentd->number[3])) == stroke[3] && (stroke[2] & 0x40) != 0) {
+		 (stroke[2] & 0x40) != 0) {
 
 			bool special = ((stroke[0] & sharedData.currentd->number[0]) == sharedData.currentd->number[0]) &&
 				((stroke[1] & sharedData.currentd->number[1]) == sharedData.currentd->number[1]) &&
-				((stroke[2] & sharedData.currentd->number[2]) == sharedData.currentd->number[2]) &&
-				((stroke[3] & sharedData.currentd->number[3]) == sharedData.currentd->number[3]);
+				((stroke[2] & sharedData.currentd->number[2]) == sharedData.currentd->number[2]);
 
 			number = true;
 			stroke[0] &= ~sharedData.currentd->number[0];
 			stroke[1] &= ~sharedData.currentd->number[1];
 			stroke[2] &= ~sharedData.currentd->number[2];
-			stroke[3] &= ~sharedData.currentd->number[3];
 
-			stroketocsteno(stroke, data, true);
+			stroketocsteno(stroke, data, sharedData.currentd->format, true);
 			if (special) {
 				if (data.length() == 1) {
 					data += data;
@@ -895,7 +893,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 			data = "&" + data + "&";
 		}
 		else {
-			stroketocsteno(stroke, data);
+			stroketocsteno(stroke, data, sharedData.currentd->format);
 		}
 
 		

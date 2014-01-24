@@ -63,7 +63,7 @@ void GetListItem(const int &item, unsigned __int8* &strokes, int &numstrokes, st
 	LVITEM itm;
 	itm.iItem = item;
 	itm.iSubItem = 0;
-	TCHAR buffer[260];
+	TCHAR buffer[260] = TEXT("\0");
 	itm.mask = LVIF_TEXT;
 	itm.pszText = buffer;
 	itm.cchTextMax = 260;
@@ -72,9 +72,9 @@ void GetListItem(const int &item, unsigned __int8* &strokes, int &numstrokes, st
 
 	stext = ttostr(itm.pszText);
 	numstrokes = 0;
-	strokes = texttomultistroke(stext, numstrokes);
+	strokes = texttomultistroke(stext, numstrokes, dviewdata.d->format);
 	DB_TXN* trans;
-	sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, DB_READ_UNCOMMITTED);
+	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_COMMITTED);
 	if (!dviewdata.d->findDItem(strokes, numstrokes * 3, text, trans)) {
 		text.clear();
 	}
@@ -93,6 +93,13 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 	//ListView_SetItemCountEx(box, dviewdata.displayitems, LVSICF_NOSCROLL);
 	dviewdata.bystrokes = bystrokes;
 
+	if (sdatasize > dviewdata.d->longest * 3)
+		sdatasize = dviewdata.d->longest * 3;
+
+	if (tdata.length() > dviewdata.d->lchars) {
+		tdata.resize(dviewdata.d->lchars);
+	}
+
 	DBT keyin;
 	keyin.data = new unsigned __int8[dviewdata.d->longest * 3];
 	keyin.size = 0;
@@ -102,7 +109,7 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 	keyin.flags = DB_DBT_USERMEM;
 
 	DBT strin;
-	strin.data = new unsigned __int8[dviewdata.d->lchars + 1];
+	strin.data = new unsigned __int8[dviewdata.d->lchars + 1 ];
 	strin.size = 0;
 	strin.ulen = dviewdata.d->lchars + 1;
 	strin.dlen = 0;
@@ -117,14 +124,14 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 	strinb.doff = 0;
 	strinb.flags = DB_DBT_USERMEM;
 
-	DBC* cursor;
+	DBC* cursor = NULL;
 	DB_TXN* trans;
-	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_UNCOMMITTED);
+	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_COMMITTED);
 
-	int result;
+	int result = 1;
 
 		if (!dviewdata.bystrokes) {
-			dviewdata.d->secondary->cursor(sharedData.currentd->secondary, trans, &cursor, 0);
+			dviewdata.d->secondary->cursor(dviewdata.d->secondary, trans, &cursor, 0);
 			if (tdata.length() > 0) {
 				memset(strin.data, 0, dviewdata.d->lchars + 1);
 				memcpy(strin.data, tdata.c_str(), tdata.length() + 1);
@@ -136,7 +143,7 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 			}
 		}
 		else {
-			dviewdata.d->contents->cursor(sharedData.currentd->contents, trans, &cursor, 0);
+			dviewdata.d->contents->cursor(dviewdata.d->contents, trans, &cursor, 0);
 			if (sdatasize > 0) {
 				memset(keyin.data, 0, dviewdata.d->longest * 3);
 				memcpy(keyin.data, sdata, sdatasize);
@@ -167,7 +174,7 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 
 		int sindex = 0;
 		for (int n = 0; n * 3 < keyin.size; n++) {
-			stroketocsteno(&(((unsigned __int8*)(keyin.data))[n * 3]), &(strokes[sindex]));
+			stroketocsteno(&(((unsigned __int8*)(keyin.data))[n * 3]), &(strokes[sindex]), dviewdata.d->format);
 			sindex = _tcsnlen(strokes, dviewdata.d->longest * 24 + 1);
 			if ((n + 1) * 3 < keyin.size) {
 				strokes[sindex] = TEXT('/');
@@ -207,7 +214,7 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 	delete text;
 	delete strokes;
 
-	cursor->close(cursor);
+	//cursor->close(cursor);
 	trans->commit(trans, 0);
 
 	delete keyin.data;
@@ -233,21 +240,24 @@ void Search(bool text) {
 	else
 		target = GetDlgItem(dviewdata.dlgwnd, IDC_FSTROKE);
 	len = GetWindowTextLength(target) + 1;
-	data = new TCHAR[len];
-	GetWindowText(target, data, len);
-	data[len - 1] = 0;
 
-	if (text) {
-		Resize(false, NULL, 0, ttostr(data));
-	}
-	else {
-		int numstrokes = 0;
-		unsigned __int8* sdata = texttomultistroke(ttostr(data), numstrokes);
-		Resize(true, sdata, numstrokes * 3, "");
-		delete sdata;
-	}
+	if (len > 1) {
+		data = new TCHAR[len];
+		GetWindowText(target, data, len);
+		data[len - 1] = 0;
 
-	delete data;
+		if (text) {
+			Resize(false, NULL, 0, ttostr(data));
+		}
+		else {
+			int numstrokes = 0;
+			unsigned __int8* sdata = texttomultistroke(ttostr(data), numstrokes, dviewdata.d->format);
+			Resize(true, sdata, numstrokes * 3, "");
+			delete sdata;
+		}
+
+		delete data;
+	}
 }
 
 /*bool DelCheck(const unsigned __int8* data, const int &size) {
@@ -328,7 +338,7 @@ void Move(bool up) {
 
 	DBC* cursor;
 	DB_TXN* trans;
-	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_UNCOMMITTED);
+	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_COMMITTED);
 
 	unsigned __int8* sdata;
 	int numstrokes;
@@ -399,7 +409,7 @@ void Move(bool up) {
 
 		int sindex = 0;
 		for (int n = 0; n * 3 < keyin.size; n++) {
-			stroketocsteno(&(((unsigned __int8*)(keyin.data))[n * 3]), &(strokes[sindex]));
+			stroketocsteno(&(((unsigned __int8*)(keyin.data))[n * 3]), &(strokes[sindex]), dviewdata.d->format);
 			sindex = _tcsnlen(strokes, dviewdata.d->longest * 24 + 1);
 			if ((n + 1) * 3 < keyin.size) {
 				strokes[sindex] = TEXT('/');
@@ -549,14 +559,14 @@ INT_PTR CALLBACK NewStrokes(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wP
 
 				tstring stxt = getWinStr(GetDlgItem(hwndDlg, IDC_NSTROKES));
 				int numstrokes = 0;
-				unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes);
+				unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes, dviewdata.d->format);
 
 
 				std::string result;
 				SetDlgItemText(hwndDlg, IDC_NSTAT, TEXT("No existing entry"));
 				if (numstrokes >= 1 && dviewdata.d != NULL) {
 					DB_TXN* trans;
-					sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, DB_READ_UNCOMMITTED);
+					dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_UNCOMMITTED);
 
 					if (dviewdata.d->findDItem(sdata, numstrokes * 3, result, trans)) {
 						result = std::string("Exists as: ") + result;
@@ -576,19 +586,19 @@ INT_PTR CALLBACK NewStrokes(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wP
 			{
 						 tstring stxt = getWinStr(GetDlgItem(hwndDlg, IDC_NSTROKES));
 						 int numstrokes = 0;
-						 unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes);
+						 unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes, dviewdata.d->format);
 
 						 tstring text = getWinStr(GetDlgItem(dviewdata.dlgwnd, IDC_CTEXT));
 
 						 DB_TXN* trans;
-						 sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, 0);
+						 dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, 0);
 
-						 sharedData.currentd->addNewDItem( sdata, numstrokes * 3, ttostr(text), trans);
+						 dviewdata.d->addNewDItem(sdata, numstrokes * 3, ttostr(text), trans);
 
 						 delete sdata;
 
 						 tstring otxt = getWinStr(GetDlgItem(dviewdata.dlgwnd, IDC_CSTROKE));
-						 sdata = texttomultistroke(ttostr(otxt), numstrokes);
+						 sdata = texttomultistroke(ttostr(otxt), numstrokes, dviewdata.d->format);
 
 						 //DelCheck(sdata, numstrokes * 3);
 						 
@@ -878,11 +888,11 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 			if (HIWORD(wParam) == BN_CLICKED) {
 				tstring stxt = getWinStr(GetDlgItem(hwndDlg, IDC_CSTROKE));
 				int numstrokes = 0;
-				unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes);
+				unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes, dviewdata.d->format);
 
 				//DelCheck(sdata, numstrokes * 3);
 				DB_TXN* trans;
-				sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, 0);
+				dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, 0);
 				dviewdata.d->deleteDItem( sdata, numstrokes * 3, trans);
 				trans->commit(trans, 0);
 
@@ -941,17 +951,18 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 			if (HIWORD(wParam) == EN_CHANGE && !dviewdata.updatingstroke) {	
 				tstring stxt = getWinStr(GetDlgItem(hwndDlg, IDC_CSTROKE));
 				int numstrokes = 0;
-				unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes);
+				unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes, dviewdata.d->format);
 
-				//bool del = DelCheck(sdata, numstrokes*3);
+				if (numstrokes > 0) {
+					//bool del = DelCheck(sdata, numstrokes*3);
 
-				tstring txt = getWinStr(GetDlgItem(hwndDlg, IDC_CTEXT));
+					tstring txt = getWinStr(GetDlgItem(hwndDlg, IDC_CTEXT));
 
-				DB_TXN* trans;
-				sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, 0);
-				dviewdata.d->addDItem(sdata, numstrokes * 3, ttostr(txt), trans);
-				trans->commit(trans, 0);
-					
+					DB_TXN* trans;
+					dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, 0);
+					dviewdata.d->addDItem(sdata, numstrokes * 3, ttostr(txt), trans);
+					trans->commit(trans, 0);
+				}
 				delete sdata;
 				//if (del)
 				//	addDVEvent(DVE_UP);

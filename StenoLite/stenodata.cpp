@@ -2,6 +2,7 @@
 #include "stenodata.h"
 #include <string>
 #include "texthelpers.h"
+#include <cctype>
 
 int countStrokes(const TCHAR* text, const int &len) {
 	int total = 1;
@@ -32,8 +33,115 @@ int getsecondary(DB *secondary, const DBT *pkey, const DBT *pdata, DBT *skey)
 	return (0);
 }
 
+// 0123456789012345678901
+//#STKPWHRAO*EUFRPBLGTSDZ
 
-void textToStroke(unsigned __int8* dest, std::string::const_iterator &i, std::string::const_iterator &end) {
+inline void searchposition(unsigned __int8* dest, int &position, const char &in, const std::string &format) {
+	if (std::toupper(format[position+1]) == std::toupper(in)) {
+		if (position < 8) {
+			dest[0] |= 1 << position;
+		}
+		else if (position < 16) {
+			dest[1] |= 1 << (position - 8);
+		}
+		else if (position < 24) {
+			dest[2] |= 1 << (position - 16);
+		}
+		return;
+	}
+
+	int stop = position;
+	position++;
+
+	while (position != stop) {
+
+		if (std::toupper(format[position+1]) == std::toupper(in)) {
+			if (position < 8) {
+				dest[0] |= 1 << position;
+			}
+			else if (position < 16) {
+				dest[1] |= 1 << (position - 8);
+			}
+			else if (position < 24) {
+				dest[2] |= 1 << (position - 16);
+			}
+			return;
+		}
+
+		position++;
+		if (position >= 22)
+			position = 0;
+	}
+}
+
+void textToStroke(unsigned __int8* dest, std::string::const_iterator &i, std::string::const_iterator &end, const std::string &format) {
+	dest[0] = dest[1] = dest[2]  = 0;
+	int position = 0;
+	for (; i != end; i++) {
+		switch (*i) {
+		case '/':
+			i++;
+			return;
+		case '-':
+			position = 12;
+			break;
+		case '1':
+			dest[0] |= 0x01;
+			dest[2] |= 0x40;
+			position = 0;
+			break;
+		case '2':
+			dest[0] |= 0x02;
+			dest[2] |= 0x40;
+			position = 1;
+			break;
+		case '3':
+			dest[0] |= 0x08;
+			dest[2] |= 0x40;
+			position = 3;
+			break;
+		case '4':
+			dest[0] |= 0x20;
+			dest[2] |= 0x40;
+			position = 5;
+			break;
+		case '5':
+			dest[0] |= 0x80;
+			dest[2] |= 0x40;
+			position = 7;
+			break;
+		case '0':
+			dest[1] |= 0x01;
+			dest[2] |= 0x40;
+			position = 8;
+			break;
+		case '6':
+			dest[1] |= 0x10;
+			dest[2] |= 0x40;
+			position = 12;
+			break;
+		case '7':
+			dest[1] |= 0x40;
+			dest[2] |= 0x40;
+			position = 14;
+			break;
+		case '8':
+			dest[2] |= 0x01;
+			dest[2] |= 0x40;
+			position = 16;
+			break;
+		case '9':
+			dest[2] |= 0x04;
+			dest[2] |= 0x40;
+			position = 18;
+			break;
+		default:
+			searchposition(dest, position, *i, format);
+		}
+	}
+}
+
+/*void textToStroke(unsigned __int8* dest, std::string::const_iterator &i, std::string::const_iterator &end) {
 	dest[0] = dest[1] = dest[2] = 0;
 	bool lead = true;
 	for (; i != end; i++) {
@@ -198,22 +306,26 @@ void textToStroke(unsigned __int8* dest, std::string::const_iterator &i, std::st
 			break;
 		}
 	}
+}*/
+
+void textToStroke(const std::string &stro, unsigned __int8* dest, const std::string &format) {
+	textToStroke(dest, stro.cbegin(), stro.cend(), format);
 }
 
-void textToStroke(const std::string &stro, unsigned __int8* dest) {
-	textToStroke(dest, stro.cbegin(), stro.cend());
-}
-
-unsigned __int8* texttomultistroke(const std::string &in, int& size) {
+unsigned __int8* texttomultistroke(const std::string &in, int& size, const std::string &format) {
 	size = countStrokes(in, size);
 	unsigned __int8* sdata = new unsigned __int8[size * 3];
 
 	auto it = in.cbegin();
 	int i = 0;
+	bool empty = true;
 	while (it != in.cend()) {
-		textToStroke(sdata + i * 3, it, in.cend());
+		textToStroke(sdata + i * 3, it, in.cend(), format);
 		i++;
+		empty = false;
 	}
+	if (empty)
+		size = 0;
 	return sdata;
 }
 
@@ -320,26 +432,26 @@ bool dictionary::findDItem(unsigned __int8 *s, const int &len, std::string &str,
 	return false;
 }
 
-void stroketocsteno(unsigned __int8* keys, std::string &buffer, bool number) {
+void stroketocsteno(unsigned __int8* keys, std::string &buffer, const std::string &format, bool number) {
 	static TCHAR internal[200];
 	//buffer.clear();
 	
-	stroketocsteno(keys, internal, number);
+	stroketocsteno(keys, internal, format, number);
 	for (int i = 0; internal[i] != 0; i++) {
 		buffer += (char)(internal[i]);
 	}
 }
 
-void stroketocsteno(unsigned __int8* keys, std::wstring &buffer, bool number) {
+void stroketocsteno(unsigned __int8* keys, std::wstring &buffer, const std::string &format, bool number) {
 	static TCHAR internal[200];
 	//buffer.clear();
-	stroketocsteno(keys, internal, number);
+	stroketocsteno(keys, internal, format, number);
 	for (int i = 0; internal[i] != 0; i++) {
 		buffer += internal[i];
 	}
 }
 
-void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
+void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, const std::string &format, bool number) {
 	int index = 0;
 
 	bool numbers = false;
@@ -350,7 +462,7 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 
 		}
 		else {
-			buffer[index] = TEXT('#');
+			buffer[index] = format[0];
 			index++;
 		}
 	}
@@ -362,7 +474,7 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 			buffer[index] = TEXT('1');
 		}
 		else {
-			buffer[index] = TEXT('S');
+			buffer[index] = format[1];
 		}
 		index++;
 	}
@@ -371,12 +483,12 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 			buffer[index] = TEXT('2');
 		}
 		else {
-			buffer[index] = TEXT('T');
+			buffer[index] = format[2];
 		}
 		index++;
 	}
 	if ((keys[0] & 0x04) != 0) {
-		buffer[index] = TEXT('K');
+		buffer[index] = format[3];
 		index++;
 	}
 	if ((keys[0] & 0x08) != 0) {
@@ -384,12 +496,12 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 			buffer[index] = TEXT('3');
 		}
 		else {
-			buffer[index] = TEXT('P');
+			buffer[index] = format[4];
 		}
 		index++;
 	}
 	if ((keys[0] & 0x10) != 0) {
-		buffer[index] = TEXT('W');
+		buffer[index] = format[5];
 		index++;
 	}
 	if ((keys[0] & 0x20) != 0) {
@@ -397,12 +509,12 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 			buffer[index] = TEXT('4');
 		}
 		else {
-			buffer[index] = TEXT('H');
+			buffer[index] = format[6];
 		}
 		index++;
 	}
 	if ((keys[0] & 0x40) != 0) {
-		buffer[index] = TEXT('R');
+		buffer[index] = format[7];
 		index++;
 	}
 	if ((keys[0] & 0x80) != 0) {
@@ -410,7 +522,7 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 			buffer[index] = TEXT('5');
 		}
 		else {
-			buffer[index] = TEXT('A');
+			buffer[index] = format[8];
 		}
 		index++;
 		separated = true;
@@ -420,23 +532,23 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 			buffer[index] = TEXT('0');
 		}
 		else {
-			buffer[index] = TEXT('O');
+			buffer[index] = format[9];
 		}
 		index++;
 		separated = true;
 	}
 	if ((keys[1] & 0x02) != 0) {
-		buffer[index] = TEXT('*');
+		buffer[index] = format[10];
 		index++;
 		separated = true;
 	}
 	if ((keys[1] & 0x04) != 0) {
-		buffer[index] = TEXT('E');
+		buffer[index] = format[11];
 		index++;
 		separated = true;
 	}
 	if ((keys[1] & 0x08) != 0) {
-		buffer[index] = TEXT('U');
+		buffer[index] = format[12];
 		index++;
 		separated = true;
 	}
@@ -449,12 +561,12 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 			buffer[index] = TEXT('6');
 		}
 		else {
-			buffer[index] = TEXT('F');
+			buffer[index] = format[13];
 		}
 		index++;
 	}
 	if ((keys[1] & 0x20) != 0) {
-		buffer[index] = TEXT('R');
+		buffer[index] = format[14];
 		index++;
 	}
 	if ((keys[1] & 0x40) != 0) {
@@ -462,12 +574,12 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 			buffer[index] = TEXT('7');
 		}
 		else {
-			buffer[index] = TEXT('P');
+			buffer[index] = format[15];
 		}
 		index++;
 	}
 	if ((keys[1] & 0x80) != 0) {
-		buffer[index] = TEXT('B');
+		buffer[index] = format[16];
 		index++;
 	}
 	if ((keys[2] & 0x01) != 0) {
@@ -475,12 +587,12 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 			buffer[index] = TEXT('8');
 		}
 		else {
-			buffer[index] = TEXT('L');
+			buffer[index] = format[17];
 		}
 		index++;
 	}
 	if ((keys[2] & 0x02) != 0) {
-		buffer[index] = TEXT('G');
+		buffer[index] = format[18];
 		index++;
 	}
 	if ((keys[2] & 0x04) != 0) {
@@ -488,20 +600,20 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 			buffer[index] = TEXT('9');
 		}
 		else {
-			buffer[index] = TEXT('T');
+			buffer[index] = format[19];
 		}
 		index++;
 	}
 	if ((keys[2] & 0x08) != 0) {
-		buffer[index] = TEXT('S');
+		buffer[index] = format[20];
 		index++;
 	}
 	if ((keys[2] & 0x10) != 0) {
-		buffer[index] = TEXT('D');
+		buffer[index] = format[21];
 		index++;
 	}
 	if ((keys[2] & 0x20) != 0) {
-		buffer[index] = TEXT('Z');
+		buffer[index] = format[22];
 		index++;
 	}
 
@@ -509,9 +621,8 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, bool number) {
 
 }
 
-void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
-	const TCHAR spaces[] = TEXT("                       ");
-	_tcscpy_s(buffer, 24, spaces);
+void stroketosteno(unsigned __int8* keys, TCHAR* buffer, const std::string &format) {
+	_tcscpy_s(buffer, 24, TEXT("                       "));
 	bool numbers = false;
 	bool wrotenumbers = false;
 
@@ -525,7 +636,7 @@ void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
 			wrotenumbers = true;
 		}
 		else {
-			buffer[1] = TEXT('S');
+			buffer[1] = format[1];
 		}
 	}
 	if ((keys[0] & 0x02) != 0) {
@@ -534,11 +645,11 @@ void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
 			wrotenumbers = true;
 		}
 		else {
-			buffer[2] = TEXT('T');
+			buffer[2] = format[2];
 		}
 	}
 	if ((keys[0] & 0x04) != 0) {
-		buffer[3] = TEXT('K');
+		buffer[3] = format[3];
 	}
 	if ((keys[0] & 0x08) != 0) {
 		if (numbers) {
@@ -546,11 +657,11 @@ void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
 			wrotenumbers = true;
 		}
 		else {
-			buffer[4] = TEXT('P');
+			buffer[4] = format[4];
 		}
 	}
 	if ((keys[0] & 0x10) != 0) {
-		buffer[5] = TEXT('W');
+		buffer[5] = format[5];
 	}
 	if ((keys[0] & 0x20) != 0) {
 		if (numbers) {
@@ -558,11 +669,11 @@ void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
 			wrotenumbers = true;
 		}
 		else {
-			buffer[6] = TEXT('H');
+			buffer[6] = format[6];
 		}
 	}
 	if ((keys[0] & 0x40) != 0) {
-		buffer[7] = TEXT('R');
+		buffer[7] = format[7];
 	}
 	if ((keys[0] & 0x80) != 0) {
 		if (numbers) {
@@ -570,7 +681,7 @@ void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
 			wrotenumbers = true;
 		}
 		else {
-			buffer[8] = TEXT('A');
+			buffer[8] = format[8];
 		}
 	}
 	if ((keys[1] & 0x01) != 0) {
@@ -579,17 +690,17 @@ void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
 			wrotenumbers = true;
 		}
 		else {
-			buffer[9] = TEXT('O');
+			buffer[9] = format[9];
 		}
 	}
 	if ((keys[1] & 0x02) != 0) {
-		buffer[10] = TEXT('*');
+		buffer[10] = format[10];
 	}
 	if ((keys[1] & 0x04) != 0) {
-		buffer[11] = TEXT('E');
+		buffer[11] = format[11];
 	}
 	if ((keys[1] & 0x08) != 0) {
-		buffer[12] = TEXT('U');
+		buffer[12] = format[12];
 	}
 	if ((keys[1] & 0x10) != 0) {
 		if (numbers) {
@@ -597,11 +708,11 @@ void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
 			wrotenumbers = true;
 		}
 		else {
-			buffer[13] = TEXT('F');
+			buffer[13] = format[13];
 		}
 	}
 	if ((keys[1] & 0x20) != 0) {
-		buffer[14] = TEXT('R');
+		buffer[14] = format[14];
 	}
 	if ((keys[1] & 0x40) != 0) {
 		if (numbers) {
@@ -609,11 +720,11 @@ void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
 			wrotenumbers = true;
 		}
 		else {
-			buffer[15] = TEXT('P');
+			buffer[15] = format[15];
 		}
 	}
 	if ((keys[1] & 0x80) != 0) {
-		buffer[16] = TEXT('B');
+		buffer[16] = format[16];
 	}
 	if ((keys[2] & 0x01) != 0) {
 		if (numbers) {
@@ -621,11 +732,11 @@ void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
 			wrotenumbers = true;
 		}
 		else {
-			buffer[17] = TEXT('L');
+			buffer[17] = format[17];
 		}
 	}
 	if ((keys[2] & 0x02) != 0) {
-		buffer[18] = TEXT('G');
+		buffer[18] = format[18];
 	}
 	if ((keys[2] & 0x04) != 0) {
 		if (numbers) {
@@ -633,66 +744,22 @@ void stroketosteno(unsigned __int8* keys, TCHAR* buffer) {
 			wrotenumbers = true;
 		}
 		else {
-			buffer[19] = TEXT('T');
+			buffer[19] = format[19];
 		}
 	}
 	if ((keys[2] & 0x08) != 0) {
-		buffer[20] = TEXT('S');
+		buffer[20] = format[20];
 	}
 	if ((keys[2] & 0x10) != 0) {
-		buffer[21] = TEXT('D');
+		buffer[21] = format[21];
 	}
 	if ((keys[2] & 0x20) != 0) {
-		buffer[22] = TEXT('Z');
+		buffer[22] = format[22];
 	}
 
 	if (numbers && (wrotenumbers == false)) {
-		buffer[0] = TEXT('#');
+		buffer[0] = format[0];
 	}
-}
-
-bool dictionary::openrecovery(const char* file, const char* file2) {
-	//MessageBox(NULL, (tstring(TEXT("Failed to open database, attempting recovery\r\nFor dictionary in: ")) + strtotstr(hm)).c_str(), TEXT("Error"), MB_OK);
-
-		db_env_create(&env, 0);
-		env->set_lk_detect(env, DB_LOCK_YOUNGEST);
-		env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
-		env->set_lg_max(env, 1048576);
-		env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
-
-		if (contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
-			return false;
-			MessageBox(NULL, TEXT("Normal recovery failed, attempting catastrophic recovery"), TEXT("Error"), MB_OK);
-
-			env->close(env, 0);
-
-			db_env_create(&env, 0);
-			env->set_lk_detect(env, DB_LOCK_YOUNGEST);
-			env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
-			env->set_lg_max(env, 1048576);
-			env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER_FATAL | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
-
-			if (contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
-				MessageBox(NULL, TEXT("All attempts failed, dictionary database files are unrecoverable"), TEXT("Error"), MB_OK);
-				return false;
-			}
-		}
-
-	
-
-	db_create(&secondary, env, 0);
-	secondary->set_flags(secondary, DB_DUP | DB_DUPSORT);
-
-	if ((secondary->open(secondary, NULL, file2, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT, 0)) != 0) {
-		//MessageBox(NULL, TEXT("Failed to open secondary index"), TEXT("Error"), MB_OK);
-	}
-	if ((contents->associate(contents, NULL, secondary, getsecondary, DB_AUTO_COMMIT)) != 0) {
-		//MessageBox(NULL, TEXT("Failed to associate index"), TEXT("Error"), MB_OK);
-	}
-
-
-
-	return true;
 }
 
 bool dictionary::opencrecovery(const char* file, const char* file2) {
@@ -702,7 +769,7 @@ bool dictionary::opencrecovery(const char* file, const char* file2) {
 		env->set_lk_detect(env, DB_LOCK_YOUNGEST);
 		env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
 		env->set_lg_max(env, 1048576);
-		env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER_FATAL | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
+		env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_REGISTER | DB_RECOVER_FATAL | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
 
 		if (contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
 			return false;
@@ -714,7 +781,7 @@ bool dictionary::opencrecovery(const char* file, const char* file2) {
 	db_create(&secondary, env, 0);
 	secondary->set_flags(secondary, DB_DUP | DB_DUPSORT);
 
-	if ((secondary->open(secondary, NULL, file2, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT, 0)) != 0) {
+	if ((secondary->open(secondary, NULL, file2, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0)) != 0) {
 		//MessageBox(NULL, TEXT("Failed to open secondary index"), TEXT("Error"), MB_OK);
 	}
 	if ((contents->associate(contents, NULL, secondary, getsecondary, DB_AUTO_COMMIT)) != 0) {
@@ -726,7 +793,7 @@ bool dictionary::opencrecovery(const char* file, const char* file2) {
 	return true;
 }
 
-bool dictionary::open(const char* file, const char* file2, bool newd) {
+bool dictionary::open(const char* file, const char* file2) {
 
 	db_env_create(&env, 0);
 
@@ -735,52 +802,21 @@ bool dictionary::open(const char* file, const char* file2, bool newd) {
 	env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
 	env->set_lg_max(env, 1048576);
 
-	env->open(env, hm.c_str() , DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
+	env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_REGISTER | DB_INIT_TXN | DB_RECOVER | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
 
 
 	db_create(&contents, env, 0);
 	
-
-	int ret = 0;
-	if (newd)
-		ret = contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0);
-	else
-		ret = contents->open(contents, NULL, file, NULL, DB_BTREE, DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0);
-	if (ret != 0) {
+	
+	if (contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
 		return false;
-		MessageBox(NULL, (tstring(TEXT("Failed to open database, attempting recovery\r\nFor dictionary in: ")) + strtotstr(hm)).c_str(), TEXT("Error"), MB_OK);
 
-		env->close(env, 0);
-
-		db_env_create(&env, 0);
-		env->set_lk_detect(env, DB_LOCK_YOUNGEST);
-		env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
-		env->set_lg_max(env, 1048576);
-		env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
-
-		if (contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
-			MessageBox(NULL, TEXT("Normal recovery failed, attempting catastrophic recovery"), TEXT("Error"), MB_OK);
-
-			env->close(env, 0);
-
-			db_env_create(&env, 0);
-			env->set_lk_detect(env, DB_LOCK_YOUNGEST);
-			env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
-			env->set_lg_max(env, 1048576);
-			env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_RECOVER_FATAL | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
-
-			if (contents->open(contents, NULL, file, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
-				MessageBox(NULL, TEXT("All attempts failed, dictionary database files are unrecoverable"), TEXT("Error"), MB_OK);
-				return false;
-			}
-		}
-		
 	}
 	
 	db_create(&secondary, env, 0);
 	secondary->set_flags(secondary, DB_DUP | DB_DUPSORT);
 
-	if ((secondary->open(secondary, NULL, file2, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT, 0)) != 0) {
+	if ((secondary->open(secondary, NULL, file2, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0)) != 0) {
 		//MessageBox(NULL, TEXT("Failed to open secondary index"), TEXT("Error"), MB_OK);
 	}
 	if ((contents->associate(contents, NULL, secondary, getsecondary, DB_AUTO_COMMIT)) != 0) {

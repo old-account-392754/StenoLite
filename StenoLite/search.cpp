@@ -101,7 +101,7 @@ DWORD WINAPI searchDictionary(LPVOID lpParam)
 
 						int cindex = 0;
 						for (int j = 0; j < pkey.size; j += 3) {
-							stroketocsteno(&(((unsigned __int8*)(pkey.data))[j]), &(buffer[cindex]));
+							stroketocsteno(&(((unsigned __int8*)(pkey.data))[j]), &(buffer[cindex]), sharedData.currentd->format);
 							cindex = _tcsnlen(buffer, 400);
 							if (j != pkey.size - 1) {
 								buffer[cindex] = TEXT('/');
@@ -190,7 +190,7 @@ DWORD WINAPI searchDictionary(LPVOID lpParam)
 
 						int cindex = 0;
 						for (int j = 0; j < pkey.size; j += 3) {
-							stroketocsteno(&(((unsigned __int8*)(pkey.data))[j]), &(buffer[cindex]));
+							stroketocsteno(&(((unsigned __int8*)(pkey.data))[j]), &(buffer[cindex]), sharedData.currentd->format);
 							cindex = _tcsnlen(buffer, 400);
 							if (j != pkey.size - 1) {
 								buffer[cindex] = TEXT('/');

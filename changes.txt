@@ -1,0 +1,18 @@
+0.8.5
+Support for Non-English stenograph layouts
+More robust crash recovery
+
+0.8.4
+XP compatibility fixed
+
+0.8.3
+Added page up/page down support in dictionary viewer 
+
+0.8.2
+More minor bug fixes
+
+0.8.1
+Bug fixes
+
+0.8.0
+Initial release
