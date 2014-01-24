@@ -17,6 +17,9 @@ Extremely fast load times with compiled dictionaries
 
 Built in dictionary editor/viewer
 
+Support for non-English stenograph keyboard layouts
+
+Push and pop commands: use a single stroke for closing quotations, parenthesis, brackets, html tags, etc.
 
 
 #### Please read the manual for more details
