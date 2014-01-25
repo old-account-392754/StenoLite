@@ -14,6 +14,8 @@
 #define DVE_STROKESEARCH 4
 #define DVE_RESIZE 5
 #define DVE_UPDATEE 6
+#define DVE_UPDATES 7
+#define DVE_DELETEE 8
 
 struct dstruct {
 	HWND dlgwnd;

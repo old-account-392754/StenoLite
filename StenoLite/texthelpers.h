@@ -4,12 +4,14 @@
 #define MY_TEXTHELP_H
 
 #include <string>
-
+#include <regex>
 
 #ifndef UNICODE  
 typedef std::string tstring; 
+typedef std::regex tregex;
 #else
 typedef std::wstring tstring;
+typedef std::wregex tregex;
 #endif
 
 unsigned int cntspaces(const std::string &str);

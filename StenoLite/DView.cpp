@@ -72,7 +72,7 @@ void GetListItem(const int &item, unsigned __int8* &strokes, int &numstrokes, ts
 
 	stext = itm.pszText;
 	numstrokes = 0;
-	strokes = texttomultistroke(ttostr(itm.pszText), numstrokes, dviewdata.d->format);
+	strokes = texttomultistroke(itm.pszText, numstrokes, dviewdata.d->format);
 	DB_TXN* trans;
 	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_UNCOMMITTED);
 	if (!dviewdata.d->findDItem(strokes, numstrokes * 3, text, trans)) {
@@ -81,7 +81,7 @@ void GetListItem(const int &item, unsigned __int8* &strokes, int &numstrokes, ts
 	trans->commit(trans, 0);
 }
 
-void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string tdata) {
+void Resize(bool bystrokes, unsigned __int8* sdata, unsigned int sdatasize, std::string tdata) {
 	if (dviewdata.dlgwnd == NULL)
 		return;
 	if (dviewdata.d == NULL)
@@ -156,7 +156,7 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 		}
 
 	tstring text;
-	TCHAR* strokes = new TCHAR[dviewdata.d->longest * 24 + 1 + 10];
+	tstring strokes;
 
 	LVITEM item;
 	item.iGroupId = I_GROUPIDNONE;
@@ -170,21 +170,10 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 
 
 		item.iSubItem = 0;
-		item.pszText = strokes;
 
-		int sindex = 0;
-		for (int n = 0; n * 3 < keyin.size; n++) {
-			stroketocsteno(&(((unsigned __int8*)(keyin.data))[n * 3]), &(strokes[sindex]), dviewdata.d->format);
-			sindex = _tcsnlen(strokes, dviewdata.d->longest * 24 + 1);
-			if ((n + 1) * 3 < keyin.size) {
-				strokes[sindex] = TEXT('/');
-				strokes[sindex + 1] = 0;
-				sindex++;
-			}
-
-		}
-
-		item.cchTextMax = _tcsnlen(strokes, dviewdata.d->longest * 24 + 1) + 1;
+		strokes = stroketomultitext((unsigned __int8*)(keyin.data), keyin.size / 3, dviewdata.d->format);
+		item.pszText = (LPTSTR)(strokes.c_str());
+		item.cchTextMax = strokes.length() + 1;
 
 		ListView_InsertItem(box, &item);
 
@@ -210,7 +199,6 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 
 
 	//delete text;
-	delete strokes;
 
 	cursor->close(cursor);
 	trans->commit(trans, 0);
@@ -249,7 +237,7 @@ void Search(bool text) {
 		}
 		else {
 			int numstrokes = 0;
-			unsigned __int8* sdata = texttomultistroke(ttostr(data), numstrokes, dviewdata.d->format);
+			unsigned __int8* sdata = texttomultistroke(data, numstrokes, dviewdata.d->format);
 			Resize(true, sdata, numstrokes * 3, "");
 			delete sdata;
 		}
@@ -340,7 +328,7 @@ void Move(bool up) {
 	int numstrokes;
 	tstring stext;
 	std::string text;
-	int sz = ListView_GetItemCount(box);
+	unsigned int sz = ListView_GetItemCount(box);
 	int direction;
 	if (up) {
 		GetListItem(0, sdata, numstrokes, stext, text);
@@ -392,7 +380,7 @@ void Move(bool up) {
 		}
 
 		tstring text;
-		TCHAR* strokes = new TCHAR[dviewdata.d->longest * 24 + 1 + 10];
+		tstring strokes;
 
 		LVITEM item;
 		item.iGroupId = I_GROUPIDNONE;
@@ -405,21 +393,10 @@ void Move(bool up) {
 		item.mask = LVIF_GROUPID | LVIF_TEXT | LVIF_STATE;
 
 		item.iSubItem = 0;
-		item.pszText = strokes;
 
-		int sindex = 0;
-		for (int n = 0; n * 3 < keyin.size; n++) {
-			stroketocsteno(&(((unsigned __int8*)(keyin.data))[n * 3]), &(strokes[sindex]), dviewdata.d->format);
-			sindex = _tcsnlen(strokes, dviewdata.d->longest * 24 + 1);
-			if ((n + 1) * 3 < keyin.size) {
-				strokes[sindex] = TEXT('/');
-				strokes[sindex + 1] = 0;
-				sindex++;
-			}
-
-		}
-
-		item.cchTextMax = _tcsnlen(strokes, dviewdata.d->longest * 24 + 1) + 1;
+		strokes = stroketomultitext((unsigned __int8*)(keyin.data), keyin.size / 3, dviewdata.d->format);
+		item.pszText = (LPTSTR)(strokes.c_str());
+		item.cchTextMax = strokes.length() + 1;
 
 		ListView_InsertItem(box, &item);
 
@@ -432,7 +409,6 @@ void Move(bool up) {
 
 		ListView_SetItem(box, &item);
 
-		delete strokes;
 	}
 	
 	
@@ -449,7 +425,7 @@ void Move(bool up) {
 void Update() {
 	tstring stxt = getWinStr(GetDlgItem(dviewdata.dlgwnd, IDC_CSTROKE));
 	int numstrokes = 0;
-	unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes, dviewdata.d->format);
+	unsigned __int8* sdata = texttomultistroke(stxt, numstrokes, dviewdata.d->format);
 
 	if (numstrokes > 0) {
 		//bool del = DelCheck(sdata, numstrokes*3);
@@ -463,6 +439,126 @@ void Update() {
 		trans->commit(trans, 0);
 	}
 	delete sdata;
+
+	addDVEvent(DVE_RESIZE);
+}
+
+INT_PTR CALLBACK NewStrokes(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wParam, _In_  LPARAM lParam) {
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+	{
+						  inputstate.sendasstrokes = true;
+
+						  int slen = GetWindowTextLength(GetDlgItem(dviewdata.dlgwnd, IDC_CSTROKE)) + 1;
+						  TCHAR* strokes = new TCHAR[slen];
+						  GetWindowText(GetDlgItem(dviewdata.dlgwnd, IDC_CSTROKE), strokes, slen);
+						  SetDlgItemText(hwndDlg, IDC_NSTROKES, strokes);
+						  delete strokes;
+
+						  ShowWindow(hwndDlg, SW_SHOW);
+						  SetFocus(GetDlgItem(hwndDlg, IDC_NSTROKES));
+						  inputstate.redirect = GetDlgItem(hwndDlg, IDC_NSTROKES);
+
+						  SetDlgItemText(hwndDlg, IDC_NSTAT, TEXT(""));
+						  return TRUE;
+	}
+	case WM_COMMAND:
+		if (HIWORD(wParam) == EN_CHANGE) {
+			if (LOWORD(wParam) == IDC_NSTROKES) {
+
+				tstring stxt = getWinStr(GetDlgItem(hwndDlg, IDC_NSTROKES));
+				int numstrokes = 0;
+				unsigned __int8* sdata = texttomultistroke(stxt, numstrokes, dviewdata.d->format);
+
+
+				std::string result;
+				SetDlgItemText(hwndDlg, IDC_NSTAT, TEXT("No existing entry"));
+				if (numstrokes >= 1 && dviewdata.d != NULL) {
+					DB_TXN* trans;
+					dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_UNCOMMITTED);
+
+					if (dviewdata.d->findDItem(sdata, numstrokes * 3, result, trans)) {
+						result = std::string("Exists as: ") + result;
+						SetDlgItemText(hwndDlg, IDC_NSTAT, strtotstr(result).c_str());
+					}
+
+					trans->commit(trans, 0);
+				}
+
+				delete sdata;
+			}
+		}
+		else if (HIWORD(wParam) == BN_CLICKED) {
+			switch (LOWORD(wParam))
+			{
+			case IDOK:
+			{
+						 tstring stxt = getWinStr(GetDlgItem(hwndDlg, IDC_NSTROKES));
+						 int numstrokes = 0;
+						 unsigned __int8* sdata = texttomultistroke(stxt, numstrokes, dviewdata.d->format);
+
+						 tstring text = getWinStr(GetDlgItem(dviewdata.dlgwnd, IDC_CTEXT));
+
+						 DB_TXN* trans;
+						 dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, 0);
+
+						 dviewdata.d->addNewDItem(sdata, numstrokes * 3, ttostr(text), trans);
+
+						 delete sdata;
+
+						 tstring otxt = getWinStr(GetDlgItem(dviewdata.dlgwnd, IDC_CSTROKE));
+						 sdata = texttomultistroke(otxt, numstrokes, dviewdata.d->format);
+
+						 //DelCheck(sdata, numstrokes * 3);
+
+						 dviewdata.d->deleteDItem(sdata, numstrokes * 3, trans);
+						 trans->commit(trans, 0);
+
+
+						 SetCStrokeText(stxt.c_str());
+
+						 addDVEvent(DVE_RESIZE);
+
+						 delete sdata;
+
+						 inputstate.redirect = NULL;
+						 EndDialog(hwndDlg, wParam);
+						 return TRUE;
+			}
+			case IDCANCEL:
+				inputstate.redirect = NULL;
+				EndDialog(hwndDlg, wParam);
+				return TRUE;
+			}
+		}
+	}
+	return FALSE;
+}
+
+void UpdateS() {
+	dviewdata.modallaunched = true;
+	DialogBox(hlocalInst, MAKEINTRESOURCE(IDD_NEWSTROKE), dviewdata.dlgwnd, (DLGPROC)NewStrokes);
+	//inputstate.sendasstrokes = false;
+	inputstate.redirect = NULL;
+	dviewdata.modallaunched = false;
+}
+
+void Delete() {
+	tstring stxt = getWinStr(GetDlgItem(dviewdata.dlgwnd, IDC_CSTROKE));
+	int numstrokes = 0;
+	unsigned __int8* sdata = texttomultistroke(stxt, numstrokes, dviewdata.d->format);
+
+	//DelCheck(sdata, numstrokes * 3);
+	DB_TXN* trans;
+	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, 0);
+	dviewdata.d->deleteDItem(sdata, numstrokes * 3, trans);
+	trans->commit(trans, 0);
+
+	delete sdata;
+
+	SetCStrokeText(TEXT(""));
+	SetCTextText(TEXT(""));
 
 	addDVEvent(DVE_RESIZE);
 }
@@ -486,6 +582,12 @@ void processEvent(unsigned int eventnum) {
 		break;
 	case DVE_UPDATEE:
 		Update();
+		break;
+	case DVE_UPDATES:
+		UpdateS();
+		break;
+	case DVE_DELETEE:
+		Delete();
 		break;
 	case DVE_RESIZE:
 	{
@@ -511,12 +613,12 @@ DWORD WINAPI processViewEvents(LPVOID lpParam)
 			unsigned int val = dviewdata.events.front();
 			dviewdata.events.pop();
 			if (val == DVE_RESIZE && !dviewdata.events.empty()) {
-				dviewdata.events.front() == DVE_RESIZE;
-				val = -1;
+				if(dviewdata.events.front() == DVE_RESIZE)
+					val = -1;
 			}
 			if (val == DVE_UPDATEE && !dviewdata.events.empty()) {
-				dviewdata.events.front() == DVE_UPDATEE;
-				val = -1;
+				if(dviewdata.events.front() == DVE_UPDATEE)
+					val = -1;
 			}
 			ReleaseMutex(dviewdata.protectqueue);
 			processEvent(val);
@@ -562,99 +664,6 @@ LRESULT CALLBACK KickUpMouse(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
 	return DefSubclassProc(hWnd, uMsg, wParam, lParam);
 }
 
-INT_PTR CALLBACK NewStrokes(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wParam, _In_  LPARAM lParam) {
-	switch (uMsg)
-	{
-	case WM_INITDIALOG:
-	{
-						  inputstate.sendasstrokes = true;
-
-						  int slen = GetWindowTextLength(GetDlgItem(dviewdata.dlgwnd, IDC_CSTROKE)) + 1;
-						  TCHAR* strokes = new TCHAR[slen];
-						  GetWindowText(GetDlgItem(dviewdata.dlgwnd, IDC_CSTROKE), strokes, slen);
-						  SetDlgItemText(hwndDlg, IDC_NSTROKES, strokes);
-						  delete strokes;
-
-						  ShowWindow(hwndDlg, SW_SHOW);
-						  SetFocus(GetDlgItem(hwndDlg, IDC_NSTROKES));
-						  inputstate.redirect = GetDlgItem(hwndDlg, IDC_NSTROKES);
-
-						  SetDlgItemText(hwndDlg, IDC_NSTAT, TEXT(""));
-						  return TRUE;
-	}
-	case WM_COMMAND:
-		if (HIWORD(wParam) == EN_CHANGE) {
-			if (LOWORD(wParam) == IDC_NSTROKES) {
-
-				tstring stxt = getWinStr(GetDlgItem(hwndDlg, IDC_NSTROKES));
-				int numstrokes = 0;
-				unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes, dviewdata.d->format);
-
-
-				std::string result;
-				SetDlgItemText(hwndDlg, IDC_NSTAT, TEXT("No existing entry"));
-				if (numstrokes >= 1 && dviewdata.d != NULL) {
-					DB_TXN* trans;
-					dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_UNCOMMITTED);
-
-					if (dviewdata.d->findDItem(sdata, numstrokes * 3, result, trans)) {
-						result = std::string("Exists as: ") + result;
-						SetDlgItemText(hwndDlg, IDC_NSTAT, strtotstr(result).c_str());
-					}
-
-					trans->commit(trans, 0);
-				}
-
-				delete sdata;
-			}
-		}
-		else if (HIWORD(wParam) == BN_CLICKED) {
-			switch (LOWORD(wParam))
-			{
-			case IDOK:
-			{
-						 tstring stxt = getWinStr(GetDlgItem(hwndDlg, IDC_NSTROKES));
-						 int numstrokes = 0;
-						 unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes, dviewdata.d->format);
-
-						 tstring text = getWinStr(GetDlgItem(dviewdata.dlgwnd, IDC_CTEXT));
-
-						 DB_TXN* trans;
-						 dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, 0);
-
-						 dviewdata.d->addNewDItem(sdata, numstrokes * 3, ttostr(text), trans);
-
-						 delete sdata;
-
-						 tstring otxt = getWinStr(GetDlgItem(dviewdata.dlgwnd, IDC_CSTROKE));
-						 sdata = texttomultistroke(ttostr(otxt), numstrokes, dviewdata.d->format);
-
-						 //DelCheck(sdata, numstrokes * 3);
-						 
-						 dviewdata.d->deleteDItem(sdata, numstrokes * 3, trans);
-						 trans->commit(trans, 0);
-
-
-						 SetCStrokeText(stxt.c_str());
-
-						 addDVEvent(DVE_RESIZE);
-
-						 delete sdata;
-
-						 inputstate.redirect = NULL;
-						 EndDialog(hwndDlg, wParam);
-						 return TRUE;
-			}
-			case IDCANCEL:
-				inputstate.redirect = NULL;
-				EndDialog(hwndDlg, wParam);
-				return TRUE;
-			}
-		}
-	}
-	return FALSE;
-}
-
 #define MODE_ALL 1
 #define MODE_NEW 2
 #define MODE_EXJ 3
@@ -676,10 +685,10 @@ DWORD WINAPI addAll(LPVOID lpParam)
 	if (GetOpenFileName(&file)) {
 		//setMode(0);
 		if (file.lpstrFile[file.nFileExtension] == TEXT('J') || file.lpstrFile[file.nFileExtension] == TEXT('j')) {
-			LoadJson(dviewdata.d, ttostr(file.lpstrFile), GetDlgItem(dlg, IDC_PROGRESS), true);
+			LoadJson(dviewdata.d, file.lpstrFile, GetDlgItem(dlg, IDC_PROGRESS), true);
 		}
 		else {
-			LoadRTF(dviewdata.d, ttostr(file.lpstrFile), GetDlgItem(dlg, IDC_PROGRESS), true);
+			LoadRTF(dviewdata.d, file.lpstrFile, GetDlgItem(dlg, IDC_PROGRESS), true);
 		}
 		//setMode(settings.mode);
 		addDVEvent(DVE_RESET);
@@ -704,10 +713,10 @@ DWORD WINAPI addNew(LPVOID lpParam)
 	if (GetOpenFileName(&file)) {
 		//setMode(0);
 		if (file.lpstrFile[file.nFileExtension] == TEXT('J') || file.lpstrFile[file.nFileExtension] == TEXT('j')) {
-			LoadJson(dviewdata.d, ttostr(file.lpstrFile), GetDlgItem(dlg, IDC_PROGRESS), false);
+			LoadJson(dviewdata.d, file.lpstrFile, GetDlgItem(dlg, IDC_PROGRESS), false);
 		}
 		else {
-			LoadRTF(dviewdata.d, ttostr(file.lpstrFile), GetDlgItem(dlg, IDC_PROGRESS), false);
+			LoadRTF(dviewdata.d, file.lpstrFile, GetDlgItem(dlg, IDC_PROGRESS), false);
 		}
 		//setMode(settings.mode);
 		addDVEvent(DVE_RESET);
@@ -730,9 +739,9 @@ DWORD WINAPI exJ(LPVOID lpParam)
 	file.nMaxFile = MAX_PATH;
 	file.Flags = OFN_DONTADDTORECENT | OFN_NOCHANGEDIR;
 	if (GetSaveFileName(&file)) {
-		std::string filename = ttostr(buffer);
-		if (filename.find(".json") == std::string::npos) {
-			filename += ".json";
+		tstring filename = buffer;
+		if (filename.find(TEXT(".json")) == std::string::npos) {
+			filename += TEXT(".json");
 		}
 		SaveJson(dviewdata.d, filename, GetDlgItem(dlg, IDC_PROGRESS));
 	}
@@ -754,9 +763,9 @@ DWORD WINAPI exRTF(LPVOID lpParam)
 	file.nMaxFile = MAX_PATH;
 	file.Flags = OFN_DONTADDTORECENT | OFN_NOCHANGEDIR;
 	if (GetSaveFileName(&file)) {
-		std::string filename = ttostr(buffer);
-		if (filename.find(".rtf") == std::string::npos) {
-			filename += ".rtf";
+		tstring filename = buffer;
+		if (filename.find(TEXT(".rtf")) == std::string::npos) {
+			filename += TEXT(".rtf");
 		}
 		SaveRTF(dviewdata.d, filename, GetDlgItem(dlg, IDC_PROGRESS));
 	}
@@ -915,22 +924,8 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 			}
 		case IDC_DELETE:
 			if (HIWORD(wParam) == BN_CLICKED) {
-				tstring stxt = getWinStr(GetDlgItem(hwndDlg, IDC_CSTROKE));
-				int numstrokes = 0;
-				unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes, dviewdata.d->format);
-
-				//DelCheck(sdata, numstrokes * 3);
-				DB_TXN* trans;
-				dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, 0);
-				dviewdata.d->deleteDItem( sdata, numstrokes * 3, trans);
-				trans->commit(trans, 0);
-
-				delete sdata;
-
-				SetCStrokeText(TEXT(""));
-				SetCTextText(TEXT(""));
-
-				addDVEvent(DVE_RESIZE);
+				
+				addDVEvent(DVE_DELETEE);
 				return TRUE;
 			}
 		case IDC_NEW:
@@ -968,13 +963,10 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 		case IDC_CSTROKE:
 			if (HIWORD(wParam) == EN_SETFOCUS && !dviewdata.modallaunched) {
 				if (GetWindowTextLength(GetDlgItem(hwndDlg, IDC_CSTROKE)) > 0) {
-					dviewdata.modallaunched = true;
 					SetFocus(GetDlgItem(hwndDlg, IDC_CTEXT));
-					DialogBox(hlocalInst, MAKEINTRESOURCE(IDD_NEWSTROKE), hwndDlg, (DLGPROC)NewStrokes);
-					//inputstate.sendasstrokes = false;
-					inputstate.redirect = NULL;
-					dviewdata.modallaunched = false;
+					addDVEvent(DVE_UPDATES);
 				}
+				
 			}
 		case IDC_CTEXT:
 			if (HIWORD(wParam) == EN_CHANGE && !dviewdata.updatingstroke) {	

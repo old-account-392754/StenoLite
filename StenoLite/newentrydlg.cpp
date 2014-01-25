@@ -95,15 +95,15 @@ INT_PTR CALLBACK NewEntryProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM 
 				tstring txt = getWinStr(GetDlgItem(hwndDlg, IDC_TEXT));
 				tstring stroke = getWinStr(GetDlgItem(hwndDlg, IDC_STROKE));
 				int numstrokes = 0;
-				std::string cstroke = ttostr(stroke);
-				unsigned __int8* sdata = texttomultistroke(cstroke, numstrokes, sharedData.currentd->format);
+				//std::string cstroke = ttostr(stroke);
+				unsigned __int8* sdata = texttomultistroke(stroke, numstrokes, sharedData.currentd->format);
 
 				std::string trmd = trimstr(ttostr(txt), " ");
 				DB_TXN* trans;
 				sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, 0);
 				sharedData.currentd->addDItem( sdata, numstrokes * 3, trmd, trans);
 				trans->commit(trans, 0);
-				appendUser(sharedData.currentd, cstroke, trmd);
+				appendUser(sharedData.currentd, stroke, trmd);
 
 				delete sdata;
 
@@ -140,8 +140,8 @@ INT_PTR CALLBACK NewEntryProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM 
 			else if (HIWORD(wParam) == EN_CHANGE) {
 				tstring stroke = getWinStr(GetDlgItem(hwndDlg, IDC_STROKE));
 				int numstrokes = 0;
-				std::string cstroke = ttostr(stroke);
-				unsigned __int8* sdata = texttomultistroke(cstroke, numstrokes, sharedData.currentd->format);
+				
+				unsigned __int8* sdata = texttomultistroke(stroke, numstrokes, sharedData.currentd->format);
 
 				std::string result;
 				SetDlgItemText(hwndDlg, IDC_STROKEREPORT, TEXT("No existing entry"));

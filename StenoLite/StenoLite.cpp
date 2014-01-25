@@ -55,13 +55,6 @@ LRESULT CALLBACK WordProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 
 
-void stdstrMB(std::string msg, TCHAR* title){
-	TCHAR param[200];
-	param[msg.size()] = 0;
-	std::copy(msg.begin(), msg.end(), param);
-	MessageBox(NULL, param, title, MB_OK);
-}
-
 
 bool MyIsWindowsVersionOrGreater(WORD wMajorVersion, WORD wMinorVersion, WORD wServicePackMajor)
 {
@@ -107,7 +100,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	sharedData.newentry = CreateEvent(NULL, FALSE, FALSE, NULL);
 	sharedData.newtext = CreateEvent(NULL, FALSE, FALSE, NULL);
 	sharedData.protectqueue = CreateMutex(NULL, FALSE, NULL);
-	textToStroke(std::string("1234567890"), sharedData.number, "#STKPWHRAO*EUFRPBLGTSDZ");
+	textToStroke(tstring(TEXT("1234567890")), sharedData.number, TEXT("#STKPWHRAO*EUFRPBLGTSDZ"));
 
 	MSG msg;
 
@@ -181,10 +174,10 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	CloseHandle(sharedData.protectqueue);
 
 
-	std::list<std::tuple<std::string, dictionary*>>::iterator it = sharedData.dicts.begin();
-	while (it != sharedData.dicts.end()) {
-		saveDictSettings(std::get<1, std::string, dictionary*>(*it));
-		std::get<1, std::string, dictionary*>(*it)->close();
+	std::list<std::tuple<tstring, dictionary*>>::const_iterator it = sharedData.dicts.cbegin();
+	while (it != sharedData.dicts.cend()) {
+		saveDictSettings(std::get<1, tstring, dictionary*>(*it));
+		std::get<1, tstring, dictionary*>(*it)->close();
 		
 		it++;
 	}
@@ -341,20 +334,15 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 		CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_CHILD | WS_OVERLAPPED | WS_VISIBLE,
 		5, 30 - 20, controls.width - 50, 300, controls.scontainer, NULL, hInstance, NULL);
 
-	TCHAR buffer[MAX_PATH];
-	std::list<std::string> dlist = EnumDicts();
-	for (std::list<std::string>::iterator i = dlist.begin(); i != dlist.end(); i++) {
-		std::copy((*i).begin(), (*i).end(), buffer);
-		buffer[(*i).length()] = 0;
-		SendMessage(controls.dicts, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)(buffer));
+	std::list<tstring> dlist = EnumDicts();
+	for (auto i = dlist.cbegin(); i != dlist.cend(); i++) {
+		SendMessage(controls.dicts, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)((*i).c_str()));
 	}
 
 
 	SendMessage(controls.dicts, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), (LPARAM)true);
-	std::string temp = settings.dict;
-	std::copy(temp.cbegin(), temp.cend(), buffer);
-	buffer[temp.length()] = 0;
-	sel = SendMessage(controls.dicts, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)(buffer));
+	tstring temp = settings.dict;
+	sel = SendMessage(controls.dicts, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)(settings.dict.c_str()));
 	SendMessage(controls.dicts, CB_SETCURSEL, (WPARAM)sel, (LPARAM)0);
 
 
@@ -469,7 +457,7 @@ void sendstroke(unsigned __int8* keys) {
 	if (sharedData.currentd != NULL)
 		stroketosteno(keys, &buffer[2], sharedData.currentd->format);
 	else
-		stroketosteno(keys, &buffer[2], "#STKPWHRAO*EUFRPBLGTSDZ");
+		stroketosteno(keys, &buffer[2], TEXT("#STKPWHRAO*EUFRPBLGTSDZ"));
 
 	int lines = SendMessage(controls.mestroke, EM_GETLINECOUNT, 0, 0);
 	if (lines > controls.numlines-1) {
@@ -544,7 +532,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 						 __int8 pre = inputstate.keys[0] | inputstate.keys[1] | inputstate.keys[2] | inputstate.keys[3];
 
 						 if (input->data.hid.dwSizeHid == 6) {
-							 for (int indx = 0; indx < input->data.hid.dwCount; indx++) {
+							 for (unsigned int indx = 0; indx < input->data.hid.dwCount; indx++) {
 								 if ((input->data.hid.bRawData[indx * 6 + 1] & 0x80) != 0)
 									 inputstate.keys[0] |= 0x04;
 								 else
@@ -983,16 +971,16 @@ LRESULT CALLBACK StaticProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 									  int ItemIndex = SendMessage((HWND)lParam, (UINT)CB_GETCURSEL, (WPARAM)0, (LPARAM)0);
 									  TCHAR  ListItem[256];
 									  (TCHAR)SendMessage((HWND)lParam, (UINT)CB_GETLBTEXT, (WPARAM)ItemIndex, (LPARAM)ListItem);
-									  std::string item("");
-									  for (int i = 0; ListItem[i] != 0; i++) {
-										  item += ListItem[i];
-									  }
-									  std::list<std::tuple<std::string, dictionary*>>::iterator di = sharedData.dicts.begin();
+									  //std::string item("");
+									  //for (int i = 0; ListItem[i] != 0; i++) {
+										//  item += ListItem[i];
+									  //}
+									  std::list<std::tuple<tstring, dictionary*>>::iterator di = sharedData.dicts.begin();
 									  bool found = false;
 									  while (di != sharedData.dicts.cend()) {
-										  if (std::get<0, std::string, dictionary*>(*di).compare(item) == 0) {
-											 settings.dict = item;
-											 setDictionary(std::get<1, std::string, dictionary*>(*di));
+										  if (std::get<0, tstring, dictionary*>(*di).compare(ListItem) == 0) {
+											 settings.dict = ListItem;
+											 setDictionary(std::get<1, tstring, dictionary*>(*di));
 											 found = true;
 										  }
 										  di++;

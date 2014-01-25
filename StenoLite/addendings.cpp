@@ -3,18 +3,18 @@
 
 #include <string>
 
-bool isvowel(char c) {
+bool isvowel(TCHAR c) {
 	switch (c) {
-	case 'a':
-	case 'i':
-	case 'o':
-	case 'e':
-	case 'u':
-	case 'A':
-	case 'E':
-	case 'I':
-	case 'O':
-	case 'U':
+	case TEXT('a'):
+	case TEXT('i'):
+	case TEXT('o'):
+	case TEXT('e'):
+	case TEXT('u'):
+	case TEXT('A'):
+	case TEXT('E'):
+	case TEXT('I'):
+	case TEXT('O'):
+	case TEXT('U'):
 		return true;
 	default:
 		return false;

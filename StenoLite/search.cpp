@@ -87,36 +87,21 @@ DWORD WINAPI searchDictionary(LPVOID lpParam)
 
 					while (sharedData.addedtext == FALSE && result == 0) {
 						int len;
-						TCHAR buffer[400];
 						if (!outthisrun) {
 							std::string msg = stripped + std::string("\r\n");
-							std::copy(msg.begin(), msg.end(), buffer);
-							buffer[msg.size()] = 0;
 
 							len = SendMessage(controls.mesuggest, WM_GETTEXTLENGTH, 0, 0);
 							SendMessage(controls.mesuggest, EM_SETSEL, len, len);
-							SendMessage(controls.mesuggest, EM_REPLACESEL, FALSE, (LPARAM)buffer);
+							SendMessage(controls.mesuggest, EM_REPLACESEL, FALSE, (LPARAM)(strtotstr(msg).c_str()));
 							outthisrun = true;
 						}
 
-						int cindex = 0;
-						for (int j = 0; j < pkey.size; j += 3) {
-							stroketocsteno(&(((unsigned __int8*)(pkey.data))[j]), &(buffer[cindex]), sharedData.currentd->format);
-							cindex = _tcsnlen(buffer, 400);
-							if (j != pkey.size - 1) {
-								buffer[cindex] = TEXT('/');
-								buffer[cindex + 1] = 0;
-							}
-							cindex++;
-						}
-						cindex--;
-						buffer[cindex] = TEXT('\r');
-						buffer[cindex + 1] = TEXT('\n');
-						buffer[cindex + 2] = 0;
+						tstring rlt = stroketomultitext((unsigned __int8*)(pkey.data), pkey.size / 3, sharedData.currentd->format);
+						rlt += TEXT("\r\n");
 
 						len = SendMessage(controls.mesuggest, WM_GETTEXTLENGTH, 0, 0);
 						SendMessage(controls.mesuggest, EM_SETSEL, len, len);
-						SendMessage(controls.mesuggest, EM_REPLACESEL, FALSE, (LPARAM)buffer);
+						SendMessage(controls.mesuggest, EM_REPLACESEL, FALSE, (LPARAM)(rlt.c_str()));
 
 						result = cursor->pget(cursor, &strin, &pkey, &keyin, DB_NEXT_DUP);
 					}
@@ -167,9 +152,8 @@ DWORD WINAPI searchDictionary(LPVOID lpParam)
 					while (sharedData.addedtext == FALSE && result == 0) {
 
 						int len;
-						TCHAR buffer[400];
 
-						std::string msg = (char*)(keyin.data);
+						//std::string msg = (char*)(keyin.data);
 						if (current.compare(0, current.length(), (char*)(keyin.data), current.length()) != 0) {
 							//no longer begins with substring
 							break;
@@ -178,34 +162,17 @@ DWORD WINAPI searchDictionary(LPVOID lpParam)
 							//needs new header
 							prev = (char*)(keyin.data);
 
-							std::copy(prev.begin(), prev.end(), buffer);
-							buffer[prev.size()] = TEXT('\r');
-							buffer[prev.size() + 1] = TEXT('\n');
-							buffer[prev.size() + 2] = 0;
-
 							len = SendMessage(controls.mesuggest, WM_GETTEXTLENGTH, 0, 0);
 							SendMessage(controls.mesuggest, EM_SETSEL, len, len);
-							SendMessage(controls.mesuggest, EM_REPLACESEL, FALSE, (LPARAM)buffer);
+							SendMessage(controls.mesuggest, EM_REPLACESEL, FALSE, (LPARAM)(strtotstr(prev).c_str()));
 						}
 
-						int cindex = 0;
-						for (int j = 0; j < pkey.size; j += 3) {
-							stroketocsteno(&(((unsigned __int8*)(pkey.data))[j]), &(buffer[cindex]), sharedData.currentd->format);
-							cindex = _tcsnlen(buffer, 400);
-							if (j != pkey.size - 1) {
-								buffer[cindex] = TEXT('/');
-								buffer[cindex + 1] = 0;
-							}
-							cindex++;
-						}
-						cindex--;
-						buffer[cindex] = TEXT('\r');
-						buffer[cindex + 1] = TEXT('\n');
-						buffer[cindex + 2] = 0;
+						tstring rlt = stroketomultitext((unsigned __int8*)(pkey.data), pkey.size / 3, sharedData.currentd->format);
+						rlt += TEXT("\r\n");
 
 						len = SendMessage(controls.mesuggest, WM_GETTEXTLENGTH, 0, 0);
 						SendMessage(controls.mesuggest, EM_SETSEL, len, len);
-						SendMessage(controls.mesuggest, EM_REPLACESEL, FALSE, (LPARAM)buffer);
+						SendMessage(controls.mesuggest, EM_REPLACESEL, FALSE, (LPARAM)(rlt.c_str()));
 
 						result = cursor->pget(cursor, &strin, &pkey, &keyin, DB_NEXT);
 					}

@@ -12,29 +12,40 @@
 #include "addendings.h"
 #include <utility>
 #include "setmode.h"
+#include <algorithm>
 
 TCHAR pathbuffer[MAX_PATH];
+
+bool isReturn(char value) {
+	return value == '\r' || value =='\n';
+}
 
 void writestr(HANDLE hfile, const std::string& data) {
 	DWORD bytes;
 	WriteFile(hfile, data.c_str(), data.length(), &bytes, NULL);
 }
 
+void writeBOM(HANDLE hfile) {
+	static const unsigned __int8 bom[3] = { 239, 187, 191 };
+	DWORD bytes;
+	WriteFile(hfile, bom, 3, &bytes, NULL);
+}
 
-std::string GetDictDir() {
+
+tstring GetDictDir() {
 	DWORD len = MAX_PATH;
-	const static std::regex rx("\\\\[^\\\\]*$");
+	const static tregex rx(TEXT("\\\\[^\\\\]*$"));
 
 	HKEY hkey;
 	if (RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("SOFTWARE\\STENOLITE\\DICTDIR"), 0, KEY_READ, &hkey) == ERROR_SUCCESS) {
 		if (RegQueryValueEx(hkey, NULL, NULL, NULL, (LPBYTE)pathbuffer, &len) == ERROR_SUCCESS) {
-			return ttostr(pathbuffer);
+			return pathbuffer;
 		}
 		RegCloseKey(hkey);
 	}
 
 	GetModuleFileName(NULL, pathbuffer, MAX_PATH);
-	return std::regex_replace(ttostr(pathbuffer), rx, "\\");
+	return std::regex_replace(pathbuffer, rx, TEXT("\\"));
 }
 
 void saveSettings() {
@@ -56,13 +67,14 @@ void saveSettings() {
 
 	
 	DWORD len = MAX_PATH;
-	std::string res = GetDictDir();
+	tstring res = GetDictDir();
 
 	
-	std::string file = res + "settings";
+	tstring file = res + TEXT("settings");
 
-	HANDLE hfile = CreateFileA(file.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	HANDLE hfile = CreateFile(file.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hfile != INVALID_HANDLE_VALUE) {
+		writeBOM(hfile);
 		writestr(hfile, "HEIGHT = ");
 		writestr(hfile, std::to_string(settings.height));
 		writestr(hfile, "\r\n");
@@ -96,7 +108,7 @@ void saveSettings() {
 		writestr(hfile, "\r\n");
 
 		writestr(hfile, "DICT = ");
-		writestr(hfile, settings.dict);
+		writestr(hfile, ttostr(settings.dict));
 		writestr(hfile, "\r\n");
 
 		writestr(hfile, "X = ");
@@ -108,7 +120,6 @@ void saveSettings() {
 		writestr(hfile, "\r\n");
 
 		HKL locale = GetKeyboardLayout(GetCurrentThreadId());
-		DWORD bytes;
 		for (int i = 0; i < 256; i++){
 			if (settings.map[i] != 0) {
 				TCHAR c = MapVirtualKeyEx(i, MAPVK_VK_TO_CHAR, locale);
@@ -131,11 +142,12 @@ void saveSettings() {
 }
 
 void saveDictSettings(dictionary* d) {
-	static std::string sbuffer;
-	HANDLE hfile = CreateFileA(d->settingslocation.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	static tstring sbuffer;
+	HANDLE hfile = CreateFile(d->settingslocation.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hfile != INVALID_HANDLE_VALUE) {
+		writeBOM(hfile);
 		writestr(hfile, "FORMAT = ");
-		writestr(hfile, d->format);
+		writestr(hfile, ttostr(d->format));
 		writestr(hfile, "\r\n");
 
 		writestr(hfile, "LONGEST = ");
@@ -156,25 +168,25 @@ void saveDictSettings(dictionary* d) {
 		writestr(hfile, "DELETE = ");
 		sbuffer.clear();
 		stroketocsteno(d->sdelete, sbuffer, d->format);
-		writestr(hfile, sbuffer);
+		writestr(hfile, ttostr(sbuffer));
 		writestr(hfile, "\r\n");
 
 		writestr(hfile, "TAB = ");
 		sbuffer.clear();
 		stroketocsteno(d->stab, sbuffer, d->format);
-		writestr(hfile, sbuffer);
+		writestr(hfile, ttostr(sbuffer));
 		writestr(hfile, "\r\n");
 
 		writestr(hfile, "RETURN = ");
 		sbuffer.clear();
 		stroketocsteno(d->sreturn, sbuffer, d->format);
-		writestr(hfile, sbuffer);
+		writestr(hfile, ttostr(sbuffer));
 		writestr(hfile, "\r\n");
 
 		writestr(hfile, "NUMBER = ");
 		sbuffer.clear();
 		stroketocsteno(d->number, sbuffer, d->format);
-		writestr(hfile, sbuffer);
+		writestr(hfile, ttostr(sbuffer));
 		writestr(hfile, "\r\n");
 
 		writestr(hfile, "ITEMS = ");
@@ -190,7 +202,7 @@ void saveDictSettings(dictionary* d) {
 			tstroke.ival = (*it).first;
 			sbuffer.clear();
 			stroketocsteno(tstroke.sval, sbuffer, d->format);
-			writestr(hfile, sbuffer);
+			writestr(hfile, ttostr(sbuffer));
 			writestr(hfile, "->");
 			writestr(hfile, suftostr((*it).second));
 			writestr(hfile, "\r\n");
@@ -214,22 +226,22 @@ void strtodsetting(dictionary* d, const std::string& setting, const std::string&
 		d->items = std::atoi(value.c_str());
 	}
 	else if (setting.compare("DELETE") == 0) {
-		textToStroke(value, d->sdelete, d->format);
+		textToStroke(strtotstr(value), d->sdelete, d->format);
 	}
 	else if (setting.compare("TAB") == 0) {
-		textToStroke(value, d->stab, d->format);
+		textToStroke(strtotstr(value), d->stab, d->format);
 	}
 	else if (setting.compare("FORMAT") == 0) {
-		d->format = value;
+		d->format = strtotstr(value);
 		while (d->format.length() < 23) {
 			d->format += 'X';
 		}
 	}
 	else if (setting.compare("RETURN") == 0) {
-		textToStroke(value, d->sreturn, d->format);
+		textToStroke(strtotstr(value), d->sreturn, d->format);
 	}
 	else if (setting.compare("NUMBER") == 0) {
-		textToStroke(value, d->number, d->format);
+		textToStroke(strtotstr(value), d->number, d->format);
 	}
 	else if (setting.compare("EXTRAS") == 0) {
 		if (std::atoi(value.c_str()) == 1) {
@@ -244,19 +256,19 @@ void strtodsetting(dictionary* d, const std::string& setting, const std::string&
 				unsigned __int32 ival;
 			} tstroke;
 
-			textToStroke(m[1].str(), tstroke.sval, d->format);
+			textToStroke(strtotstr(m[1].str()), tstroke.sval, d->format);
 			int sufx = strtosuf(m[2].str());
 			d->suffix.push_back(std::make_pair(tstroke.ival, sufx));
 		}
 	}
 }
 
-void loadDictSettings(dictionary* d, const std::string& file) {
-	d->format = "#STKPWHRAO*EUFRPBLGTSDZ";
-	textToStroke(std::string("*"), d->sdelete, d->format);
-	textToStroke(std::string("*"), d->number, d->format);
-	textToStroke(std::string("T-B"), d->stab, d->format);
-	textToStroke(std::string("R-RPB"), d->sreturn, d->format);
+void loadDictSettings(dictionary* d, const tstring& file) {
+	d->format = TEXT("#STKPWHRAO*EUFRPBLGTSDZ");
+	textToStroke(tstring(TEXT("*")), d->sdelete, d->format);
+	textToStroke(tstring(TEXT("*")), d->number, d->format);
+	textToStroke(tstring(TEXT("T-B")), d->stab, d->format);
+	textToStroke(tstring(TEXT("R-RPB")), d->sreturn, d->format);
 	d->longest = 1;
 	d->lchars = 1;
 	d->items = 0;
@@ -264,15 +276,30 @@ void loadDictSettings(dictionary* d, const std::string& file) {
 	d->extras = FALSE;
 	
 
-	HANDLE hfile = CreateFileA(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 	std::regex property("^\\s*(\\S+)\\s*=\\s*(\\S+)\\s*");
 
 	std::cmatch m;
+
+	
 
 	if (hfile != INVALID_HANDLE_VALUE) {
 		char c;
 		DWORD bytes;
 		std::string cline("");
+
+		//detect and erase BOM
+		///239, 187, 191
+		unsigned __int8 bom[3] = "\0\0";
+		ReadFile(hfile, bom, 3, &bytes, NULL);
+		if (bom[0] != 239 || bom[1] != 187 || bom[2] != 191) {
+			cline += bom[0];
+			cline += bom[1];
+			cline += bom[2];
+			std::string::iterator end_pos = std::remove_if(cline.begin(), cline.end(), isReturn);
+			cline.erase(end_pos, cline.end());
+
+		}
 
 		ReadFile(hfile, &c, 1, &bytes, NULL);
 		while (bytes > 0) {
@@ -295,11 +322,11 @@ void loadDictSettings(dictionary* d, const std::string& file) {
 	}
 }
 
-void addentry(dictionary* d, const std::string &stroke, const std::string &text, DB_TXN* trans, bool overwrite = false) {
+void addentry(dictionary* d, const tstring &stroke, const std::string &text, DB_TXN* trans, bool overwrite = false) {
 	int numstrokes = countStrokes(stroke, stroke.length());
 	unsigned __int8* sdata = new unsigned __int8[numstrokes * 3];
 
-	std::string::const_iterator it = stroke.cbegin();
+	tstring::const_iterator it = stroke.cbegin();
 	int i = 0;
 	while (it != stroke.cend()) {
 		textToStroke(sdata + i * 3, it, stroke.cend(), d->format);
@@ -314,15 +341,15 @@ void addentry(dictionary* d, const std::string &stroke, const std::string &text,
 	delete sdata;
 }
 
-void appendUser(dictionary* d, const std::string& stroke, const std::string& text) {
-	const static std::regex rx("\\\\[^\\\\]*$");
-	std::string file = std::regex_replace(d->settingslocation, rx, "\\user");
+void appendUser(dictionary* d, const tstring& stroke, const std::string& text) {
+	const static tregex rx(TEXT("\\\\[^\\\\]*$"));
+	tstring file = std::regex_replace(d->settingslocation, rx, TEXT("\\user"));
 	
-	HANDLE hfile = CreateFileA(file.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, 0, NULL);
+	HANDLE hfile = CreateFile(file.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, 0, NULL);
 	if (hfile != INVALID_HANDLE_VALUE) {
 		SetFilePointer(hfile, 0, NULL, FILE_END);
 		writestr(hfile, "\r\n\"");
-		writestr(hfile, stroke);
+		writestr(hfile, ttostr(stroke));
 		writestr(hfile, "\": \"");
 		writestr(hfile, text);
 		writestr(hfile, "\"");
@@ -332,8 +359,8 @@ void appendUser(dictionary* d, const std::string& stroke, const std::string& tex
 }
 //{\rtf1\ansi{\*\cxrev100}\cxdict{\*\cxsystem SL}{\stylesheet{\s0 Normal;}}
 
-void SaveRTF(dictionary* d, const std::string &file, HWND progress) {
-	HANDLE hfile = CreateFileA(file.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, 0, NULL);
+void SaveRTF(dictionary* d, const tstring &file, HWND progress) {
+	HANDLE hfile = CreateFile(file.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, 0, NULL);
 	if (hfile != INVALID_HANDLE_VALUE) {
 		if (progress) {
 			SendMessage(progress, PBM_SETRANGE32, 0, d->items);
@@ -370,15 +397,15 @@ void SaveRTF(dictionary* d, const std::string &file, HWND progress) {
 
 		while (result == 0) {
 			writestr(hfile, "{\\*\\cxs ");
-			std::string acc;
+			tstring acc;
 			stroketocsteno((unsigned __int8*)(keyin.data), acc, d->format);
-			for (int i = 1; i * 3 < keyin.size; i++) {
-				acc += "/";
-				std::string tmp;
+			for (unsigned int i = 1; i * 3 < keyin.size; i++) {
+				acc += TEXT("/");
+				tstring tmp;
 				stroketocsteno(&(((unsigned __int8*)(keyin.data))[i * 3]), tmp, d->format);
 				acc += tmp;
 			}
-			writestr(hfile, acc);
+			writestr(hfile, ttostr(acc));
 			writestr(hfile, "}");
 			writestr(hfile, (char*)(strin.data));
 			writestr(hfile, "\n");
@@ -400,8 +427,8 @@ void SaveRTF(dictionary* d, const std::string &file, HWND progress) {
 }
 
 
-void SaveJson(dictionary* d, const std::string &file, HWND progress) {
-	HANDLE hfile = CreateFileA(file.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, 0, NULL);
+void SaveJson(dictionary* d, const tstring &file, HWND progress) {
+	HANDLE hfile = CreateFile(file.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, 0, NULL);
 	if (hfile != INVALID_HANDLE_VALUE) {
 		if (progress) {
 			SendMessage(progress, PBM_SETRANGE32, 0, d->items);
@@ -410,6 +437,8 @@ void SaveJson(dictionary* d, const std::string &file, HWND progress) {
 		sharedData.totalprogress = d->items;
 		sharedData.currentprogress = 0;
 		PostMessage(controls.main, WM_LOAD_PROGRESS, 1, 0);
+
+		writeBOM(hfile);
 
 		DB_TXN* trans;
 		d->env->txn_begin(d->env, NULL, &trans, DB_READ_UNCOMMITTED);
@@ -438,15 +467,15 @@ void SaveJson(dictionary* d, const std::string &file, HWND progress) {
 
 		while (result == 0) {
 			writestr(hfile, "\"");
-			std::string acc;
+			tstring acc;
 			stroketocsteno((unsigned __int8*)(keyin.data), acc, d->format);
-			for (int i = 1; i * 3 < keyin.size; i++) {
-				acc += "/";
-				std::string tmp;
+			for (unsigned int i = 1; i * 3 < keyin.size; i++) {
+				acc += TEXT("/");
+				tstring tmp;
 				stroketocsteno(&(((unsigned __int8*)(keyin.data))[i * 3]), tmp, d->format);
 				acc += tmp;
 			}
-			writestr(hfile, acc);
+			writestr(hfile, ttostr(acc));
 			writestr(hfile, "\": \"");
 			writestr(hfile, (char*)(strin.data));
 
@@ -473,8 +502,8 @@ void SaveJson(dictionary* d, const std::string &file, HWND progress) {
 	}
 }
 
-void LoadJson(dictionary* d, const std::string &file, HWND progress, bool overwrite) {
-	HANDLE hfile = CreateFileA(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+void LoadJson(dictionary* d, const tstring &file, HWND progress, bool overwrite) {
+	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 	std::regex parsejson("^\\\"(.+?)\\\"\\: \\\"(.*)\\\",?\\s*$");
 	std::cmatch m;
 
@@ -496,6 +525,18 @@ void LoadJson(dictionary* d, const std::string &file, HWND progress, bool overwr
 		DWORD bytes;
 		std::string cline("");
 		
+		//detect and erase BOM
+		unsigned __int8 bom[3] = "\0\0";
+		ReadFile(hfile, bom, 3, &bytes, NULL);
+		if (bom[0] != 239 || bom[1] != 187 || bom[2] != 191) {
+			cline += bom[0];
+			cline += bom[1];
+			cline += bom[2];
+			std::string::iterator end_pos = std::remove_if(cline.begin(), cline.end(), isReturn);
+			cline.erase(end_pos, cline.end());
+
+		}
+
 		int totalb = 0;
 		ReadFile(hfile, &c, 1, &bytes, NULL);
 		while (bytes > 0) {
@@ -506,7 +547,7 @@ void LoadJson(dictionary* d, const std::string &file, HWND progress, bool overwr
 			if (r != std::string::npos) {
 				cline.erase(r, 1);
 				if (std::regex_match(cline.c_str(), m, parsejson)) {
-					addentry(d, m[1].str(), m[2].str(), trans, overwrite );
+					addentry(d, strtotstr(m[1].str()), m[2].str(), trans, overwrite );
 				}
 				cline.clear();
 				if (progress) {
@@ -520,7 +561,7 @@ void LoadJson(dictionary* d, const std::string &file, HWND progress, bool overwr
 		}
 
 		if (std::regex_match(cline.c_str(), m, parsejson)) {
-			addentry(d, m[1].str(), m[2].str(), trans, overwrite);
+			addentry(d, strtotstr(m[1].str()), m[2].str(), trans, overwrite);
 		}
 
 		trans->commit(trans, 0);
@@ -531,9 +572,9 @@ void LoadJson(dictionary* d, const std::string &file, HWND progress, bool overwr
  
 }
 
-void LoadRTF(dictionary* d, const std::string &file, HWND progress, bool overwrite) {
+void LoadRTF(dictionary* d, const tstring &file, HWND progress, bool overwrite) {
 	//{\*\cxs STROKETEXT}ENTRYTEXT
-	HANDLE hfile = CreateFileA(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 	std::regex parsertf(".*\\{\\\\\\*\\\\cxs (.+?)\\}(.+)$");
 	std::cmatch m;
 
@@ -556,6 +597,18 @@ void LoadRTF(dictionary* d, const std::string &file, HWND progress, bool overwri
 		DWORD bytes;
 		std::string cline("");
 
+		//detect and erase BOM
+		unsigned __int8 bom[3] = "\0\0";
+		ReadFile(hfile, bom, 3, &bytes, NULL);
+		if (bom[0] != 239 || bom[1] != 187 || bom[2] != 191) {
+			cline += bom[0];
+			cline += bom[1];
+			cline += bom[2];
+			std::string::iterator end_pos = std::remove_if(cline.begin(), cline.end(), isReturn);
+			cline.erase(end_pos, cline.end());
+
+		}
+
 		int totalb = 0;
 		ReadFile(hfile, &c, 1, &bytes, NULL);
 		while (bytes > 0) {
@@ -566,7 +619,7 @@ void LoadRTF(dictionary* d, const std::string &file, HWND progress, bool overwri
 			if (r != std::string::npos) {
 				cline.erase(r, 1);
 				if (std::regex_match(cline.c_str(), m, parsertf)) {
-					addentry(d, m[1].str(), m[2].str(), trans, overwrite);
+					addentry(d, strtotstr(m[1].str()), m[2].str(), trans, overwrite);
 				}
 				cline.clear();
 				if (progress) {
@@ -580,7 +633,7 @@ void LoadRTF(dictionary* d, const std::string &file, HWND progress, bool overwri
 		}
 
 		if (std::regex_match(cline.c_str(), m, parsertf)) {
-			addentry(d, m[1].str(), m[2].str(), trans, overwrite);
+			addentry(d, strtotstr(m[1].str()), m[2].str(), trans, overwrite);
 		}
 
 		trans->commit(trans, 0);
@@ -589,27 +642,27 @@ void LoadRTF(dictionary* d, const std::string &file, HWND progress, bool overwri
 	}
 }
 
-std::list<std::string> EnumDicts() {
+std::list<tstring> EnumDicts() {
 
 	DWORD len = MAX_PATH;
-	std::string res = GetDictDir();
+	tstring res = GetDictDir();
 
-	std::list<std::string> results;
+	std::list<tstring> results;
 
-	std::string filename = res + "*";
+	tstring filename = res + TEXT("*");
 
-	WIN32_FIND_DATAA FindFileData;
+	WIN32_FIND_DATA FindFileData;
 
 	int found = 0;
 
-	HANDLE hFind = FindFirstFileExA(filename.c_str(), FindExInfoStandard, &FindFileData, FindExSearchNameMatch, NULL, 0);
+	HANDLE hFind = FindFirstFileEx(filename.c_str(), FindExInfoStandard, &FindFileData, FindExSearchNameMatch, NULL, 0);
 	while (hFind != INVALID_HANDLE_VALUE)
 	{
-		if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 && std::string(".").compare(FindFileData.cFileName) != 0 && std::string("..").compare(FindFileData.cFileName) != 0) {
-			results.push_back(std::string(FindFileData.cFileName));
+		if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 && tstring(TEXT(".")).compare(FindFileData.cFileName) != 0 && tstring(TEXT("..")).compare(FindFileData.cFileName) != 0) {
+			results.push_back(tstring(FindFileData.cFileName));
 			found++;
 		}
-		if (!FindNextFileA(hFind, &FindFileData))
+		if (!FindNextFile(hFind, &FindFileData))
 		{
 			FindClose(hFind);
 			hFind = INVALID_HANDLE_VALUE;
@@ -617,7 +670,7 @@ std::list<std::string> EnumDicts() {
 	}
 
 	if (found == 0) {
-		MessageBox(NULL, (tstring(TEXT("No dictionary directories found in: ")) + strtotstr(res)).c_str(), TEXT("Error"), MB_OK);
+		MessageBox(NULL, (tstring(TEXT("No dictionary directories found in: ")) + res).c_str(), TEXT("Error"), MB_OK);
 	}
 
 	return results;
@@ -625,30 +678,30 @@ std::list<std::string> EnumDicts() {
 
 void loadDictionaries() {
 	DWORD len = MAX_PATH;
-	std::string root = GetDictDir();
+	tstring root = GetDictDir();
 
 
-		std::string filename = root + "*";
+		tstring filename = root +TEXT("*");
 
-		WIN32_FIND_DATAA FindFileData;
+		WIN32_FIND_DATA FindFileData;
 
-		HANDLE hFind = FindFirstFileExA(filename.c_str(), FindExInfoStandard, &FindFileData, FindExSearchNameMatch, NULL, 0);
+		HANDLE hFind = FindFirstFileEx(filename.c_str(), FindExInfoStandard, &FindFileData, FindExSearchNameMatch, NULL, 0);
 		while (hFind != INVALID_HANDLE_VALUE)
 		{
-			if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 && std::string(".").compare(FindFileData.cFileName) != 0 && std::string("..").compare(FindFileData.cFileName) != 0) {
-				std::string dir(FindFileData.cFileName);
-				std::string compiled = root + dir + "\\bin";
+			if ((FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 && tstring(TEXT(".")).compare(FindFileData.cFileName) != 0 && tstring(TEXT("..")).compare(FindFileData.cFileName) != 0) {
+				tstring dir(FindFileData.cFileName);
+				tstring compiled = root + dir + TEXT("\\bin");
 				
-				if (GetFileAttributesA(compiled.c_str()) != INVALID_FILE_ATTRIBUTES) {
+				if (GetFileAttributes(compiled.c_str()) != INVALID_FILE_ATTRIBUTES) {
 
-					dictionary* d = new dictionary((root + dir).c_str());
+					dictionary* d = new dictionary(ttostr((root + dir)).c_str());
 
-					loadDictSettings(d, (root + dir + std::string("\\settings.txt")));
+					loadDictSettings(d, (root + dir + TEXT("\\settings.txt")));
 
 
 					//if (OpenDictionary(d, dir)) {
 					if (d->open("bin", "bin2")) {
-						sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
+						sharedData.dicts.push_front(std::tuple<tstring, dictionary*>(dir, d));
 						if (settings.dict.compare(dir) == 0) {
 							setDictionary(d);
 						}
@@ -656,7 +709,7 @@ void loadDictionaries() {
 					else {
 						MessageBox(NULL, (tstring(TEXT("Failed to open database, attempting catastrophic recovery\r\nFor dictionary in: ")) + strtotstr(d->hm)).c_str(), TEXT("Error"), MB_OK);
 						if (d->opencrecovery("bin", "bin2")) {
-							sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
+							sharedData.dicts.push_front(std::tuple<tstring, dictionary*>(dir, d));
 							if (settings.dict.compare(dir) == 0) {
 								setDictionary(d);
 							}
@@ -668,8 +721,8 @@ void loadDictionaries() {
 
 				}
 				else {
-					dictionary* d = new dictionary((root + dir).c_str());
-					loadDictSettings(d, (root + dir + "\\settings.txt"));
+					dictionary* d = new dictionary(ttostr((root + dir)).c_str());
+					loadDictSettings(d, (root + dir + TEXT("\\settings.txt")));
 					d->items = 0;
 					d->lchars = 0;
 					d->longest = 0;
@@ -677,39 +730,39 @@ void loadDictionaries() {
 					//d->open(compiled.c_str(), (root + dir + std::string("\\bin2")).c_str(), true);
 					if (d->open("bin", "bin2")) {
 		
-						if (GetFileAttributesA((root + dir + "\\user").c_str()) != INVALID_FILE_ATTRIBUTES)
+						if (GetFileAttributes((root + dir + TEXT("\\user")).c_str()) != INVALID_FILE_ATTRIBUTES)
 						{
-							LoadJson(d, (root + dir + "\\user"), NULL, true);
+							LoadJson(d, (root + dir + TEXT("\\user")), NULL, true);
 						}
 
-						WIN32_FIND_DATAA innerFindFileData;
-						HANDLE hinnerFind = FindFirstFileExA((root + dir + "\\*.json").c_str(), FindExInfoStandard, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
+						WIN32_FIND_DATA innerFindFileData;
+						HANDLE hinnerFind = FindFirstFileEx((root + dir + TEXT("\\*.json")).c_str(), FindExInfoStandard, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
 						while (hinnerFind != INVALID_HANDLE_VALUE)
 						{
 							if ((innerFindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-								LoadJson(d, root + dir + "\\" + innerFindFileData.cFileName, NULL);
+								LoadJson(d, root + dir + TEXT("\\") + innerFindFileData.cFileName, NULL);
 							}
-							if (!FindNextFileA(hinnerFind, &innerFindFileData))
+							if (!FindNextFile(hinnerFind, &innerFindFileData))
 							{
 								FindClose(hinnerFind);
 								hinnerFind = INVALID_HANDLE_VALUE;
 							}
 						}
 
-						hinnerFind = FindFirstFileExA((root + dir + "\\*.rtf").c_str(), FindExInfoStandard, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
+						hinnerFind = FindFirstFileEx((root + dir + TEXT("\\*.rtf")).c_str(), FindExInfoStandard, &innerFindFileData, FindExSearchNameMatch, NULL, 0);
 						while (hinnerFind != INVALID_HANDLE_VALUE)
 						{
 							if ((innerFindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-								LoadRTF(d, root + dir + "\\" + innerFindFileData.cFileName, NULL);
+								LoadRTF(d, root + dir + TEXT("\\") + innerFindFileData.cFileName, NULL);
 							}
-							if (!FindNextFileA(hinnerFind, &innerFindFileData))
+							if (!FindNextFile(hinnerFind, &innerFindFileData))
 							{
 								FindClose(hinnerFind);
 								hinnerFind = INVALID_HANDLE_VALUE;
 							}
 						}
 
-						sharedData.dicts.push_front(std::tuple<std::string, dictionary*>(dir, d));
+						sharedData.dicts.push_front(std::tuple<tstring, dictionary*>(dir, d));
 
 						if (settings.dict.compare(dir) == 0) {
 							setDictionary(d);
@@ -720,7 +773,7 @@ void loadDictionaries() {
 					}
 				}
 			}
-			if (!FindNextFileA(hFind, &FindFileData))
+			if (!FindNextFile(hFind, &FindFileData))
 			{
 				FindClose(hFind);
 				hFind = INVALID_HANDLE_VALUE;
@@ -762,7 +815,7 @@ void strtosetting(const std::string& setting, const std::string& value) {
 		settings.space = std::atoi(value.c_str());
 	}
 	else if (setting.compare("DICT") == 0) {
-		settings.dict = value;
+		settings.dict = strtotstr(value);
 	}
 	else if (setting.compare("X") == 0) {
 		settings.xpos = std::atoi(value.c_str());
@@ -789,10 +842,10 @@ void strtosetting(const std::string& setting, const std::string& value) {
 
 void loadSettings() {
 	DWORD len = MAX_PATH;
-	std::string root = GetDictDir();
+	tstring root = GetDictDir();
 
 	
-	std::string file = root + "settings";
+	tstring file = root + TEXT("settings");
 
 	settings.trans = FALSE;
 	settings.top = FALSE;
@@ -805,7 +858,7 @@ void loadSettings() {
 	settings.ypos = 200;
 
 
-	HANDLE hfile = CreateFileA(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 	std::regex property("^\\s*(\\S+)\\s*=\\s*(\\S+)\\s*");
 	
 	std::cmatch m;
@@ -814,6 +867,18 @@ void loadSettings() {
 		char c;
 		DWORD bytes;
 		std::string cline("");
+
+		//detect and erase BOM
+		unsigned __int8 bom[3] = "\0\0";
+		ReadFile(hfile, bom, 3, &bytes, NULL);
+		if (bom[0] != 239 || bom[1] != 187 || bom[2] != 191) {
+			cline += bom[0];
+			cline += bom[1];
+			cline += bom[2];
+			std::string::iterator end_pos = std::remove_if(cline.begin(), cline.end(), isReturn);
+			cline.erase(end_pos, cline.end());
+
+		}
 
 		ReadFile(hfile, &c, 1, &bytes, NULL);
 		while (bytes > 0) {

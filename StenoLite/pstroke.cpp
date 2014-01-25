@@ -272,17 +272,13 @@ tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevf
 				inescape = false;
 			}
 			else if (*i == TEXT('D')) {
-				tstring dictnameW = getSubSeq(i, fulltext.cend());
-				std::string dictname = ttostr(dictnameW);
-				std::list<std::tuple<std::string, dictionary*>>::iterator di = sharedData.dicts.begin();
+				tstring dictname = getSubSeq(i, fulltext.cend());
+				std::list<std::tuple<tstring, dictionary*>>::iterator di = sharedData.dicts.begin();
 				while (di != sharedData.dicts.cend()) {
-					if (std::get<0, std::string, dictionary*>(*di).compare(dictname) == 0) {
+					if (std::get<0, tstring, dictionary*>(*di).compare(dictname) == 0) {
 						settings.dict = dictname;
-						setDictionary(std::get<1, std::string, dictionary*>(*di));
-						TCHAR buffer[200];
-						std::copy(dictname.cbegin(), dictname.cend(), buffer);
-						buffer[dictname.length()] = 0;
-						int sel = SendMessage(controls.dicts, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)(buffer));
+						setDictionary(std::get<1, tstring, dictionary*>(*di));		
+						int sel = SendMessage(controls.dicts, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)(dictname.c_str()));
 						SendMessage(controls.dicts, CB_SETCURSEL, (WPARAM)sel, (LPARAM)0);
 					}
 					di++;
@@ -463,7 +459,7 @@ tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevf
 	}
 
 	if (!redirect) {
-		unsigned int sent = 0;
+		int sent = 0;
 		while (sent < totalkeys) {
 			sent += SendInput(totalkeys - sent, &(keys[sent]), sizeof(INPUT));
 		}
@@ -487,7 +483,7 @@ void deleteN(int n) {
 		inputs[i * 2 + 1].ki.wVk = VK_BACK;
 	}
 
-	unsigned int sent = 0;
+	int sent = 0;
 	while (sent < n * 2) {
 		sent += SendInput((n * 2) - sent, &(inputs[sent]), sizeof(INPUT));
 	}
@@ -506,7 +502,7 @@ void spaceN(int n) {
 		inputs[i * 2 + 1].ki.wVk = VK_SPACE;
 	}
 
-	unsigned int sent = 0;
+	int sent = 0;
 	while (sent < n * 2) {
 		sent += SendInput((n * 2) - sent, &(inputs[sent]), sizeof(INPUT));
 	}

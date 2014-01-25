@@ -1,8 +1,14 @@
+0.8.7
+Possibility of a few more deadlocks removed
+Changed to unicode file naming
+Changed format string to unicode
+Added BOM and BOM support
+
 0.8.6
 Improved unicode support
 Improved sizing of main window
 Fixed deadlock error
-Fixed checkbox color under XP
+Fixed check-box color under XP
 
 0.8.5
 Support for Non-English stenograph layouts

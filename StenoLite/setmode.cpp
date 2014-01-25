@@ -19,7 +19,7 @@ void setDictionary(dictionary* d) {
 		if (GetWindowTextLength(controls.mestroke) > 1)
 			buffer += TEXT("\r\n");
 
-		buffer += strtotstr(d->format);
+		buffer += d->format;
 
 		int lines = SendMessage(controls.mestroke, EM_GETLINECOUNT, 0, 0);
 		if (lines > controls.numlines - 1) {
@@ -57,14 +57,11 @@ void setMode(int mode) {
 		TCHAR pathbuffer[MAX_PATH];
 		GetModuleFileName(NULL, pathbuffer, MAX_PATH);
 
-		const static std::regex rx("\\\\[^\\\\]*$");
-		std::string pth = ttostr(pathbuffer);
-		std::string file = std::regex_replace(pth, rx, "\\SLKeyCap.dll");
-		std::copy(file.begin(), file.end(), pathbuffer);
-		pathbuffer[file.size()] = 0;
+		const static tregex rx(TEXT("\\\\[^\\\\]*$"));
+		tstring file = std::regex_replace(pathbuffer, rx, TEXT("\\SLKeyCap.dll"));
 
 		HMODULE dll = NULL;
-		dll = LoadLibrary(pathbuffer);
+		dll = LoadLibrary(file.c_str());
 		if (dll == NULL) {
 			MessageBox(NULL, TEXT("Could not load capture dll\r\nKeyboard mode will not function"), TEXT("Error"), MB_OK);
 		}

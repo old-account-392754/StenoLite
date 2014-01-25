@@ -15,10 +15,10 @@ int countStrokes(const TCHAR* text, const int &len) {
 	return total;
 }
 
-int countStrokes(const std::string &text, const int &len) {
+int countStrokes(const tstring &text, const int &len) {
 	int total = 1;
-	for (std::string::const_iterator i = text.cbegin(); i != text.cend(); i++) {
-		if (*i == '/')
+	for (tstring::const_iterator i = text.cbegin(); i != text.cend(); i++) {
+		if (*i == TEXT('/'))
 			total++;
 	}
 	return total;
@@ -36,8 +36,8 @@ int getsecondary(DB *secondary, const DBT *pkey, const DBT *pdata, DBT *skey)
 // 0123456789012345678901
 //#STKPWHRAO*EUFRPBLGTSDZ
 
-inline void searchposition(unsigned __int8* dest, int &position, const char &in, const std::string &format) {
-	if (std::toupper(format[position+1]) == std::toupper(in)) {
+inline void searchposition(unsigned __int8* dest, int &position, const TCHAR &in, const tstring &format) {
+	if (_totupper(format[position + 1]) == _totupper(in)) {
 		if (position < 8) {
 			dest[0] |= 1 << position;
 		}
@@ -55,7 +55,7 @@ inline void searchposition(unsigned __int8* dest, int &position, const char &in,
 
 	while (position != stop) {
 
-		if (std::toupper(format[position+1]) == std::toupper(in)) {
+		if (_totupper(format[position + 1]) == _totupper(in)) {
 			if (position < 8) {
 				dest[0] |= 1 << position;
 			}
@@ -74,63 +74,63 @@ inline void searchposition(unsigned __int8* dest, int &position, const char &in,
 	}
 }
 
-void textToStroke(unsigned __int8* dest, std::string::const_iterator &i, std::string::const_iterator &end, const std::string &format) {
+void textToStroke(unsigned __int8* dest, tstring::const_iterator &i, tstring::const_iterator &end, const tstring &format) {
 	dest[0] = dest[1] = dest[2]  = 0;
 	int position = 0;
 	for (; i != end; i++) {
 		switch (*i) {
-		case '/':
+		case TEXT('/'):
 			i++;
 			return;
-		case '-':
+		case TEXT('-'):
 			position = 12;
 			break;
-		case '1':
+		case TEXT('1'):
 			dest[0] |= 0x01;
 			dest[2] |= 0x40;
 			position = 0;
 			break;
-		case '2':
+		case TEXT('2'):
 			dest[0] |= 0x02;
 			dest[2] |= 0x40;
 			position = 1;
 			break;
-		case '3':
+		case TEXT('3'):
 			dest[0] |= 0x08;
 			dest[2] |= 0x40;
 			position = 3;
 			break;
-		case '4':
+		case TEXT('4'):
 			dest[0] |= 0x20;
 			dest[2] |= 0x40;
 			position = 5;
 			break;
-		case '5':
+		case TEXT('5'):
 			dest[0] |= 0x80;
 			dest[2] |= 0x40;
 			position = 7;
 			break;
-		case '0':
+		case TEXT('0'):
 			dest[1] |= 0x01;
 			dest[2] |= 0x40;
 			position = 8;
 			break;
-		case '6':
+		case TEXT('6'):
 			dest[1] |= 0x10;
 			dest[2] |= 0x40;
 			position = 12;
 			break;
-		case '7':
+		case TEXT('7'):
 			dest[1] |= 0x40;
 			dest[2] |= 0x40;
 			position = 14;
 			break;
-		case '8':
+		case TEXT('8'):
 			dest[2] |= 0x01;
 			dest[2] |= 0x40;
 			position = 16;
 			break;
-		case '9':
+		case TEXT('9'):
 			dest[2] |= 0x04;
 			dest[2] |= 0x40;
 			position = 18;
@@ -313,11 +313,11 @@ void textToStroke(unsigned __int8* dest, std::string::const_iterator &i, std::st
 	}
 }*/
 
-void textToStroke(const std::string &stro, unsigned __int8* dest, const std::string &format) {
+void textToStroke(const tstring &stro, unsigned __int8* dest, const tstring &format) {
 	textToStroke(dest, stro.cbegin(), stro.cend(), format);
 }
 
-unsigned __int8* texttomultistroke(const std::string &in, int& size, const std::string &format) {
+unsigned __int8* texttomultistroke(const tstring &in, int& size, const tstring &format) {
 	size = countStrokes(in, size);
 	unsigned __int8* sdata = new unsigned __int8[size * 3];
 
@@ -334,7 +334,18 @@ unsigned __int8* texttomultistroke(const std::string &in, int& size, const std::
 	return sdata;
 }
 
-void dictionary::addNewDItem(unsigned __int8 *s, const int &len, const std::string &str, DB_TXN* trans) {
+tstring stroketomultitext(const unsigned __int8* stroke, const unsigned int &numstrokes, const tstring& format) {
+	tstring result;
+	for (unsigned int i = 0; i < numstrokes; i++) {
+		stroketocsteno(&(stroke[i * 3]), result, format);
+		if (i + 1 < numstrokes) {
+			result += TEXT('/');
+		}
+	}
+	return result;
+}
+
+void dictionary::addNewDItem(unsigned __int8 *s, const unsigned int &len, const std::string &str, DB_TXN* trans) {
 
 
 	if (str.length() > lchars) {
@@ -362,7 +373,7 @@ void dictionary::addNewDItem(unsigned __int8 *s, const int &len, const std::stri
 	}
 }
 
-void dictionary::addDItem(unsigned __int8 *s, const int &len, const std::string &str, DB_TXN* trans) {
+void dictionary::addDItem(unsigned __int8 *s, const unsigned int &len, const std::string &str, DB_TXN* trans) {
 	
 	if (str.length() > lchars) {
 		lchars = str.length();
@@ -391,7 +402,7 @@ void dictionary::addDItem(unsigned __int8 *s, const int &len, const std::string 
 	contents->put(contents, trans, &keyin, &strin, 0);
 }
 
-void dictionary::deleteDItem(unsigned __int8 *s, const int &len, DB_TXN* trans) {
+void dictionary::deleteDItem(unsigned __int8 *s, const unsigned int &len, DB_TXN* trans) {
 	DBT keyin;
 	keyin.data = s;
 	keyin.size = len;
@@ -403,7 +414,7 @@ void dictionary::deleteDItem(unsigned __int8 *s, const int &len, DB_TXN* trans) 
 		items--;
 }
 
-bool dictionary::findDItem(unsigned __int8 *s, const int &len, std::string &str, DB_TXN* trans) {
+bool dictionary::findDItem(unsigned __int8 *s, const unsigned int &len, std::string &str, DB_TXN* trans) {
 
 	DBT keyin;
 	memset(&keyin, 0, sizeof(DBT));
@@ -433,27 +444,10 @@ bool dictionary::findDItem(unsigned __int8 *s, const int &len, std::string &str,
 	return false;
 }
 
-void stroketocsteno(unsigned __int8* keys, std::string &buffer, const std::string &format, bool number) {
-	static TCHAR internal[200];
-	//buffer.clear();
-	
-	stroketocsteno(keys, internal, format, number);
-	for (int i = 0; internal[i] != 0; i++) {
-		buffer += (char)(internal[i]);
-	}
-}
 
-void stroketocsteno(unsigned __int8* keys, std::wstring &buffer, const std::string &format, bool number) {
-	static TCHAR internal[200];
-	//buffer.clear();
-	stroketocsteno(keys, internal, format, number);
-	for (int i = 0; internal[i] != 0; i++) {
-		buffer += internal[i];
-	}
-}
 
-void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, const std::string &format, bool number) {
-	int index = 0;
+
+void stroketocsteno(const unsigned __int8* keys, std::wstring &buffer, const tstring &format, bool number) {
 
 	bool numbers = false;
 
@@ -463,8 +457,7 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, const std::string &for
 
 		}
 		else {
-			buffer[index] = format[0];
-			index++;
+			buffer += format[0];
 		}
 	}
 
@@ -472,157 +465,133 @@ void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, const std::string &for
 
 	if ((keys[0] & 0x01) != 0) {
 		if (numbers) {
-			buffer[index] = TEXT('1');
+			buffer += TEXT('1');
 		}
 		else {
-			buffer[index] = format[1];
+			buffer += format[1];
 		}
-		index++;
 	}
 	if ((keys[0] & 0x02) != 0) {
 		if (numbers) {
-			buffer[index] = TEXT('2');
+			buffer += TEXT('2');
 		}
 		else {
-			buffer[index] = format[2];
+			buffer += format[2];
 		}
-		index++;
 	}
 	if ((keys[0] & 0x04) != 0) {
-		buffer[index] = format[3];
-		index++;
+		buffer += format[3];
 	}
 	if ((keys[0] & 0x08) != 0) {
 		if (numbers) {
-			buffer[index] = TEXT('3');
+			buffer += TEXT('3');
 		}
 		else {
-			buffer[index] = format[4];
+			buffer += format[4];
 		}
-		index++;
 	}
 	if ((keys[0] & 0x10) != 0) {
-		buffer[index] = format[5];
-		index++;
+		buffer += format[5];
 	}
 	if ((keys[0] & 0x20) != 0) {
 		if (numbers) {
-			buffer[index] = TEXT('4');
+			buffer += TEXT('4');
 		}
 		else {
-			buffer[index] = format[6];
+			buffer += format[6];
 		}
-		index++;
 	}
 	if ((keys[0] & 0x40) != 0) {
-		buffer[index] = format[7];
-		index++;
+		buffer += format[7];
 	}
 	if ((keys[0] & 0x80) != 0) {
 		if (numbers) {
-			buffer[index] = TEXT('5');
+			buffer += TEXT('5');
 		}
 		else {
-			buffer[index] = format[8];
+			buffer += format[8];
 		}
-		index++;
 		separated = true;
 	}
 	if ((keys[1] & 0x01) != 0) {
 		if (numbers) {
-			buffer[index] = TEXT('0');
+			buffer += TEXT('0');
 		}
 		else {
-			buffer[index] = format[9];
+			buffer += format[9];
 		}
-		index++;
 		separated = true;
 	}
 	if ((keys[1] & 0x02) != 0) {
-		buffer[index] = format[10];
-		index++;
+		buffer += format[10];
 		separated = true;
 	}
 	if ((keys[1] & 0x04) != 0) {
-		buffer[index] = format[11];
-		index++;
+		buffer += format[11];
 		separated = true;
 	}
 	if ((keys[1] & 0x08) != 0) {
-		buffer[index] = format[12];
-		index++;
+		buffer += format[12];
 		separated = true;
 	}
 	if (!separated && !number) {
-		buffer[index] = TEXT('-');
-		index++;
+		buffer += TEXT('-');
 	}
 	if ((keys[1] & 0x10) != 0) {
 		if (numbers) {
-			buffer[index] = TEXT('6');
+			buffer += TEXT('6');
 		}
 		else {
-			buffer[index] = format[13];
+			buffer += format[13];
 		}
-		index++;
 	}
 	if ((keys[1] & 0x20) != 0) {
-		buffer[index] = format[14];
-		index++;
+		buffer += format[14];
 	}
 	if ((keys[1] & 0x40) != 0) {
 		if (numbers) {
-			buffer[index] = TEXT('7');
+			buffer += TEXT('7');
 		}
 		else {
-			buffer[index] = format[15];
+			buffer += format[15];
 		}
-		index++;
 	}
 	if ((keys[1] & 0x80) != 0) {
-		buffer[index] = format[16];
-		index++;
+		buffer += format[16];
 	}
 	if ((keys[2] & 0x01) != 0) {
 		if (numbers) {
-			buffer[index] = TEXT('8');
+			buffer += TEXT('8');
 		}
 		else {
-			buffer[index] = format[17];
+			buffer += format[17];
 		}
-		index++;
 	}
 	if ((keys[2] & 0x02) != 0) {
-		buffer[index] = format[18];
-		index++;
+		buffer += format[18];
 	}
 	if ((keys[2] & 0x04) != 0) {
 		if (numbers) {
-			buffer[index] = TEXT('9');
+			buffer += TEXT('9');
 		}
 		else {
-			buffer[index] = format[19];
+			buffer += format[19];
 		}
-		index++;
 	}
 	if ((keys[2] & 0x08) != 0) {
-		buffer[index] = format[20];
-		index++;
+		buffer += format[20];
 	}
 	if ((keys[2] & 0x10) != 0) {
-		buffer[index] = format[21];
-		index++;
+		buffer += format[21];
 	}
 	if ((keys[2] & 0x20) != 0) {
-		buffer[index] = format[22];
-		index++;
+		buffer += format[22];
 	}
 
-	buffer[index] = 0;
 
 }
 
-void stroketosteno(unsigned __int8* keys, TCHAR* buffer, const std::string &format) {
+void stroketosteno(const unsigned __int8* keys, TCHAR* buffer, const tstring &format) {
 	_tcscpy_s(buffer, 24, TEXT("                       "));
 	bool numbers = false;
 	bool wrotenumbers = false;

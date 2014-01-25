@@ -6,6 +6,7 @@
 #include <string>
 #include <Windows.h>
 #include <list>
+#include "texthelpers.h"
 
 
 int getsecondary(DB *secondary, const DBT *pkey, const DBT *pdata, DBT *skey);
@@ -18,10 +19,10 @@ struct dictionary {
 	unsigned __int8 stab[4];
 	unsigned __int8 number[4];
 	unsigned __int8 sreturn[4];
-	std::string settingslocation;
+	tstring settingslocation;
 	std::string hm;
 	BOOL extras = FALSE;
-	std::string format;
+	tstring format;
 
 
 	std::list<std::pair<unsigned __int32, int>> suffix;
@@ -32,27 +33,26 @@ struct dictionary {
 
 	dictionary(const char* home);
 	bool open(const char* file, const char* file2);
-	void addNewDItem(unsigned __int8* s, const int &len, const std::string &str, DB_TXN* trans);
-	void addDItem(unsigned __int8 *s, const int &len, const std::string &str, DB_TXN* trans);
-	bool findDItem(unsigned __int8* s, const int &len, std::string &str, DB_TXN* trans);
-	void deleteDItem(unsigned __int8 *s, const int &len, DB_TXN* trans);
+	void addNewDItem(unsigned __int8* s, const unsigned int &len, const std::string &str, DB_TXN* trans);
+	void addDItem(unsigned __int8 *s, const unsigned int &len, const std::string &str, DB_TXN* trans);
+	bool findDItem(unsigned __int8* s, const unsigned int &len, std::string &str, DB_TXN* trans);
+	void deleteDItem(unsigned __int8 *s, const unsigned int &len, DB_TXN* trans);
 	bool opencrecovery(const char* file, const char* file2);
 	void close();
 };
 
 
 void loadDictionaries();
-void stroketosteno(unsigned __int8* keys, TCHAR* buffer, const std::string &format);
+void stroketosteno(const unsigned __int8* keys, TCHAR* buffer, const tstring &format);
 
-void stroketocsteno(unsigned __int8* keys, TCHAR* buffer, const std::string &format, bool number = false);
-void stroketocsteno(unsigned __int8* keys, std::string &buffer, const std::string &format, bool number = false);
-void stroketocsteno(unsigned __int8* keys, std::wstring &buffer, const std::string &format, bool number = false);
+void stroketocsteno(const unsigned __int8* keys, std::wstring &buffer, const tstring &format, bool number = false);
 
-void textToStroke(const std::string &stro, unsigned __int8* dest, const std::string &format);
-void textToStroke(unsigned __int8* dest, std::string::const_iterator &i, std::string::const_iterator &end, const std::string &format);
+void textToStroke(const tstring &stro, unsigned __int8* dest, const tstring &format);
+void textToStroke(unsigned __int8* dest, tstring::const_iterator &i, tstring::const_iterator &end, const tstring &format);
 int countStrokes(const TCHAR* text, const int &len);
-int countStrokes(const std::string &text, const int &len);
+int countStrokes(const tstring &text, const int &len);
 
-unsigned __int8* texttomultistroke(const std::string &in, int& size, const std::string &format);
+unsigned __int8* texttomultistroke(const tstring &in, int& size, const tstring &format);
+tstring stroketomultitext(const unsigned __int8* stroke, const unsigned int &numstrokes, const tstring& format);
 
 #endif

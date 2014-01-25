@@ -6,18 +6,19 @@
 #include "stenodata.h"
 #include <list>
 #include <string>
+#include "texthelpers.h"
 
 void saveSettings();
 void saveDictSettings(dictionary* d);
 void loadSettings();
 void loadDictionaries();
-void loadDictSettings(dictionary* d, const std::string& file);
-std::list<std::string> EnumDicts();
-void appendUser(dictionary* d, const std::string& stroke, const std::string& text);
-void LoadJson(dictionary* d, const std::string &file, HWND progress = NULL, bool overwrite = false);
-void LoadRTF(dictionary* d, const std::string &file, HWND progress = NULL, bool overwrite = false);
-void SaveJson(dictionary* d, const std::string &file, HWND progress);
-void SaveRTF(dictionary* d, const std::string &file, HWND progress);
+void loadDictSettings(dictionary* d, const tstring& file);
+std::list<tstring> EnumDicts();
+void appendUser(dictionary* d, const tstring& stroke, const std::string& text);
+void LoadJson(dictionary* d, const tstring &file, HWND progress = NULL, bool overwrite = false);
+void LoadRTF(dictionary* d, const tstring &file, HWND progress = NULL, bool overwrite = false);
+void SaveJson(dictionary* d, const tstring &file, HWND progress);
+void SaveRTF(dictionary* d, const tstring &file, HWND progress);
 
 
 #endif

@@ -51,7 +51,7 @@ struct sstruct {
 	int mode;
 	int xpos;
 	int ypos;
-	std::string dict;
+	tstring dict;
 	unsigned __int8 map[256];
 } ;
 
@@ -82,7 +82,7 @@ struct sdata  {
 	HANDLE newtext;
 	HANDLE protectqueue;
 	std::queue<__int32> inputs;
-	std::list<std::tuple<std::string, dictionary*>> dicts;
+	std::list<std::tuple<tstring, dictionary*>> dicts;
 	std::list<singlestroke*> strokes;
 	dictionary* currentd;
 	unsigned __int8 number[4];
