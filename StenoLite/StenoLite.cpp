@@ -258,7 +258,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	InitCommonControlsEx(&prams);
 
 	hWnd = CreateWindowEx(WS_EX_LAYERED, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX,
-		settings.xpos, settings.ypos, 200, settings.height, NULL, NULL, hInstance, NULL);
+		settings.xpos, settings.ypos, 250, settings.height, NULL, NULL, hInstance, NULL);
 
 	if (!hWnd) {
 		return FALSE;
@@ -273,17 +273,34 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	HDC hdc = GetDC(hWnd);
 	HGDIOBJ old = SelectObject(hdc, GetStockObject(ANSI_FIXED_FONT));
 	SIZE metr;
-	GetTextExtentPoint32(hdc, TEXT("#STKPWHRAO*EUFRPBLGTSDZ"), 23, &metr);
-	controls.width = metr.cx + 30;
+	GetTextExtentPoint32(hdc, TEXT("X"), 1, &metr);
+	//controls.width = metr.cx + 30;
 	controls.lineheight = metr.cy;
 	SelectObject(hdc, old);
 	ReleaseDC(hWnd, hdc);
 
-	SetWindowPos(hWnd, HWND_TOPMOST, settings.xpos, settings.ypos, controls.width, settings.height, SWP_NOMOVE | SWP_NOZORDER);
+	//SetWindowPos(hWnd, HWND_TOPMOST, settings.xpos, settings.ypos, controls.width, settings.height, SWP_NOMOVE | SWP_NOZORDER);
 	RECT rt;
+	//GetClientRect(hWnd, &rt);
+	//SetWindowPos(controls.hTab, NULL, 0, 0, rt.right, rt.bottom, SWP_NOMOVE);
+	//TabCtrl_AdjustRect(controls.hTab, FALSE, &rt);
+
+
+	rt.left = 30;
+	rt.top = 30;
+	rt.right = metr.cx*23 + 31;
+	rt.bottom = 200;
+	TabCtrl_AdjustRect(controls.hTab, TRUE, &rt);
+	AdjustWindowRectEx(&rt, WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX, FALSE, WS_EX_LAYERED);
+
+	controls.width = rt.right - rt.left;
+
+	SetWindowPos(hWnd, HWND_TOPMOST, settings.xpos, settings.ypos, rt.right - rt.left, settings.height,  SWP_NOZORDER);
 	GetClientRect(hWnd, &rt);
 	SetWindowPos(controls.hTab, NULL, 0, 0, rt.right, rt.bottom, SWP_NOMOVE);
 	TabCtrl_AdjustRect(controls.hTab, FALSE, &rt);
+	//controls.width = rt.left - rt.right;
+
 
 	//#STKPWHRAO*EUFRPBLGTSDZ
 	controls.mestroke = CreateWindow(TEXT("EDIT"), TEXT(""),
@@ -857,10 +874,10 @@ LRESULT CALLBACK TabProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, 
 	switch (message) {
 	case WM_CTLCOLORSTATIC:
 		if ((HWND)lParam == controls.scontainer || (HWND)lParam == controls.mestroke || (HWND)lParam == controls.mesuggest) {
-			  return (LRESULT)GetStockObject(HOLLOW_BRUSH);
-			  }
-		  else {
-			  return DefSubclassProc(hWnd, message, wParam, lParam);
+			return (LRESULT)GetStockObject(WHITE_BRUSH);
+			}
+		else {
+			 return DefSubclassProc(hWnd, message, wParam, lParam);
 			}
 	
 	default:
@@ -876,6 +893,9 @@ LRESULT CALLBACK StaticProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 	int yPos = 0;
 	SCROLLINFO si;
 	switch (message) {
+	case WM_CTLCOLORSTATIC:
+	case WM_CTLCOLORBTN:
+		return (LRESULT)GetStockObject(WHITE_BRUSH);
 	case WM_VSCROLL:
 		// Get all the vertial scroll bar information.
 		si.cbSize = sizeof (si);

@@ -4,6 +4,7 @@
 #define MY_ENDINGS_H
 
 #include <string>
+#include "texthelpers.h"
 
 #define ENDING_S	1
 #define ENDING_IVE	2
@@ -26,7 +27,7 @@
 
 #define NUM_ENDINGS 18
 
-void addending(std::string &text, int ending);
+void addending(tstring &text, int ending);
 int strtosuf(const std::string& source);
 char* suftostr(const int& val);
 

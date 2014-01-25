@@ -33,15 +33,15 @@ void trimStokesList() {
 	}
 }
 
-std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __int8 prevflags, BOOL &trimspace, bool redirect) {
+tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevflags, BOOL &trimspace, bool redirect) {
 	flags = 0;
-	std::string::const_iterator i = fulltext.cbegin();
+	tstring::const_iterator i = fulltext.cbegin();
 	HKL locale = GetKeyboardLayout(GetCurrentThreadId());
 
 	bool insubcommand = false;
 	bool inescape = false;
 
-	std::string finaltext("");
+	tstring finaltext(TEXT(""));
 
 	INPUT* inputs = new INPUT[fulltext.length() * 4 + 4];
 	memset(inputs, 0, sizeof(INPUT)*(fulltext.length() * 4 + 4));
@@ -54,20 +54,20 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 
 	while (i != fulltext.cend() ) {
 		if (inescape) {
-			if (*i == 'p') {
+			if (*i == TEXT('p')) {
 				inescape = false;
 				insubcommand = true;
 
 				if (!inputstate.textstack.empty()) {
 					unsigned __int8 newflags = 0;
-					std::string cmd = inputstate.textstack.top();
+					tstring cmd = inputstate.textstack.top();
 					inputstate.textstack.pop();
-					std::string result = sendText(cmd, newflags, prevflags, trimspace, redirect);
+					tstring result = sendText(cmd, newflags, prevflags, trimspace, redirect);
 					finaltext = result + finaltext;
 					poped = true;
 				}
 			}
-			else if (*i == 'A') {
+			else if (*i == TEXT('A')) {
 				inescape = false;
 				insubcommand = true;
 
@@ -78,12 +78,12 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index++;
 
 				if (i + 1 != fulltext.cend()) {
-					if (*(i + 1) == '[') {
+					if (*(i + 1) == TEXT('[')) {
 						i++;
 					}
 				}
 			}
-			else if (*i == 'C') {
+			else if (*i == TEXT('C')) {
 				inescape = false;
 				insubcommand = true;
 
@@ -94,12 +94,12 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index++;
 
 				if (i + 1 != fulltext.cend()) {
-					if (*(i + 1) == '[') {
+					if (*(i + 1) == TEXT('[')) {
 						i++;
 					}
 				}
 			}
-			else if (*i == 'S') {
+			else if (*i == TEXT('S')) {
 				inescape = false;
 				insubcommand = true;
 
@@ -110,24 +110,24 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index++;
 
 				if (i + 1 != fulltext.cend()) {
-					if (*(i + 1) == '[') {
+					if (*(i + 1) == TEXT('[')) {
 						i++;
 					}
 				}
 			}
-			else if (*i == '-') {
+			else if (*i == TEXT('-')) {
 				flags |= TF_LOWNEXT;
 				inescape = false;
 			}
-			else if (*i == '+') {
+			else if (*i == TEXT('+')) {
 				flags |= TF_CAPNEXT;
 				inescape = false;
 			}
-			else if (*i == '?') {
+			else if (*i == TEXT('?')) {
 				PostMessage(controls.main, WM_NEWITEMDLG, 0, 0);
 				inescape = false;
 			}
-			else if (*i == 't') {
+			else if (*i == TEXT('t')) {
 				SHORT rval = VK_TAB;
 				inputs[index].type = INPUT_KEYBOARD;
 				inputs[index].ki.wVk = LOBYTE(rval);
@@ -139,9 +139,9 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index += 2;
 				inescape = false;
 
-				finaltext += '\t';
+				finaltext += TEXT('\t');
 			}
-			else if (*i == 'h') {
+			else if (*i == TEXT('h')) {
 				SHORT rval = VK_LEFT;
 				inputs[index].type = INPUT_KEYBOARD;
 				inputs[index].ki.wVk = LOBYTE(rval);
@@ -153,7 +153,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index += 2;
 				inescape = false;
 			}
-			else if (*i == 'k') {
+			else if (*i == TEXT('k')) {
 				SHORT rval = VK_UP;
 				inputs[index].type = INPUT_KEYBOARD;
 				inputs[index].ki.wVk = LOBYTE(rval);
@@ -165,7 +165,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index += 2;
 				inescape = false;
 			}
-			else if (*i == 'j') {
+			else if (*i == TEXT('j')) {
 				SHORT rval = VK_DOWN;
 				inputs[index].type = INPUT_KEYBOARD;
 				inputs[index].ki.wVk = LOBYTE(rval);
@@ -177,7 +177,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index += 2;
 				inescape = false;
 			}
-			else if (*i == 'l') {
+			else if (*i == TEXT('l')) {
 				SHORT rval = VK_RIGHT;
 				inputs[index].type = INPUT_KEYBOARD;
 				inputs[index].ki.wVk = LOBYTE(rval);
@@ -189,7 +189,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index += 2;
 				inescape = false;
 			}
-			else if (*i == 'n') {
+			else if (*i == TEXT('n')) {
 				SHORT rval = VK_RETURN;
 				inputs[index].type = INPUT_KEYBOARD;
 				inputs[index].ki.wVk = LOBYTE(rval);
@@ -200,9 +200,9 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 
 				index += 2;
 				inescape = false;
-				finaltext += '\n';
+				finaltext += TEXT('\n');
 			}
-			else if (*i == 'b') {
+			else if (*i == TEXT('b')) {
 				SHORT rval = VK_BACK;
 				inputs[index].type = INPUT_KEYBOARD;
 				inputs[index].ki.wVk = LOBYTE(rval);
@@ -214,7 +214,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index += 2;
 				inescape = false;
 			}
-			else if (*i == 'x') {
+			else if (*i == TEXT('x')) {
 				SHORT rval = VK_ESCAPE;
 				inputs[index].type = INPUT_KEYBOARD;
 				inputs[index].ki.wVk = LOBYTE(rval);
@@ -226,7 +226,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index += 2;
 				inescape = false;
 			}
-			else if (*i == 'd') {
+			else if (*i == TEXT('d')) {
 				SHORT rval = VK_DELETE;
 				inputs[index].type = INPUT_KEYBOARD;
 				inputs[index].ki.wVk = LOBYTE(rval);
@@ -238,9 +238,9 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index += 2;
 				inescape = false;
 			}
-			else if (*i == 'F') {
+			else if (*i == TEXT('F')) {
 				SHORT rval = VK_F1;
-				switch (std::atoi(getSubSeq(i, fulltext.cend()).c_str())){
+				switch (_wtoi(getSubSeq(i, fulltext.cend()).c_str())) {
 				case 2: rval = VK_F2; break;
 				case 3: rval = VK_F3; break;
 				case 4: rval = VK_F4; break;
@@ -264,16 +264,16 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				index += 2;
 				inescape = false;
 			}
-			else if (*i == 'M') {
-				int m = std::atoi(getSubSeq(i, fulltext.cend()).c_str());
+			else if (*i == TEXT('M')) {
+				int m = _wtoi(getSubSeq(i, fulltext.cend()).c_str());
 				setMode(m);
 				settings.mode = m;
 				SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)m, (LPARAM)0);
 				inescape = false;
 			}
-			else if (*i == 'D') {
-				std::string dictname = getSubSeq(i, fulltext.cend());
-
+			else if (*i == TEXT('D')) {
+				tstring dictnameW = getSubSeq(i, fulltext.cend());
+				std::string dictname = ttostr(dictnameW);
 				std::list<std::tuple<std::string, dictionary*>>::iterator di = sharedData.dicts.begin();
 				while (di != sharedData.dicts.cend()) {
 					if (std::get<0, std::string, dictionary*>(*di).compare(dictname) == 0) {
@@ -289,8 +289,8 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				}
 				inescape = false;
 			}
-			else if (*i == 'P') {
-				std::string command = getSubSeq(i, fulltext.cend());
+			else if (*i == TEXT('P')) {
+				tstring command = getSubSeq(i, fulltext.cend());
 				inputstate.textstack.push(command);
 
 				inescape = false;
@@ -314,7 +314,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 			}
 		}
 		else if (insubcommand) {
-			if (*i == ']') {
+			if (*i == TEXT(']')) {
 				inputs[index].type = INPUT_KEYBOARD;
 				inputs[index].ki.dwFlags = KEYEVENTF_KEYUP;
 				inputs[index].ki.wVk = subseqstack.top();
@@ -325,7 +325,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 					insubcommand = false;
 				}
 			}
-			else if (*i == '\\') {
+			else if (*i == TEXT('\\')) {
 				inescape = true;
 			}
 			else {
@@ -342,7 +342,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				//note, not added to text output
 			}
 		}
-		else if (*i == '^') {
+		else if (*i == TEXT('^')) {
 			if (i == fulltext.cbegin()) {
 				flags = flags | TF_INOSPACE;
 			}
@@ -350,7 +350,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				flags = flags | TF_ENOSPACE;
 			}
 		}
-		else if (*i == '&') {
+		else if (*i == TEXT('&')) {
 			if (i == fulltext.cbegin()) {
 				flags = flags | TF_IPSPACE;
 			}
@@ -358,7 +358,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 				flags = flags | TF_EPSPACE;
 			}
 		}
-		else if (*i == '\\') {
+		else if (*i == TEXT('\\')) {
 			inescape = true;
 		}
 		else {
@@ -432,7 +432,7 @@ std::string sendText(std::string fulltext, unsigned __int8 &flags, unsigned __in
 		inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
 		inputs[1].ki.wVk = VK_SPACE;
 
-		finaltext = ' ' + finaltext;
+		finaltext = TEXT(' ') + finaltext;
 		spaceinfront = true;
 	}
 
@@ -635,7 +635,7 @@ void deletelist(std::list<singlestroke*> &temp) {
 	}
 }
 
-void sendstandard(const std::string& txt, singlestroke* s) {
+void sendstandard(const tstring& txt, singlestroke* s) {
 	unsigned __int8 tflags = 0;
 	//output text
 	if (sharedData.strokes.size() != 0) {
@@ -652,7 +652,7 @@ void sendstandard(const std::string& txt, singlestroke* s) {
 
 	if (inputstate.redirect != NULL) {
 		tstring wtxt = getWinStr(inputstate.redirect);
-		wtxt += strtotstr(s->textout->text);
+		wtxt += s->textout->text;
 		SetWindowText(inputstate.redirect, wtxt.c_str());
 	}
 }
@@ -716,7 +716,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 		deleteandspace(charstodelete, spacestoadd);
 
 		if (spacestoadd != 0 && deli != sharedData.strokes.end()) {
-			(*deli)->textout->text += ' ';
+			(*deli)->textout->text += TEXT(' ');
 		}
 
 		std::list<singlestroke*> temp;
@@ -728,8 +728,10 @@ void processSingleStroke(unsigned __int8* stroke) {
 	}
 
 	int longest = 0;
-	std::string ilongs;
-	findanentry(stroke, sharedData.currentd, sharedData.strokes.cbegin(), sharedData.strokes.cend(), ilongs, longest);
+	
+	std::string ilongstemp;
+	findanentry(stroke, sharedData.currentd, sharedData.strokes.cbegin(), sharedData.strokes.cend(), ilongstemp, longest);
+	tstring ilongs = strtotstr(ilongstemp);
 
 	// is this a predefined suffix?
 	if (longest == 0 && sharedData.strokes.cbegin() != sharedData.strokes.cend()) {
@@ -745,13 +747,13 @@ void processSingleStroke(unsigned __int8* stroke) {
 					bool poppedspace = false;
 
 					int oldlen = tx->text.length();
-					if (tx->text[tx->text.length() - 1] == ' ') {
+					if (tx->text[tx->text.length() - 1] == TEXT(' ')) {
 						tx->text.pop_back();
 						poppedspace = true;
 					}
 					addending(tx->text, (*it).second);
 					if (poppedspace)
-						tx->text += ' ';
+						tx->text += TEXT(' ');
 
 					deleteandspace(oldlen, 0);
 
@@ -766,7 +768,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 
 					if (inputstate.redirect != NULL) {
 						tstring wtxt = getWinStr(inputstate.redirect);
-						wtxt += strtotstr(s->textout->text);
+						wtxt += s->textout->text;
 						SetWindowText(inputstate.redirect, wtxt.c_str());
 					}
 
@@ -791,7 +793,8 @@ void processSingleStroke(unsigned __int8* stroke) {
 			if ((stroke[0] & tstroke.sval[0]) == tstroke.sval[0] && (stroke[1] & tstroke.sval[1]) == tstroke.sval[1] && (stroke[2] & tstroke.sval[2]) == tstroke.sval[2]) {
 				for (int i = 0; i < 3; i++)
 					stemp[i] = stroke[i] & ~(tstroke.sval[i]);
-				findanentry(stemp, sharedData.currentd, sharedData.strokes.cbegin(), sharedData.strokes.cend(), ilongs, longest);
+				findanentry(stemp, sharedData.currentd, sharedData.strokes.cbegin(), sharedData.strokes.cend(), ilongstemp, longest);
+				ilongs = strtotstr(ilongstemp);
 				if (longest != 0)
 					addending(ilongs, (*it).second);
 			}
@@ -820,7 +823,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 		deleteandspace(charstodelete, spacestoadd);
 
 		if (spacestoadd != 0 && deli != sharedData.strokes.end()) {
-			(*deli)->textout->text += ' ';
+			(*deli)->textout->text += TEXT(' ');
 		}
 
 		for (int i = 0; i < longest - 1; i++) {
@@ -863,7 +866,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 		s->textout->first = s;
 
 		//test for number
-		std::string data("");
+		tstring data(TEXT(""));
 		bool number = false;
 
 		if ((stroke[0] & (sharedData.number[0] | sharedData.currentd->number[0])) == stroke[0] &&
@@ -890,7 +893,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 				}
 			}
 
-			data = "&" + data + "&";
+			data = TEXT("&") + data + TEXT("&");
 		}
 		else {
 			stroketocsteno(stroke, data, sharedData.currentd->format);
@@ -903,7 +906,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 			sendstandard(data, s);
 		}
 		else {
-			s->textout->text = std::string("");
+			s->textout->text = tstring(TEXT(""));
 			if (sharedData.strokes.size() != 0) {
 				s->textout->flags = (*(sharedData.strokes.begin()))->textout->flags;
 			}

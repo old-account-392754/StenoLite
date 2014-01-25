@@ -28,13 +28,13 @@ std::string GetDictDir() {
 	HKEY hkey;
 	if (RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("SOFTWARE\\STENOLITE\\DICTDIR"), 0, KEY_READ, &hkey) == ERROR_SUCCESS) {
 		if (RegQueryValueEx(hkey, NULL, NULL, NULL, (LPBYTE)pathbuffer, &len) == ERROR_SUCCESS) {
-			return TCHARtostr(pathbuffer, MAX_PATH);
+			return ttostr(pathbuffer);
 		}
 		RegCloseKey(hkey);
 	}
 
 	GetModuleFileName(NULL, pathbuffer, MAX_PATH);
-	return std::regex_replace(TCHARtostr(pathbuffer, MAX_PATH), rx, "\\");
+	return std::regex_replace(ttostr(pathbuffer), rx, "\\");
 }
 
 void saveSettings() {
@@ -111,12 +111,15 @@ void saveSettings() {
 		DWORD bytes;
 		for (int i = 0; i < 256; i++){
 			if (settings.map[i] != 0) {
-				char c = MapVirtualKeyEx(i, MAPVK_VK_TO_CHAR, locale);
-				if (c == ' ') {
-					c = '_';
+				TCHAR c = MapVirtualKeyEx(i, MAPVK_VK_TO_CHAR, locale);
+				if (c == TEXT(' ')) {
+					c = TEXT('_');
 				}
+				TCHAR tbuf[2];
+				tbuf[0] = c;
+				tbuf[1] = 0;
 				writestr(hfile, "MAP = ");
-				WriteFile(hfile, &c, sizeof(char), &bytes, NULL);
+				writestr(hfile, ttostr(tbuf));
 				writestr(hfile, "->");
 				writestr(hfile, std::to_string(settings.map[i]));
 				writestr(hfile, "\r\n");
@@ -771,12 +774,12 @@ void strtosetting(const std::string& setting, const std::string& value) {
 		std::cmatch m;
 		if (std::regex_match(value.c_str(), m, map)) {
 			__int8 ref = std::atoi(m[2].str().c_str());
-			std::string temp = m[1].str();
+			tstring temp = strtotstr(m[1].str());
 			HKL locale = GetKeyboardLayout(GetCurrentThreadId());
-			for (std::string::const_iterator i = temp.cbegin(); i != temp.cend(); i++) {
-				char t = (char)(*i);
-				if (t == '_') {
-					t = ' ';
+			for (auto i = temp.cbegin(); i != temp.cend(); i++) {
+				TCHAR t = (TCHAR)(*i);
+				if (t == TEXT('_')) {
+					t = TEXT(' ');
 				}
 				settings.map[LOBYTE(VkKeyScanEx(t, locale))] = ref;
 			}

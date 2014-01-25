@@ -59,7 +59,7 @@ void SetCTextText(const TCHAR* text) {
 	dviewdata.updatingstroke = false;
 }
 
-void GetListItem(const int &item, unsigned __int8* &strokes, int &numstrokes, std::string &stext, std::string &text) {
+void GetListItem(const int &item, unsigned __int8* &strokes, int &numstrokes, tstring &stext, std::string &text) {
 	LVITEM itm;
 	itm.iItem = item;
 	itm.iSubItem = 0;
@@ -70,11 +70,11 @@ void GetListItem(const int &item, unsigned __int8* &strokes, int &numstrokes, st
 
 	ListView_GetItem(GetDlgItem(dviewdata.dlgwnd, IDC_VIEW), &itm);
 
-	stext = ttostr(itm.pszText);
+	stext = itm.pszText;
 	numstrokes = 0;
-	strokes = texttomultistroke(stext, numstrokes, dviewdata.d->format);
+	strokes = texttomultistroke(ttostr(itm.pszText), numstrokes, dviewdata.d->format);
 	DB_TXN* trans;
-	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_COMMITTED);
+	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_UNCOMMITTED);
 	if (!dviewdata.d->findDItem(strokes, numstrokes * 3, text, trans)) {
 		text.clear();
 	}
@@ -126,7 +126,7 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 
 	DBC* cursor = NULL;
 	DB_TXN* trans;
-	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_COMMITTED);
+	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans,  DB_READ_COMMITTED | DB_TXN_NOWAIT);
 
 	int result = 1;
 
@@ -155,7 +155,7 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 			}
 		}
 
-	TCHAR* text = new TCHAR[dviewdata.d->lchars + 1 + 10];
+	tstring text;
 	TCHAR* strokes = new TCHAR[dviewdata.d->longest * 24 + 1 + 10];
 
 	LVITEM item;
@@ -190,12 +190,10 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 
 		item.mask = LVIF_TEXT;
 		item.iSubItem = 1;
-		item.pszText = text;
-		for (int n = 0; n < strin.size; n++) {
-			text[n] = ((char*)(strin.data))[n];
-		}
-		text[strin.size] = 0;
-		item.cchTextMax = _tcsnlen(text, dviewdata.d->lchars + 1 + 1) + 1;
+		text = strtotstr((char*)(strin.data));
+		item.pszText = (LPTSTR)(text.c_str());
+		
+		item.cchTextMax = text.length() +1;
 
 		ListView_SetItem(box, &item);
 
@@ -211,10 +209,10 @@ void Resize(bool bystrokes, unsigned __int8* sdata, int sdatasize, std::string t
 	}
 
 
-	delete text;
+	//delete text;
 	delete strokes;
 
-	//cursor->close(cursor);
+	cursor->close(cursor);
 	trans->commit(trans, 0);
 
 	delete keyin.data;
@@ -336,13 +334,11 @@ void Move(bool up) {
 	strinb.doff = 0;
 	strinb.flags = DB_DBT_USERMEM;
 
-	DBC* cursor;
-	DB_TXN* trans;
-	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_COMMITTED);
+	
 
 	unsigned __int8* sdata;
 	int numstrokes;
-	std::string stext;
+	tstring stext;
 	std::string text;
 	int sz = ListView_GetItemCount(box);
 	int direction;
@@ -354,6 +350,10 @@ void Move(bool up) {
 		GetListItem(sz - 1, sdata, numstrokes, stext, text);
 		direction = DB_NEXT;
 	}
+
+	DBC* cursor;
+	DB_TXN* trans;
+	dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, DB_READ_UNCOMMITTED | DB_TXN_NOWAIT);
 
 	memset(strin.data, 0, dviewdata.d->lchars + 1);
 	memcpy(strin.data, text.c_str(), text.length() + 1);
@@ -391,7 +391,7 @@ void Move(bool up) {
 			sz--;
 		}
 
-		TCHAR* text = new TCHAR[dviewdata.d->lchars + 1 + 10];
+		tstring text;
 		TCHAR* strokes = new TCHAR[dviewdata.d->longest * 24 + 1 + 10];
 
 		LVITEM item;
@@ -425,16 +425,13 @@ void Move(bool up) {
 
 		item.mask = LVIF_TEXT;
 		item.iSubItem = 1;
-		item.pszText = text;
-		for (int n = 0; n < strin.size; n++) {
-			text[n] = ((char*)(strin.data))[n];
-		}
-		text[strin.size] = 0;
-		item.cchTextMax = _tcsnlen(text, dviewdata.d->lchars + 1 + 1) + 1;
+		text = strtotstr((char*)(strin.data));
+		item.pszText = (LPTSTR)(text.c_str());
+		
+		item.cchTextMax = text.length() + 1;
 
 		ListView_SetItem(box, &item);
 
-		delete text;
 		delete strokes;
 	}
 	
@@ -447,6 +444,27 @@ void Move(bool up) {
 	delete keyin.data;
 	delete strin.data;
 	delete strinb.data;
+}
+
+void Update() {
+	tstring stxt = getWinStr(GetDlgItem(dviewdata.dlgwnd, IDC_CSTROKE));
+	int numstrokes = 0;
+	unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes, dviewdata.d->format);
+
+	if (numstrokes > 0) {
+		//bool del = DelCheck(sdata, numstrokes*3);
+
+		tstring txt = getWinStr(GetDlgItem(dviewdata.dlgwnd, IDC_CTEXT));
+
+		DB_TXN* trans;
+		dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, 0);
+		dviewdata.d->addDItem(sdata, numstrokes * 3, ttostr(txt), trans);
+
+		trans->commit(trans, 0);
+	}
+	delete sdata;
+
+	addDVEvent(DVE_RESIZE);
 }
 
 void processEvent(unsigned int eventnum) {
@@ -466,11 +484,14 @@ void processEvent(unsigned int eventnum) {
 	case DVE_STROKESEARCH:
 		Search(false);
 		break;
+	case DVE_UPDATEE:
+		Update();
+		break;
 	case DVE_RESIZE:
 	{
 					   unsigned __int8* sdata;
 					   int numstrokes;
-					   std::string stext;
+					   tstring stext;
 					   std::string text;
 					   GetListItem(0, sdata, numstrokes, stext, text);
 					   Resize(dviewdata.bystrokes, sdata, numstrokes * 3, text);
@@ -489,6 +510,14 @@ DWORD WINAPI processViewEvents(LPVOID lpParam)
 		if (!dviewdata.events.empty()) {
 			unsigned int val = dviewdata.events.front();
 			dviewdata.events.pop();
+			if (val == DVE_RESIZE && !dviewdata.events.empty()) {
+				dviewdata.events.front() == DVE_RESIZE;
+				val = -1;
+			}
+			if (val == DVE_UPDATEE && !dviewdata.events.empty()) {
+				dviewdata.events.front() == DVE_UPDATEE;
+				val = -1;
+			}
 			ReleaseMutex(dviewdata.protectqueue);
 			processEvent(val);
 		}
@@ -647,10 +676,10 @@ DWORD WINAPI addAll(LPVOID lpParam)
 	if (GetOpenFileName(&file)) {
 		//setMode(0);
 		if (file.lpstrFile[file.nFileExtension] == TEXT('J') || file.lpstrFile[file.nFileExtension] == TEXT('j')) {
-			LoadJson(dviewdata.d, TCHARtostr(file.lpstrFile, MAX_PATH), GetDlgItem(dlg, IDC_PROGRESS), true);
+			LoadJson(dviewdata.d, ttostr(file.lpstrFile), GetDlgItem(dlg, IDC_PROGRESS), true);
 		}
 		else {
-			LoadRTF(dviewdata.d, TCHARtostr(file.lpstrFile, MAX_PATH), GetDlgItem(dlg, IDC_PROGRESS), true);
+			LoadRTF(dviewdata.d, ttostr(file.lpstrFile), GetDlgItem(dlg, IDC_PROGRESS), true);
 		}
 		//setMode(settings.mode);
 		addDVEvent(DVE_RESET);
@@ -675,10 +704,10 @@ DWORD WINAPI addNew(LPVOID lpParam)
 	if (GetOpenFileName(&file)) {
 		//setMode(0);
 		if (file.lpstrFile[file.nFileExtension] == TEXT('J') || file.lpstrFile[file.nFileExtension] == TEXT('j')) {
-			LoadJson(dviewdata.d, TCHARtostr(file.lpstrFile, MAX_PATH), GetDlgItem(dlg, IDC_PROGRESS), false);
+			LoadJson(dviewdata.d, ttostr(file.lpstrFile), GetDlgItem(dlg, IDC_PROGRESS), false);
 		}
 		else {
-			LoadRTF(dviewdata.d, TCHARtostr(file.lpstrFile, MAX_PATH), GetDlgItem(dlg, IDC_PROGRESS), false);
+			LoadRTF(dviewdata.d, ttostr(file.lpstrFile), GetDlgItem(dlg, IDC_PROGRESS), false);
 		}
 		//setMode(settings.mode);
 		addDVEvent(DVE_RESET);
@@ -701,7 +730,7 @@ DWORD WINAPI exJ(LPVOID lpParam)
 	file.nMaxFile = MAX_PATH;
 	file.Flags = OFN_DONTADDTORECENT | OFN_NOCHANGEDIR;
 	if (GetSaveFileName(&file)) {
-		std::string filename = TCHARtostr(buffer, MAX_PATH);
+		std::string filename = ttostr(buffer);
 		if (filename.find(".json") == std::string::npos) {
 			filename += ".json";
 		}
@@ -725,7 +754,7 @@ DWORD WINAPI exRTF(LPVOID lpParam)
 	file.nMaxFile = MAX_PATH;
 	file.Flags = OFN_DONTADDTORECENT | OFN_NOCHANGEDIR;
 	if (GetSaveFileName(&file)) {
-		std::string filename = TCHARtostr(buffer, MAX_PATH);
+		std::string filename = ttostr(buffer);
 		if (filename.find(".rtf") == std::string::npos) {
 			filename += ".rtf";
 		}
@@ -831,11 +860,11 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 			}
 
 			std::string text;
-			std::string stext;
+			tstring stext;
 			unsigned __int8* sdata;
 			int numstrokes;
 			GetListItem(lpnmitem->iItem, sdata, numstrokes, stext, text);
-			SetCStrokeText(strtotstr(stext).c_str());
+			SetCStrokeText(stext.c_str());
 			SetCTextText(strtotstr(text).c_str());
 
 			delete sdata;
@@ -949,25 +978,7 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 			}
 		case IDC_CTEXT:
 			if (HIWORD(wParam) == EN_CHANGE && !dviewdata.updatingstroke) {	
-				tstring stxt = getWinStr(GetDlgItem(hwndDlg, IDC_CSTROKE));
-				int numstrokes = 0;
-				unsigned __int8* sdata = texttomultistroke(ttostr(stxt), numstrokes, dviewdata.d->format);
-
-				if (numstrokes > 0) {
-					//bool del = DelCheck(sdata, numstrokes*3);
-
-					tstring txt = getWinStr(GetDlgItem(hwndDlg, IDC_CTEXT));
-
-					DB_TXN* trans;
-					dviewdata.d->env->txn_begin(dviewdata.d->env, NULL, &trans, 0);
-					dviewdata.d->addDItem(sdata, numstrokes * 3, ttostr(txt), trans);
-					trans->commit(trans, 0);
-				}
-				delete sdata;
-				//if (del)
-				//	addDVEvent(DVE_UP);
-					
-				addDVEvent(DVE_RESIZE);
+				addDVEvent(DVE_UPDATEE);
 			}
 			return FALSE;
 		default:

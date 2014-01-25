@@ -58,7 +58,7 @@ void setMode(int mode) {
 		GetModuleFileName(NULL, pathbuffer, MAX_PATH);
 
 		const static std::regex rx("\\\\[^\\\\]*$");
-		std::string pth = TCHARtostr(pathbuffer, MAX_PATH);
+		std::string pth = ttostr(pathbuffer);
 		std::string file = std::regex_replace(pth, rx, "\\SLKeyCap.dll");
 		std::copy(file.begin(), file.end(), pathbuffer);
 		pathbuffer[file.size()] = 0;

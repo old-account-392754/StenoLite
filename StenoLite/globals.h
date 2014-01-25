@@ -10,6 +10,7 @@
 #include <list>
 #include <tuple>
 #include <WinUser.h>
+#include "texthelpers.h"
 
 #define WM_NEWITEMDLG WM_USER+4
 #define WM_LOAD_PROGRESS WM_USER+5
@@ -58,7 +59,7 @@ struct istruct {
 	unsigned __int8 keys[4];
 	unsigned __int8 stroke[4];
 	HHOOK handle;
-	std::stack<std::string> textstack;
+	std::stack<tstring> textstack;
 	HWND redirect;
 	bool sendasstrokes;
 } ;
@@ -120,7 +121,7 @@ struct singlestroke {
 
 struct textoutput {
 	unsigned __int8 flags;
-	std::string text;
+	tstring text;
 	singlestroke* first;
 };
 

@@ -13,6 +13,7 @@
 #define DVE_TEXTSEARCH 3
 #define DVE_STROKESEARCH 4
 #define DVE_RESIZE 5
+#define DVE_UPDATEE 6
 
 struct dstruct {
 	HWND dlgwnd;

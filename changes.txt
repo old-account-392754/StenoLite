@@ -1,3 +1,9 @@
+0.8.6
+Improved unicode support
+Improved sizing of main window
+Fixed deadlock error
+Fixed checkbox color under XP
+
 0.8.5
 Support for Non-English stenograph layouts
 More robust crash recovery

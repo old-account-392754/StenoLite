@@ -136,6 +136,11 @@ void textToStroke(unsigned __int8* dest, std::string::const_iterator &i, std::st
 			position = 18;
 			break;
 		default:
+			if (*i == format[0]) {
+				dest[2] |= 0x40;
+				position = 0;
+				break;
+			}
 			searchposition(dest, position, *i, format);
 		}
 	}
@@ -345,11 +350,6 @@ void dictionary::addNewDItem(unsigned __int8 *s, const int &len, const std::stri
 	keyin.ulen = len;
 	keyin.flags = DB_DBT_USERMEM;
 
-	if (contents->exists(contents, trans, &keyin, 0) != DB_NOTFOUND) {
-		return;
-	}
-
-	items++;
 	DBT strin;
 	memset(&strin, 0, sizeof(DBT));
 	strin.data = (void*)(str.c_str());
@@ -357,7 +357,9 @@ void dictionary::addNewDItem(unsigned __int8 *s, const int &len, const std::stri
 	strin.ulen = str.length() + 1;
 	strin.flags = DB_DBT_USERMEM;
 
-	contents->put(contents, trans, &keyin, &strin, 0);
+	if (contents->put(contents, trans, &keyin, &strin, DB_NOOVERWRITE) == 0) {
+		items++;
+	}
 }
 
 void dictionary::addDItem(unsigned __int8 *s, const int &len, const std::string &str, DB_TXN* trans) {
@@ -375,10 +377,7 @@ void dictionary::addDItem(unsigned __int8 *s, const int &len, const std::string 
 	keyin.ulen = len;
 	keyin.flags = DB_DBT_USERMEM;
 
-	if (contents->exists(contents, trans, &keyin, 0) == DB_NOTFOUND) {
-		items++;
-	}
-
+	
 	DBT strin;
 	memset(&strin, 0, sizeof(DBT));
 	strin.data = (void*)(str.c_str());
@@ -386,8 +385,10 @@ void dictionary::addDItem(unsigned __int8 *s, const int &len, const std::string 
 	strin.ulen = str.length() + 1;
 	strin.flags = DB_DBT_USERMEM;
 
-	 contents->put(contents, trans, &keyin, &strin, 0);
-
+	if (contents->exists(contents, trans, &keyin, DB_RMW) == DB_NOTFOUND) {
+		items++;
+	}
+	contents->put(contents, trans, &keyin, &strin, 0);
 }
 
 void dictionary::deleteDItem(unsigned __int8 *s, const int &len, DB_TXN* trans) {
@@ -766,7 +767,7 @@ bool dictionary::opencrecovery(const char* file, const char* file2) {
 	
 
 		db_env_create(&env, 0);
-		env->set_lk_detect(env, DB_LOCK_YOUNGEST);
+		env->set_lk_detect(env, DB_LOCK_MINWRITE);
 		env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
 		env->set_lg_max(env, 1048576);
 		env->open(env, hm.c_str(), DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_INIT_TXN | DB_REGISTER | DB_RECOVER_FATAL | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
@@ -793,12 +794,20 @@ bool dictionary::opencrecovery(const char* file, const char* file2) {
 	return true;
 }
 
+void errcall(const DB_ENV* env, const char *a, const char*b){
+	OutputDebugStringA(a);
+	OutputDebugStringA("\r\n");
+	OutputDebugStringA(b);
+	OutputDebugStringA("\r\n");
+}
+
+
 bool dictionary::open(const char* file, const char* file2) {
 
 	db_env_create(&env, 0);
+	//env->set_errcall(env, &errcall);
 
-	//env->log_set_config(env, DB_LOG_IN_MEMORY, 1);
-	env->set_lk_detect(env, DB_LOCK_YOUNGEST);
+	env->set_lk_detect(env, DB_LOCK_MINWRITE);
 	env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
 	env->set_lg_max(env, 1048576);
 
@@ -830,20 +839,11 @@ bool dictionary::open(const char* file, const char* file2) {
 
 }
 
-void errcall(const DB_ENV* env, const char *a, const char*b){
-	OutputDebugStringA(a);
-	OutputDebugStringA("\r\n");
-	OutputDebugStringA(b);
-	OutputDebugStringA("\r\n");
-}
+
 
 dictionary::dictionary(const char *home) {
 	hm = home;
-
 	
-	//env->set_lk_detect(env, DB_LOCK_YOUNGEST);
-	
-	//env->set_errcall(env, &errcall);
 	
 }
 

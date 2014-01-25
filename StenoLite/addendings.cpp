@@ -103,221 +103,221 @@ int strtosuf(const std::string& source) {
 	return 0;
 }
 
-void addending(std::string &text, int ending){
+void addending(tstring &text, int ending){
 	int len = text.length();
 	if (len <= 2) {
 		return;
 	}
 	switch (ending) {
 	case ENDING_S:
-		if(text[len - 1] == 'y') {
+		if(text[len - 1] == TEXT('y')) {
 			if (isvowel(text[len - 2])) {
-				text += "s";
+				text += TEXT("s");
 				break;
 			}
 			text.pop_back();
-			text += "ies";
+			text += TEXT("ies");
 			break;
 		}
-		else if (text[len - 1] == 's' || text[len - 1] == 'x' || text[len - 1] == 'z' || text[len - 1] == 'h') {
-			text += "es";
+		else if (text[len - 1] == TEXT('s') || text[len - 1] == TEXT('x') || text[len - 1] == TEXT('z') || text[len - 1] == TEXT('h')) {
+			text += TEXT("es");
 			break;
 		}
-		text += "s";
+		text += TEXT("s");
 		break;
 	case ENDING_IVE:
-		if (text[len - 1] == 'e')
+		if (text[len - 1] == TEXT('e'))
 			text.pop_back();
-		text += "ive";
+		text += TEXT("ive");
 		break;
 	case ENDING_ION:
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			text.pop_back();
-			text += "ication";
+			text += TEXT("ication");
 			break;
 		}
-		else if (text[len - 1] == 'e') {
+		else if (text[len - 1] == TEXT('e')) {
 			text.pop_back();
-			text += "ion";
+			text += TEXT("ion");
 			break;
 		}
-		text += "en";
+		text += TEXT("en");
 		break;
 	case ENDING_IONS:
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			text.pop_back();
-			text += "ications";
+			text += TEXT("ications");
 			break;
 		}
-		else if (text[len - 1] == 'e') {
+		else if (text[len - 1] == TEXT('e')) {
 			text.pop_back();
-			text += "ions";
+			text += TEXT("ions");
 			break;
 		}
-		text += "ens";
+		text += TEXT("ens");
 		break;
 	case ENDING_TH:
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			text.pop_back();
-			text += "ieth";
+			text += TEXT("ieth");
 			break;
 		}
-		text += "th";
+		text += TEXT("th");
 		break;
 	case ENDING_LY:
-		if (text[len - 1] == 'c') {
+		if (text[len - 1] == TEXT('c')) {
 			if (isvowel(text[len - 2])) {
-				text += "ally";
+				text += TEXT("ally");
 				break;
 			}
 		}
-		text += "ly";
+		text += TEXT("ly");
 		break;
 	case ENDING_ING:
-		if (text[len - 1] == 'e') 
+		if (text[len - 1] == TEXT('e'))
 			text.pop_back();
-		text += "ing";
+		text += TEXT("ing");
 		break;
 	case ENDING_INGS:
-		if (text[len - 1] == 'e') 
+		if (text[len - 1] == TEXT('e'))
 			text.pop_back();
-		text += "ings";
+		text += TEXT("ings");
 		break;
 	case ENDING_ED:
-		if (text[len - 1] == 'e') {
-			text += "d";
+		if (text[len - 1] == TEXT('e')) {
+			text += TEXT("d");
 			break;
 		}
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			if (isvowel(text[len - 2])) {
-				text += "ed";
+				text += TEXT("ed");
 				break;
 			}
 			text.pop_back();
-			text += "ied";
+			text += TEXT("ied");
 			break;
 		}
-		text += "ed";
+		text += TEXT("ed");
 		break;
 	case ENDING_ST:
-		if (text[len - 1] == 'e') {
-			text += "st";
+		if (text[len - 1] == TEXT('e')) {
+			text += TEXT("st");
 			break;
 		}
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			if (isvowel(text[len - 2])) {
-				text += "est";
+				text += TEXT("est");
 				break;
 			}
 			text.pop_back();
-			text += "iest";
+			text += TEXT("iest");
 			break;
 		}
-		text += "est";
+		text += TEXT("est");
 		break;
 	case ENDING_ER:
-		if (text[len - 1] == 'e') {
-			text += "r";
+		if (text[len - 1] == TEXT('e')) {
+			text += TEXT("r");
 			break;
 		}
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			if (isvowel(text[len - 2])) {
-				text += "er";
+				text += TEXT("er");
 				break;
 			}
 			text.pop_back();
-			text += "ier";
+			text += TEXT("ier");
 			break;
 		}
-		text += "er";
+		text += TEXT("er");
 		break;
 	case ENDING_ERS:
-		if (text[len - 1] == 'e') {
-			text += "rs";
+		if (text[len - 1] == TEXT('e')) {
+			text += TEXT("rs");
 			break;
 		}
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			if (isvowel(text[len - 2])) {
-				text += "ers";
+				text += TEXT("ers");
 				break;
 			}
 			text.pop_back();
-			text += "iers";
+			text += TEXT("iers");
 			break;
 		}
-		text += "ers";
+		text += TEXT("ers");
 		break;
 	case ENDING_NESS:
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			if (isvowel(text[len - 2])) {
-				text += "ness";
+				text += TEXT("ness");
 				break;
 			}
 			text.pop_back();
-			text += "iness";
+			text += TEXT("iness");
 			break;
 		}
-		text += "ness";
+		text += TEXT("ness");
 		break;
 	case ENDING_ABLE:
-		if (text[len - 1] == 'e') {
-			if (text[len - 2] == 'e' || text[len - 2] == 'g' || text[len - 2] == 'c') {
-				text += "able";
+		if (text[len - 1] == TEXT('e')) {
+			if (text[len - 2] == TEXT('e') || text[len - 2] == TEXT('g') || text[len - 2] == TEXT('c')) {
+				text += TEXT("able");
 				break;
 			}
 			text.pop_back();
-			text += "able";
+			text += TEXT("able");
 			break;
 		}
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			if (isvowel(text[len - 2])) {
-				text += "able";
+				text += TEXT("able");
 				break;
 			}
 			text.pop_back();
-			text += "able";
+			text += TEXT("able");
 			break;
 		}
-		text += "able";
+		text += TEXT("able");
 		break;
 	case ENDING_MENT:
-		text += "ment";
+		text += TEXT("ment");
 		break;
 	case ENDING_FUL:
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			if (isvowel(text[len - 2])) {
-				text += "ful";
+				text += TEXT("ful");
 				break;
 			}
 			text.pop_back();
-			text += "iful";
+			text += TEXT("iful");
 			break;
 		}
-		text += "ful";
+		text += TEXT("ful");
 		break;
 	case ENDING_IST:
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			if (isvowel(text[len - 2])) {
-				text += "ist";
+				text += TEXT("ist");
 				break;
 			}
 			text.pop_back();
-			text += "ist";
+			text += TEXT("ist");
 			break;
 		}
-		text += "ist";
+		text += TEXT("ist");
 		break;
 	case ENDING_ISTS:
-		if (text[len - 1] == 'y') {
+		if (text[len - 1] == TEXT('y')) {
 			if (isvowel(text[len - 2])) {
-				text += "ists";
+				text += TEXT("ists");
 				break;
 			}
 			text.pop_back();
-			text += "ists";
+			text += TEXT("ists");
 			break;
 		}
-		text += "ists";
+		text += TEXT("ists");
 		break;
 	}
 }

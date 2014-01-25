@@ -20,16 +20,6 @@ std::string trimstr(std::string const& str, char const* sepSet)
 
 
 
-std::string TCHARtostr(const TCHAR* text, const int &len) {
-	std::string total("");
-	for (int i = 0; i < len; i++) {
-		if (text[i] == 0)
-			break;
-		total += (char)(text[i]);
-	}
-	return total;
-}
-
 tstring getWinStr(HWND hwnd) {
 	int tlen = GetWindowTextLength(hwnd) + 1;
 	TCHAR* text = new TCHAR[tlen];
@@ -40,37 +30,56 @@ tstring getWinStr(HWND hwnd) {
 }
 
 std::string ttostr(const tstring &in) {
-	return std::string(in.begin(), in.end());
+#ifndef UNICODE 
+	return in;
+#else
+	//return std::string(in.begin(), in.end());
+	int l = WideCharToMultiByte(CP_UTF8, 0, in.c_str(), -1, NULL, 0, NULL, NULL);
+	char* t = new char[l];
+	WideCharToMultiByte(CP_UTF8, 0, in.c_str(), -1, t, l, NULL, NULL);
+	std::string total = t;
+	delete t;
+	return total;
+#endif
 }
 
 tstring strtotstr(const std::string &in) {
-	return tstring(in.begin(), in.end());
+#ifndef UNICODE 
+	return in;
+#else
+	int len = MultiByteToWideChar(CP_UTF8, 0, in.c_str(), -1, NULL, 0);
+	wchar_t* t = new wchar_t[len];
+	MultiByteToWideChar(CP_UTF8, 0, in.c_str(), -1, t, len);
+	std::wstring total = t;
+	delete t;
+	return total;
+#endif
 }
 
-std::string getSubSeq(std::string::const_iterator &i, std::string::const_iterator &end) {
-	std::string acc("");
-	std::string::const_iterator t = i + 1;
+tstring getSubSeq(tstring::const_iterator &i, tstring::const_iterator &end) {
+	tstring acc(TEXT(""));
+	tstring::const_iterator t = i + 1;
 	bool tesc = false;
 	bool first = true;
 	int sub = 0;
 	while (t != end) {
-		if (first && *t == '[') {
+		if (first && *t == TEXT('[')) {
 			
 		}
 		else if (tesc) {
 			tesc = false;
-			if (*t != '[' && *t != ']' && *t != '\\')
-				acc += '\\';
+			if (*t != TEXT('[') && *t != TEXT(']') && *t != TEXT('\\'))
+				acc += TEXT('\\');
 			acc += *t;
 		}
-		else if (*t == '[') {
+		else if (*t == TEXT('[')) {
 			sub++;
 			acc += *t;
 		}
-		else if (*t == '\\') {
+		else if (*t == TEXT('\\')) {
 			tesc = true;
 		}
-		else if (*t == ']') {
+		else if (*t == TEXT(']')) {
 			if (sub == 0) {
 				i = t;
 				return acc;

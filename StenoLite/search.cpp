@@ -65,7 +65,7 @@ DWORD WINAPI searchDictionary(LPVOID lpParam)
 				//whole string search
 
 				while (i != sharedData.strokes.cend() && sharedData.addedtext == FALSE && current.length() <= sharedData.currentd->lchars + 1) {
-					current = (*i)->textout->text + current;
+					current = ttostr((*i)->textout->text) + current;
 					std::string stripped = trimstr(current, " ");
 
 					if (stripped.length() > sharedData.currentd->lchars) {
@@ -138,12 +138,12 @@ DWORD WINAPI searchDictionary(LPVOID lpParam)
 
 				while (i != sharedData.strokes.cend() && sharedData.addedtext == FALSE && current.length() <= sharedData.currentd->lchars + 1) {
 
-					std::string tmp = trimstr((*i)->textout->text + current, " ");
+					std::string tmp = trimstr(ttostr((*i)->textout->text) + current, " ");
 					if (tmp.find(' ') != std::string::npos || tmp.find('\n') != std::string::npos || tmp.find('\t') != std::string::npos) {
 						break;
 					}
 
-					current = (*i)->textout->text + current;
+					current = ttostr((*i)->textout->text) + current;
 					textoutput* cur = (*i)->textout;
 					i++;
 					while (i != sharedData.strokes.cend() && (*i)->textout == cur) {
