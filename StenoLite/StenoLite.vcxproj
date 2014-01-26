@@ -110,6 +110,7 @@
     <ClInclude Include="globals.h" />
     <ClInclude Include="newentrydlg.h" />
     <ClInclude Include="pstroke.h" />
+    <ClInclude Include="pview.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="search.h" />
     <ClInclude Include="setmode.h" />
@@ -126,6 +127,7 @@
     <ClCompile Include="globals.cpp" />
     <ClCompile Include="newentrydlg.cpp" />
     <ClCompile Include="pstroke.cpp" />
+    <ClCompile Include="pview.cpp" />
     <ClCompile Include="search.cpp" />
     <ClCompile Include="setmode.cpp" />
     <ClCompile Include="stdafx.cpp">

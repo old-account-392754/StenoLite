@@ -12,6 +12,7 @@
 #include "newentrydlg.h"
 #include "search.h"
 #include "addendings.h"
+#include "pview.h"
 
 void addStroke(__int32 s) {
 	WaitForSingleObject(sharedData.protectqueue, INFINITE);
@@ -643,18 +644,28 @@ void deletelist(std::list<singlestroke*> &temp) {
 	}
 }
 
-void sendstandard(const tstring& txt, singlestroke* s) {
+void sendstandard(const tstring& txt, singlestroke* s, bool shortver = false) {
 	unsigned __int8 tflags = 0;
-	//output text
-	if (sharedData.strokes.size() != 0) {
-		tflags = (*(sharedData.strokes.begin()))->textout->flags;
+	if (shortver) {
+		tflags = s->textout->flags;
+	}
+	else {
+		if (sharedData.strokes.size() != 0) {
+			tflags = (*(sharedData.strokes.begin()))->textout->flags;
+		}
 	}
 
 	BOOL prependspace = FALSE;
-	s->textout->text = sendText(txt, s->textout->flags, tflags, prependspace, inputstate.redirect != NULL);
-	if (prependspace == TRUE) {
-		if (sharedData.strokes.size() != 0) {
-			(*(sharedData.strokes.begin()))->textout->text.pop_back();
+	if (shortver) {
+		s->textout->text = sendText(txt, s->textout->flags, TF_ENOSPACE, prependspace, inputstate.redirect != NULL);
+		s->textout->flags = tflags;
+	}
+	else {
+		s->textout->text = sendText(txt, s->textout->flags, tflags, prependspace, inputstate.redirect != NULL);
+		if (prependspace == TRUE) {
+			if (sharedData.strokes.size() != 0) {
+				(*(sharedData.strokes.begin()))->textout->text.pop_back();
+			}
 		}
 	}
 
@@ -663,6 +674,11 @@ void sendstandard(const tstring& txt, singlestroke* s) {
 		wtxt += s->textout->text;
 		SetWindowText(inputstate.redirect, wtxt.c_str());
 	}
+}
+
+void standardcleanup(singlestroke* s) {
+	sharedData.strokes.push_front(s);
+	trimStokesList();
 }
 
 void processSingleStroke(unsigned __int8* stroke) {
@@ -729,7 +745,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 
 		std::list<singlestroke*> temp;
 		deletess(sharedData.strokes.front());
-		sharedData.strokes.pop_front();
+		sharedData.strokes.erase(sharedData.strokes.begin());
 		temp.splice(temp.end(), sharedData.strokes, sharedData.strokes.begin(), deli);
 		deletelist(temp);
 		return;
@@ -769,19 +785,9 @@ void processSingleStroke(unsigned __int8* stroke) {
 					s->textout = tx;
 					tx->first = s;
 
-					unsigned __int8 tflags = tx->flags;
-					BOOL prependspace = FALSE;
-					tx->text = sendText(tx->text, tx->flags, TF_ENOSPACE, prependspace, inputstate.redirect != NULL);
-					tx->flags = tflags;
+					sendstandard(tx->text, s, true);
 
-					if (inputstate.redirect != NULL) {
-						tstring wtxt = getWinStr(inputstate.redirect);
-						wtxt += s->textout->text;
-						SetWindowText(inputstate.redirect, wtxt.c_str());
-					}
-
-					sharedData.strokes.push_front(s);
-					trimStokesList();
+					standardcleanup(s);
 					return;
 				}
 			}
@@ -852,8 +858,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 			sharedData.strokes.push_front(*ti);
 		}
 
-		sharedData.strokes.push_front(s);
-		trimStokesList();
+		standardcleanup(s);
 	}
 	else if (longest == 1) {
 		//just add
@@ -864,8 +869,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 		sendstandard(ilongs, s);
 
 		//remove extras
-		sharedData.strokes.push_front(s);
-		trimStokesList();
+		standardcleanup(s);
 	}
 	else {
 		//stroke not found, possibly #
@@ -923,8 +927,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 			}
 		}
 
-		sharedData.strokes.push_front(s);
-		trimStokesList();
+		standardcleanup(s);
 	}
 }
 
