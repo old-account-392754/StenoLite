@@ -1,3 +1,9 @@
+0.8.8
+added F1-F12 keymappings
+fixed tape erasure on minimize bug
+added \c as the command for the capslock key
+fixed bug where new entry window was receiving double keystrokes
+
 0.8.7
 Possibility of a few more deadlocks removed
 Changed to unicode file naming

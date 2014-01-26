@@ -122,18 +122,80 @@ void saveSettings() {
 		HKL locale = GetKeyboardLayout(GetCurrentThreadId());
 		for (int i = 0; i < 256; i++){
 			if (settings.map[i] != 0) {
-				TCHAR c = MapVirtualKeyEx(i, MAPVK_VK_TO_CHAR, locale);
-				if (c == TEXT(' ')) {
-					c = TEXT('_');
+				if (i == LOBYTE(VK_F1)) {
+					writestr(hfile, "MAP = f1->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
 				}
-				TCHAR tbuf[2];
-				tbuf[0] = c;
-				tbuf[1] = 0;
-				writestr(hfile, "MAP = ");
-				writestr(hfile, ttostr(tbuf));
-				writestr(hfile, "->");
-				writestr(hfile, std::to_string(settings.map[i]));
-				writestr(hfile, "\r\n");
+				else if (i == LOBYTE(VK_F2)) {
+					writestr(hfile, "MAP = f2->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
+				else if (i == LOBYTE(VK_F3)) {
+					writestr(hfile, "MAP = f3->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
+				else if (i == LOBYTE(VK_F4)) {
+					writestr(hfile, "MAP = f4->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
+				else if (i == LOBYTE(VK_F5)) {
+					writestr(hfile, "MAP = f5->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
+				else if (i == LOBYTE(VK_F6)) {
+					writestr(hfile, "MAP = f6->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
+				else if (i == LOBYTE(VK_F7)) {
+					writestr(hfile, "MAP = f7->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
+				else if (i == LOBYTE(VK_F8)) {
+					writestr(hfile, "MAP = f8->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
+				else if (i == LOBYTE(VK_F9)) {
+					writestr(hfile, "MAP = f9->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
+				else if (i == LOBYTE(VK_F10)) {
+					writestr(hfile, "MAP = f10->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
+				else if (i == LOBYTE(VK_F11)) {
+					writestr(hfile, "MAP = f11->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
+				else if (i == LOBYTE(VK_F12)) {
+					writestr(hfile, "MAP = f12->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
+				else {
+					TCHAR c = MapVirtualKeyEx(i, MAPVK_VK_TO_CHAR, locale);
+					if (c == TEXT(' ')) {
+						c = TEXT('_');
+					}
+					TCHAR tbuf[2];
+					tbuf[0] = c;
+					tbuf[1] = 0;
+					writestr(hfile, "MAP = ");
+					writestr(hfile, ttostr(tbuf));
+					writestr(hfile, "->");
+					writestr(hfile, std::to_string(settings.map[i]));
+					writestr(hfile, "\r\n");
+				}
 			}
 		}
 
@@ -828,13 +890,51 @@ void strtosetting(const std::string& setting, const std::string& value) {
 		if (std::regex_match(value.c_str(), m, map)) {
 			__int8 ref = std::atoi(m[2].str().c_str());
 			tstring temp = strtotstr(m[1].str());
-			HKL locale = GetKeyboardLayout(GetCurrentThreadId());
-			for (auto i = temp.cbegin(); i != temp.cend(); i++) {
-				TCHAR t = (TCHAR)(*i);
-				if (t == TEXT('_')) {
-					t = TEXT(' ');
+			if (temp.compare(TEXT("f1")) == 0) {
+				settings.map[LOBYTE(VK_F1)] = ref;
+			}
+			else if(temp.compare(TEXT("f2")) == 0) {
+				settings.map[LOBYTE(VK_F2)] = ref;
+			}
+			else if (temp.compare(TEXT("f3")) == 0) {
+				settings.map[LOBYTE(VK_F3)] = ref;
+			}
+			else if (temp.compare(TEXT("f4")) == 0) {
+				settings.map[LOBYTE(VK_F4)] = ref;
+			}
+			else if (temp.compare(TEXT("f5")) == 0) {
+				settings.map[LOBYTE(VK_F5)] = ref;
+			}
+			else if (temp.compare(TEXT("f6")) == 0) {
+				settings.map[LOBYTE(VK_F6)] = ref;
+			}
+			else if (temp.compare(TEXT("f7")) == 0) {
+				settings.map[LOBYTE(VK_F7)] = ref;
+			}
+			else if (temp.compare(TEXT("f8")) == 0) {
+				settings.map[LOBYTE(VK_F8)] = ref;
+			}
+			else if (temp.compare(TEXT("f9")) == 0) {
+				settings.map[LOBYTE(VK_F9)] = ref;
+			}
+			else if (temp.compare(TEXT("f10")) == 0) {
+				settings.map[LOBYTE(VK_F10)] = ref;
+			}
+			else if (temp.compare(TEXT("f11")) == 0) {
+				settings.map[LOBYTE(VK_F11)] = ref;
+			}
+			else if (temp.compare(TEXT("f12")) == 0) {
+				settings.map[LOBYTE(VK_F12)] = ref;
+			}
+			else {
+				HKL locale = GetKeyboardLayout(GetCurrentThreadId());
+				for (auto i = temp.cbegin(); i != temp.cend(); i++) {
+					TCHAR t = (TCHAR)(*i);
+					if (t == TEXT('_')) {
+						t = TEXT(' ');
+					}
+					settings.map[LOBYTE(VkKeyScanEx(t, locale))] = ref;
 				}
-				settings.map[LOBYTE(VkKeyScanEx(t, locale))] = ref;
 			}
 		}
 	}

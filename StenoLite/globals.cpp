@@ -22,3 +22,4 @@
 	 value.ival[3] = i[3];
  }
 
+ HWND modelesswnd;

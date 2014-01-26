@@ -99,6 +99,7 @@ extern istruct inputstate;
 extern nstruct newwordwin;
 extern sdata sharedData;
 
+extern HWND modelesswnd;
 
 
 struct singlestroke {

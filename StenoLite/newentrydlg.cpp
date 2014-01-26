@@ -59,6 +59,12 @@ INT_PTR CALLBACK NewEntryProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM 
 					 // Sleep(20);
 					 return FALSE;
 	}
+	case WM_ACTIVATE:
+		if (wParam == 0)
+			modelesswnd = NULL;
+		else  
+			modelesswnd = hwndDlg;
+		return FALSE;
 	case WM_KILLFOCUS:
 		inputstate.redirect = NULL;
 	case WM_QUIT:

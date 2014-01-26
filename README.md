@@ -3,7 +3,7 @@ This project is a sister project to plover: http://github.com/plover/plover
 
 ### It lacks the following capabilities in comparison to plover:
 
-Windows only (sorry)<br>
+Windows only (XP with SP3 or newer)<br>
 Supports only keyboard and Treal input for the moment
 
 ### But it does have the following features:

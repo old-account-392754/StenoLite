@@ -141,6 +141,18 @@ tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevf
 
 				finaltext += TEXT('\t');
 			}
+			else if (*i == TEXT('c')) {
+				SHORT rval = VK_CAPITAL;
+				inputs[index].type = INPUT_KEYBOARD;
+				inputs[index].ki.wVk = LOBYTE(rval);
+
+				inputs[index + 1].type = INPUT_KEYBOARD;
+				inputs[index + 1].ki.dwFlags = KEYEVENTF_KEYUP;
+				inputs[index + 1].ki.wVk = LOBYTE(rval);
+
+				index += 2;
+				inescape = false;
+			}
 			else if (*i == TEXT('h')) {
 				SHORT rval = VK_LEFT;
 				inputs[index].type = INPUT_KEYBOARD;

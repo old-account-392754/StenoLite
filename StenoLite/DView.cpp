@@ -807,6 +807,12 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 		hdc = BeginPaint(hwndDlg, &ps);
 		EndPaint(hwndDlg, &ps);
 		return TRUE;
+	case WM_ACTIVATE:
+		if (wParam == 0)
+			modelesswnd = NULL;
+		else
+			modelesswnd = hwndDlg;
+		return FALSE;
 	case WM_QUIT:
 		endDVThread();
 		inputstate.redirect = NULL;

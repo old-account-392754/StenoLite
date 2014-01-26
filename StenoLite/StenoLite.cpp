@@ -50,7 +50,6 @@ HWND CreateTabControl(HWND main);
 LRESULT CALLBACK TabProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 LRESULT CALLBACK StaticProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 LRESULT CALLBACK PassBack(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
-INT_PTR CALLBACK NewEntryProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wParam, _In_  LPARAM lParam);
 LRESULT CALLBACK WordProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 
@@ -104,6 +103,8 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 
 	MSG msg;
 
+	modelesswnd = NULL;
+
 	memset(inputstate.keys, 0, 4);
 	memset(inputstate.stroke, 0, 4);
 	inputstate.redirect = NULL;
@@ -151,8 +152,8 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	// Main message loop:
 	while (GetMessage(&msg, NULL, 0, 0)) {
 		if (!TranslateAccelerator(dviewdata.dlgwnd, acc, &msg)) {
-			TranslateMessage(&msg);
-			if (!IsDialogMessage(newwordwin.dlgwnd, &msg)) {
+			if (modelesswnd == NULL || !IsDialogMessage(modelesswnd, &msg)) {
+				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
 		}
@@ -800,6 +801,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			settings.ypos = rt.top;
 			break;
 		case WM_SIZE:
+			if (wParam == SIZE_MINIMIZED) {
+				return 0;
+			}
 			GetClientRect(hWnd, &rt);
 			SetWindowPos(controls.hTab, NULL, 0, 0, rt.right, rt.bottom, SWP_NOMOVE);
 			TabCtrl_AdjustRect(controls.hTab, FALSE, &rt);
