@@ -1,4 +1,8 @@
 # StenoLite
+
+The most recent release can be found here: https://github.com/boborama/StenoLite/releases/download/v0.8.8-beta/StenoLiteSetup.msi <br>
+Mobile version: https://github.com/boborama/StenoLite/releases/download/v0.8.8-beta/StenoLite088.zip
+
 This project is a sister project to plover: http://github.com/plover/plover
 
 ### It lacks the following capabilities in comparison to plover:
