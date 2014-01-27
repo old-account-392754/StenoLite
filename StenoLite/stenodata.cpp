@@ -808,6 +808,26 @@ bool dictionary::open(const char* file, const char* file2) {
 
 }
 
+bool dictionary::opentransient() {
+	db_env_create(&env, 0);
+	//env->set_errcall(env, &errcall);
+
+	env->set_lk_detect(env, DB_LOCK_MINWRITE);
+	env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
+	env->set_lg_max(env, 1048576);
+
+	env->open(env, NULL, DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_REGISTER | DB_INIT_TXN | DB_RECOVER | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
+
+	db_create(&contents, env, 0);
+
+	if (contents->open(contents, NULL, NULL, NULL, DB_BTREE, DB_CREATE | DB_THREAD | DB_AUTO_COMMIT | DB_READ_UNCOMMITTED, 0) != 0) {
+		return false;
+
+	}
+
+	return true;
+}
+
 
 
 dictionary::dictionary(const char *home) {

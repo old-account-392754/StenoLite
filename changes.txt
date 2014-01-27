@@ -1,3 +1,6 @@
+0.8.9
+Fixed missing carriage return between dictionary entry and stroke(s) in prefix search mode.
+
 0.8.8
 added F1-F12 keymappings
 fixed tape erasure on minimize bug

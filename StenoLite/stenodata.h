@@ -38,6 +38,7 @@ struct dictionary {
 	bool findDItem(unsigned __int8* s, const unsigned int &len, std::string &str, DB_TXN* trans);
 	void deleteDItem(unsigned __int8 *s, const unsigned int &len, DB_TXN* trans);
 	bool opencrecovery(const char* file, const char* file2);
+	bool opentransient();
 	void close();
 };
 

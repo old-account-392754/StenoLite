@@ -3,19 +3,27 @@
 #define MY_PVIEW_H
 
 #include <list>
+#include "globals.h"
 
 struct pdata {
 	bool open;
+	bool addingnew;
+	int focusedcontrol;
 	int cursorpos;
 	std::list<singlestroke*> strokes;
 	HWND dlg;
 	int selectionmin;
 	int selectionmax;
+	dictionary *d;
 };
 
 struct indexedtext : public textoutput {
-	int startingindex;
+	unsigned int startingindex;
 };
+
+void PViewNextFocus();
+std::list<singlestroke*>::iterator GetItem(int index);
+void AdjustTextStart(std::list<singlestroke*>::iterator last, int adjustment);
 
 extern pdata projectdata;
 

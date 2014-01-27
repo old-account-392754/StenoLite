@@ -13,6 +13,8 @@
 #include "search.h"
 #include "addendings.h"
 #include "pview.h"
+#include <Richedit.h>
+#include "resource.h"
 
 void addStroke(__int32 s) {
 	WaitForSingleObject(sharedData.protectqueue, INFINITE);
@@ -521,6 +523,51 @@ void spaceN(int n) {
 	}
 }
 
+int delnP(std::list<singlestroke*>::iterator &max, std::list<singlestroke*>::iterator &min, const std::list<singlestroke*>::const_iterator &end, int &addspaces, int &rstrokes) {
+	if (max == min) {
+		return 0;
+	}
+	std::list<singlestroke*>::iterator temp = max;
+	int t = 0;
+
+	while (max != min) {
+		if ((*max)->textout->first == (*max))
+			t += (*max)->textout->text.length();
+		rstrokes++;
+		max++;
+	}
+
+	if (settings.space == 1) {
+		if (((*temp)->textout->flags & TF_INOSPACE) == TF_INOSPACE) {
+			temp = max;
+			if (temp == end) {
+				//
+			}
+			else if (((*temp)->textout->flags & TF_ENOSPACE) == TF_ENOSPACE) {
+				//
+			}
+			else {
+				addspaces = 1;
+			}
+		}
+		else if (((*temp)->textout->flags & TF_IPSPACE) == TF_IPSPACE) {
+			temp = max;
+			if (temp == end) {
+				//
+			}
+			else if (((*temp)->textout->flags & TF_ENOSPACE) == TF_ENOSPACE) {
+				//return t;
+			}
+			else  if (((*temp)->textout->flags & TF_EPSPACE) == TF_EPSPACE) {
+				addspaces = 1;
+				//return t;
+			}
+		}
+	}
+
+	return t;
+}
+
 int deln(std::list<singlestroke*>::iterator &i, const std::list<singlestroke*>::const_iterator &end, int &addspaces, int &rstrokes) {
 	std::list<singlestroke*>::iterator temp = i;
 	while (i != end) {
@@ -534,27 +581,28 @@ int deln(std::list<singlestroke*>::iterator &i, const std::list<singlestroke*>::
 
 	if (settings.space == 1) {
 		if (((*temp)->textout->flags & TF_INOSPACE) == TF_INOSPACE) {
-			temp++;
+			temp = i;
 			if (temp == end) {
-				return t;
+				//
 			}
-			if (((*temp)->textout->flags & TF_ENOSPACE) == TF_ENOSPACE) {
-				return t;
+			else if (((*temp)->textout->flags & TF_ENOSPACE) == TF_ENOSPACE) {
+				//
 			}
-			addspaces = 1;
-			return t;
-		}
-		if (((*temp)->textout->flags & TF_IPSPACE) == TF_IPSPACE) {
-			temp++;
-			if (temp == end) {
-				return t;
-			}
-			if (((*temp)->textout->flags & TF_ENOSPACE) == TF_ENOSPACE) {
-				return t;
-			}
-			if (((*temp)->textout->flags & TF_EPSPACE) == TF_EPSPACE) {
+			else {
 				addspaces = 1;
-				return t;
+			}
+		}
+		else if (((*temp)->textout->flags & TF_IPSPACE) == TF_IPSPACE) {
+			temp = i;
+			if (temp == end) {
+				//
+			}
+			else if (((*temp)->textout->flags & TF_ENOSPACE) == TF_ENOSPACE) {
+				//return t;
+			}
+			else  if (((*temp)->textout->flags & TF_EPSPACE) == TF_EPSPACE) {
+				addspaces = 1;
+				//return t;
 			}
 		}
 	}
@@ -578,10 +626,18 @@ void findanentry(unsigned __int8* stroke, dictionary * d, std::list<singlestroke
 
 	trans->set_priority(trans, 200);
 	//trans->set_timeout(trans, 1000, DB_SET_LOCK_TIMEOUT);
-	
-
-	if (d->findDItem(&(sbuffer[index * 3]), 3, text, trans)) {
-		length = 1;
+	if (projectdata.open) {
+		if (projectdata.d->findDItem(&(sbuffer[index * 3]), 3, text, trans)) {
+			length = 1;
+		}
+		else if (d->findDItem(&(sbuffer[index * 3]), 3, text, trans)) {
+			length = 1;
+		}
+	}
+	else {
+		if (d->findDItem(&(sbuffer[index * 3]), 3, text, trans)) {
+			length = 1;
+		}
 	}
 
 	index--;
@@ -592,11 +648,19 @@ void findanentry(unsigned __int8* stroke, dictionary * d, std::list<singlestroke
 		sbuffer[index * 3 + 1] = (*li)->value.ival[1];
 		sbuffer[index * 3 + 2] = (*li)->value.ival[2];
 
-		
-		if (d->findDItem(&(sbuffer[index * 3]), (d->longest - index) * 3, text, trans)) {
-			length = (d->longest-index);
+		if (projectdata.open) {
+			if (projectdata.d->findDItem(&(sbuffer[index * 3]), (d->longest - index) * 3, text, trans)) {
+				length = (d->longest - index);
+			}
+			else if (d->findDItem(&(sbuffer[index * 3]), (d->longest - index) * 3, text, trans)) {
+				length = (d->longest - index);
+			}
 		}
-		
+		else {
+			if (d->findDItem(&(sbuffer[index * 3]), (d->longest - index) * 3, text, trans)) {
+				length = (d->longest - index);
+			}
+		}
 
 		index--;
 		li++;
@@ -608,11 +672,7 @@ void findanentry(unsigned __int8* stroke, dictionary * d, std::list<singlestroke
 }
 
 void deleteandspace(const int& del, const int &space) {
-	if (inputstate.redirect == NULL) {
-		deleteN(del);
-		spaceN(space);
-	}
-	else {
+	if (inputstate.redirect != NULL) {
 		tstring wtxt = getWinStr(inputstate.redirect);
 		for (int i = 0; i < del; i++) {
 			wtxt.pop_back();
@@ -621,6 +681,22 @@ void deleteandspace(const int& del, const int &space) {
 			wtxt += TEXT(' ');
 		}
 		SetWindowText(inputstate.redirect, wtxt.c_str());
+	}
+	else if (projectdata.open) {
+		tstring wtxt;
+		CHARRANGE crng;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXGETSEL, NULL, (LPARAM)&crng);
+		crng.cpMin -= del;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
+
+		for (int i = 0; i < space; i++) {
+			wtxt += TEXT(' ');
+		}
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, FALSE, (LPARAM)(wtxt.c_str()));
+	} 
+	else {
+		deleteN(del);
+		spaceN(space);
 	}
 }
 
