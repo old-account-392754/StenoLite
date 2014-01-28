@@ -24,6 +24,7 @@
 #include "pstroke.h"
 #include "setmode.h"
 #include "DView.h"
+#include "pview.h"
 
 using namespace Gdiplus;
 #pragma comment (lib,"Gdiplus.lib")
@@ -91,6 +92,8 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
+	LoadLibrary(TEXT("Riched20.dll"));
+	LoadLibrary(TEXT("Riched32.dll"));
 
 	sharedData.running = TRUE;
 	sharedData.currentd = NULL;
@@ -100,6 +103,9 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	sharedData.newtext = CreateEvent(NULL, FALSE, FALSE, NULL);
 	sharedData.protectqueue = CreateMutex(NULL, FALSE, NULL);
 	textToStroke(tstring(TEXT("1234567890")), sharedData.number, TEXT("#STKPWHRAO*EUFRPBLGTSDZ"));
+
+	projectdata.dlg = NULL;
+	projectdata.open = false;
 
 	MSG msg;
 
@@ -231,6 +237,7 @@ void movecontrols(int offset) {
 	SetWindowPos(controls.ckpref, 0, 5, 215 - 20 - offset, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 
 	SetWindowPos(controls.bdict, 0, 5, 245 - 20 - offset, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+	SetWindowPos(controls.bproj, 0, 5, 265 - 20 - offset, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 
 }
 
@@ -385,6 +392,12 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 		WS_TABSTOP | WS_CHILD | BS_PUSHBUTTON | WS_VISIBLE,
 		5, 55 - 20, controls.width - 50, 20, controls.scontainer, NULL, hInstance, NULL);
 	SendMessage(controls.bdict, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), (LPARAM)true);
+
+
+	controls.bproj = CreateWindow(L"BUTTON", L"Open Project",
+		WS_TABSTOP | WS_CHILD | BS_PUSHBUTTON | WS_VISIBLE,
+		5, 55 - 20, controls.width - 50, 20, controls.scontainer, NULL, hInstance, NULL);
+	SendMessage(controls.bproj, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), (LPARAM)true);
 
 	controls.sscroll = CreateWindow(L"ScrollBar", L"",
 		WS_TABSTOP | WS_CHILD | SBS_VERT,
@@ -1050,6 +1063,9 @@ LRESULT CALLBACK StaticProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 						   }
 						   else if (b == controls.bdict) {
 							   LaunchViewDlg(hInst, sharedData.currentd);
+						   }
+						   else if (b == controls.bproj) {
+							   LaunchProjDlg(hInst);
 						   }
 		}
 

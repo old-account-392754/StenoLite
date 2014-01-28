@@ -415,6 +415,8 @@ void dictionary::deleteDItem(unsigned __int8 *s, const unsigned int &len, DB_TXN
 }
 
 bool dictionary::findDItem(unsigned __int8 *s, const unsigned int &len, std::string &str, DB_TXN* trans) {
+	if (len > longest * 3)
+		return false;
 
 	DBT keyin;
 	memset(&keyin, 0, sizeof(DBT));
@@ -829,6 +831,8 @@ bool dictionary::opentransient(tstring &dformat) {
 
 	}
 
+	secondary = NULL;
+
 	return true;
 }
 
@@ -840,7 +844,8 @@ dictionary::dictionary(const char *home) {
 
 void dictionary::close() {
 	env->txn_checkpoint(env, 0, 0, DB_FORCE);
-	secondary->close(secondary, 0);
+	if (secondary != NULL)
+		secondary->close(secondary, 0);
 	contents->close(contents, 0);
 	env->close(env, 0);
 }

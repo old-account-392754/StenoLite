@@ -624,9 +624,12 @@ void findanentry(unsigned __int8* stroke, dictionary * d, std::list<singlestroke
 	DB_TXN* trans;
 	d->env->txn_begin(d->env, NULL, &trans, DB_READ_COMMITTED | DB_TXN_NOWAIT);
 
+
 	DB_TXN* ptrans = NULL;
-	if(projectdata.open)
+	if (projectdata.open) {
 		projectdata.d->env->txn_begin(projectdata.d->env, NULL, &ptrans, DB_READ_COMMITTED | DB_TXN_NOWAIT);
+		ptrans->set_priority(ptrans, 200);
+	}
 
 	trans->set_priority(trans, 200);
 	//trans->set_timeout(trans, 1000, DB_SET_LOCK_TIMEOUT);
@@ -646,11 +649,13 @@ void findanentry(unsigned __int8* stroke, dictionary * d, std::list<singlestroke
 
 	index--;
 
+
 	while (li != le && index >= 0) {
 		//sbuffer[0] = 3 + 3 * index;
 		sbuffer[index * 3] = (*li)->value.ival[0];
 		sbuffer[index * 3 + 1] = (*li)->value.ival[1];
 		sbuffer[index * 3 + 2] = (*li)->value.ival[2];
+
 
 		if (projectdata.open) {
 			if (projectdata.d->findDItem(&(sbuffer[index * 3]), (d->longest - index) * 3, text, ptrans)) {
@@ -666,9 +671,11 @@ void findanentry(unsigned __int8* stroke, dictionary * d, std::list<singlestroke
 			}
 		}
 
+
 		index--;
 		li++;
 	}
+
 
 	trans->commit(trans, 0);
 
@@ -690,6 +697,7 @@ void deleteandspace(const int& del, const int &space) {
 		SetWindowText(inputstate.redirect, wtxt.c_str());
 	}
 	else if (projectdata.open) {
+		projectdata.settingsel = true;
 		tstring wtxt;
 		CHARRANGE crng;
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXGETSEL, NULL, (LPARAM)&crng);
@@ -704,6 +712,7 @@ void deleteandspace(const int& del, const int &space) {
 		crng.cpMin += space;
 		crng.cpMax = crng.cpMin;
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
+		projectdata.settingsel = false;
 	} 
 	else {
 		deleteN(del);
@@ -769,6 +778,7 @@ void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>:
 		SetWindowText(inputstate.redirect, wtxt.c_str());
 	}
 	else if (projectdata.open) {
+		projectdata.settingsel = true;
 		CHARRANGE crng;
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXGETSEL, NULL, (LPARAM)&crng);
 		crng.cpMin = crng.cpMax;
@@ -776,7 +786,7 @@ void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>:
 
 		tstring tmp = s->textout->text;
 		
-		if (settings.space == 1 && insert != list->cbegin()) {
+		if (settings.space == 0 && insert != list->cbegin()) {
 			bool hadspace = (pflags & TF_ENOSPACE) == 0 && (nflags & TF_IPSPACE) == 0 && ((pflags & TF_EPSPACE) == 0 || (nflags & TF_IPSPACE) == 0);
 			if (hadspace) {
 				if ((s->textout->flags & TF_ENOSPACE) == 0 && (nflags & TF_IPSPACE) == 0 && ((s->textout->flags & TF_EPSPACE) == 0 || (nflags & TF_IPSPACE) == 0)) {
@@ -791,6 +801,7 @@ void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>:
 		}
 
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)(s->textout->text.c_str()));
+		projectdata.settingsel = false;
 	}
 }
 
@@ -820,7 +831,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 		}
 	}
 
-	if (projectdata.open || projectdata.addingnew) {
+	if (projectdata.open && projectdata.addingnew) {
 		if (stroke[0] == sharedData.currentd->stab[0] && stroke[1] == sharedData.currentd->stab[1] && stroke[2] == sharedData.currentd->stab[2]) {
 			PViewNextFocus();
 			return;
@@ -872,10 +883,10 @@ void processSingleStroke(unsigned __int8* stroke) {
 
 	if (inputstate.redirect == NULL && projectdata.open) {
 		target = &projectdata.strokes;
+		projectdata.settingsel = true;
 
 		CHARRANGE crng;
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXGETSEL, NULL, (LPARAM)&crng);
-		
 		
 
 		auto max = GetItemByText(crng.cpMax);
@@ -885,7 +896,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 		int charstodelete = 0;
 		charstodelete = delnP(max, min, projectdata.strokes.cend(), spacestoadd, sremoved);
 
-		if (max != target->cbegin()) {
+		if (max != target->cbegin() && settings.space == 0) {
 			max--;
 			if ((*max)->textout->text.length() > 0) {
 				if ((*max)->textout->text[0] == TEXT(' ')) {
@@ -905,14 +916,15 @@ void processSingleStroke(unsigned __int8* stroke) {
 		crng.cpMax = crng.cpMin;
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
 
-		if (projectdata.open && inputstate.redirect == NULL)
-			AdjustTextStart(min, spacestoadd - sremoved);
+		
+		AdjustTextStart(min, spacestoadd - sremoved);
+		
 		if (spacestoadd != 0 && min != projectdata.strokes.cend()) {
 			(*min)->textout->text += TEXT(' ');
 		}
-		//TODO
-		//delete all selected strokes / words
-		//spacesmode == 1, check for need to delete space
+
+		insert = min;
+		projectdata.settingsel = false;
 	}
 
 	
@@ -921,7 +933,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 		int sremoved = 0;
 		int spacestoadd = 0;
 		int charstodelete = 0;
-		if (sharedData.strokes.empty()) {
+		if (target->empty()) {
 			return;
 		}
 		std::list<singlestroke*>::iterator deli = insert;
@@ -936,9 +948,9 @@ void processSingleStroke(unsigned __int8* stroke) {
 
 		std::list<singlestroke*> temp;
 		deletess(*insert);
-		target->erase(insert);
+		insert = target->erase(insert);
 		temp.splice(temp.end(), *target, insert, deli);
-		//deletelist(temp);
+		deletelist(temp);
 		return;
 	}
 
@@ -1074,11 +1086,14 @@ void processSingleStroke(unsigned __int8* stroke) {
 	else if (longest == 1) {
 		//just add
 		singlestroke* s = new singlestroke(stroke);
-		s->textout = new textoutput();
+		if (projectdata.open && inputstate.redirect == NULL)
+			s->textout = new indexedtext();
+		else
+			s->textout = new textoutput();
 		s->textout->first = s;
 
 		sendstandard(ilongs, s, insert, target, pflags);
-
+		
 		if (projectdata.open && inputstate.redirect == NULL) {
 			if (insert != target->cend()) {
 				((indexedtext*)(s->textout))->startingindex = ((indexedtext*)((*insert)->textout))->startingindex + (*insert)->textout->text.length();
@@ -1095,7 +1110,10 @@ void processSingleStroke(unsigned __int8* stroke) {
 	else {
 		//stroke not found, possibly #
 		singlestroke* s = new singlestroke(stroke);
-		s->textout = new textoutput();
+		if (projectdata.open && inputstate.redirect == NULL)
+			s->textout = new indexedtext();
+		else
+			s->textout = new textoutput();
 		s->textout->first = s;
 
 		//test for number

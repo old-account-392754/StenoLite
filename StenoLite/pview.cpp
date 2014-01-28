@@ -10,7 +10,7 @@
 
 pdata projectdata;
 
-bool settingsel = false;
+
 
 void PViewNextFocus() {
 	if (projectdata.addingnew) {
@@ -154,16 +154,17 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 	{
 					RECT rt;
 					GetClientRect(hwndDlg, &rt);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKELIST), NULL, 0, 0, rt.bottom-rt.top, controls.width, SWP_NOZORDER);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_MAINTEXT), NULL, controls.width, 0, rt.bottom - rt.top, rt.left - rt.right - controls.width, SWP_NOZORDER);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKELIST), NULL, 0, 0, controls.width, rt.bottom - rt.top, SWP_NOZORDER);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_MAINTEXT), NULL, controls.width, 0, rt.right - rt.left - controls.width, rt.bottom - rt.top, SWP_NOZORDER);
 
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_PNEW), NULL, 0, rt.bottom-rt.top - 30, 30, rt.left - rt.right, SWP_NOZORDER);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_PNEW), NULL, 0, rt.bottom-rt.top - 30, rt.right - rt.left, 30, SWP_NOZORDER);
 
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_PENTRY), NULL, 5, rt.bottom - rt.top - 25, 20, 160, SWP_NOZORDER);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKE), NULL, 170, rt.bottom - rt.top - 25, 20, 160, SWP_NOZORDER);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_POK), NULL, 235, rt.bottom - rt.top - 25, 20, 30, SWP_NOZORDER);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_PCANCEL), NULL, 270, rt.bottom - rt.top - 25, 20, 30, SWP_NOZORDER);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_PENTRY), NULL, 5, rt.bottom - rt.top - 25, 160, 20, SWP_NOZORDER);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKE), NULL, 170, rt.bottom - rt.top - 25, 160, 20, SWP_NOZORDER);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_POK), NULL, 235, rt.bottom - rt.top - 25, 30, 20, SWP_NOZORDER);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_PCANCEL), NULL, 270, rt.bottom - rt.top - 25, 30, 20, SWP_NOZORDER);
 	}
+		return TRUE;
 	case WM_QUIT:
 		projectdata.open = false;
 		projectdata.dlg = NULL;
@@ -178,6 +179,7 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 		return FALSE;
 	case WM_INITDIALOG:
 	{
+						  
 						  projectdata.dlg = hwndDlg;
 						  projectdata.d = new dictionary("");
 						  tstring form;
@@ -212,8 +214,8 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 		return FALSE;
 	case WM_NOTIFY:
 		hdr = (NMHDR*)lParam;
-		if (hdr->code == EN_SELCHANGE && !settingsel) {
-			settingsel = true;
+		if (hdr->code == EN_SELCHANGE && !projectdata.settingsel) {
+			projectdata.settingsel = true;
 			SELCHANGE* s = (SELCHANGE*)lParam;
 			if (hdr->hwndFrom == GetDlgItem(hwndDlg, IDC_PSTROKELIST)) {
 				int line = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, s->chrg.cpMin)+1;
@@ -260,7 +262,7 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 				SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXSETSEL, 0, (LPARAM)&crnew);
 				SetTextSel(line, lineb);
 			}
-			settingsel = false;
+			projectdata.settingsel = false;
 		}
 		return TRUE;
 	case WM_COMMAND:
@@ -306,3 +308,24 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 	
 	return FALSE;
 	}
+
+
+void LaunchProjDlg(HINSTANCE hInst) {
+	if (sharedData.currentd == NULL) {
+		MessageBox(NULL, TEXT("No dictionary selected"), TEXT(""), MB_OK);
+		return;
+	}
+	if (projectdata.dlg == NULL) {
+		projectdata.dlg = CreateDialog(hInst, MAKEINTRESOURCE(IDD_PROJECT), NULL, PViewProc);
+		if (projectdata.dlg == NULL)
+		{
+			TCHAR* msg;
+			// Ask Windows to prepare a standard message for a  code:
+			FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&msg, 0, NULL);
+			MessageBox(NULL, msg, TEXT("Error"), MB_OK);
+		}
+			
+
+		ShowWindow(projectdata.dlg, SW_SHOW);
+	}
+}

@@ -30,6 +30,7 @@ struct cstruct {
 	HWND rdback;
 	HWND rdnone;
 	HWND bdict;
+	HWND bproj;
 	HWND scontainer;
 	HWND sscroll;
 	HWND mestroke;
