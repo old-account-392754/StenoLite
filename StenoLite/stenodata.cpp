@@ -808,9 +808,13 @@ bool dictionary::open(const char* file, const char* file2) {
 
 }
 
-bool dictionary::opentransient() {
+bool dictionary::opentransient(tstring &dformat) {
 	db_env_create(&env, 0);
 	//env->set_errcall(env, &errcall);
+	format = dformat;
+	items = 0;
+	lchars = 1;
+	longest = 1;
 
 	env->set_lk_detect(env, DB_LOCK_MINWRITE);
 	env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
@@ -832,8 +836,6 @@ bool dictionary::opentransient() {
 
 dictionary::dictionary(const char *home) {
 	hm = home;
-	
-	
 }
 
 void dictionary::close() {

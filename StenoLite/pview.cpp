@@ -26,7 +26,7 @@ void PViewNextFocus() {
 }
 
 std::list<singlestroke*>::iterator GetItem(int index) {
-	int iindex = projectdata.strokes.size();
+	int iindex = 0;
 	if (iindex == 0) {
 		return projectdata.strokes.end();
 	}
@@ -36,13 +36,16 @@ std::list<singlestroke*>::iterator GetItem(int index) {
 		if (iindex == index) {
 			return it;
 		}
-		iindex--;
+		iindex++;
 	}
 
 	return it;
 }
 
 void AdjustTextStart(std::list<singlestroke*>::iterator last, int adjustment) {
+	if (last == projectdata.strokes.cbegin())
+		return;
+
 	auto it = (last--);
 	for (; it != projectdata.strokes.cbegin(); it--) {
 		if ((*it)->textout->first == (*it)) {
@@ -56,13 +59,10 @@ void AdjustTextStart(std::list<singlestroke*>::iterator last, int adjustment) {
 
 void SetTextSel(unsigned int min, unsigned int max) {
 	CHARRANGE crnew;
-	unsigned int index = projectdata.strokes.size();
+	unsigned int index = 1;
 	projectdata.selectionmax = max;
 	projectdata.selectionmin = min;
 
-	if (index == 0) {
-		return;
-	}
 
 	if (max == 0) {
 		crnew.cpMax = 0;
@@ -71,39 +71,69 @@ void SetTextSel(unsigned int min, unsigned int max) {
 		crnew.cpMin = 0;
 	}
 
-	auto it = (projectdata.strokes.cend()--);
-	for (; it != projectdata.strokes.cbegin(); it--) {
-		if (index == max) {
-			crnew.cpMax = ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length();
+	if (projectdata.strokes.size() > 0){
+		auto it = (projectdata.strokes.cend()--);
+		for (; it != projectdata.strokes.cbegin(); it--) {
+			if (index == max) {
+				crnew.cpMax = ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length();
+			}
+			if (index == min) {
+				crnew.cpMin = ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length();
+			}
+			index++;
 		}
-		if (index == min) {
-			crnew.cpMin = ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length();
-		}
-		index--;
 	}
 
 	SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, 0, (LPARAM)&crnew);
 }
 
+std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex) {
+	int iindex = projectdata.strokes.size();
+	if (iindex == 0) {
+		return projectdata.strokes.end();
+	}
+
+	auto it = (projectdata.strokes.end()--);
+	for (; it != projectdata.strokes.cbegin(); it--) {
+		if (textindex <= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
+			it++;
+			return it;
+		}
+		iindex--;
+	}
+
+	if (it == projectdata.strokes.cbegin()) {
+		if (textindex <= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
+			it++;
+			return it;
+		}
+		else {
+			return it;
+		}
+	}
+
+	return it;
+}
+
 int StrokeFromTextIndx(unsigned int txtindex) {
-	unsigned int index = projectdata.strokes.size();
-	if (index == 0) {
+	unsigned int index = 1;
+	if (projectdata.strokes.size() == 0) {
 		return 0;
 	}
 
 	auto it = (projectdata.strokes.cend()--);
 	for (; it != projectdata.strokes.cbegin(); it--) {
-		if (txtindex >= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
-			return index;
+		if (txtindex <= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
+			return index-1;
 		}
-		index--;
+		index++;
 	}
 	if (it == projectdata.strokes.cbegin()) {
-		if (txtindex >= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
-			index = 1;
+		if (txtindex <= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
+			return index-1;
 		}
 		else {
-			index = 0;
+			return index;
 		}
 	}
 
@@ -144,32 +174,41 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 		projectdata.open = false;
 		projectdata.dlg = NULL;
 		inputstate.redirect = NULL;
+		projectdata.d->close();
 		return FALSE;
 	case WM_INITDIALOG:
-		projectdata.dlg = hwndDlg;
-		projectdata.d = new dictionary("");
-		if (!projectdata.d->opentransient())
-			MessageBox(NULL, TEXT("Unable to open project's dictionary"), TEXT("Error"), MB_OK);
+	{
+						  projectdata.dlg = hwndDlg;
+						  projectdata.d = new dictionary("");
+						  tstring form;
+						  if (sharedData.currentd != NULL)
+							  form = sharedData.currentd->format;
+						  else
+							  form = TEXT("#STKPWHRAO*EUFRPBLGTSDZ");
 
-		SetParent(GetDlgItem(hwndDlg, IDC_PENTRY), GetDlgItem(hwndDlg, IDC_PNEW));
-		SetParent(GetDlgItem(hwndDlg, IDC_PSTROKE), GetDlgItem(hwndDlg, IDC_PNEW));
-		SetParent(GetDlgItem(hwndDlg, IDC_POK), GetDlgItem(hwndDlg, IDC_PNEW));
-		SetParent(GetDlgItem(hwndDlg, IDC_PCANCEL), GetDlgItem(hwndDlg, IDC_PNEW));
-		ShowWindow(GetDlgItem(hwndDlg, IDC_PNEW), SW_HIDE);
+						  if (!projectdata.d->opentransient(form))
+							  MessageBox(NULL, TEXT("Unable to open project's dictionary"), TEXT("Error"), MB_OK);
 
-		SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_SETEVENTMASK, 0, ENM_SELCHANGE);
-		SetWindowText(GetDlgItem(hwndDlg, IDC_PSTROKELIST), TEXT("                       "));
+						  SetParent(GetDlgItem(hwndDlg, IDC_PENTRY), GetDlgItem(hwndDlg, IDC_PNEW));
+						  SetParent(GetDlgItem(hwndDlg, IDC_PSTROKE), GetDlgItem(hwndDlg, IDC_PNEW));
+						  SetParent(GetDlgItem(hwndDlg, IDC_POK), GetDlgItem(hwndDlg, IDC_PNEW));
+						  SetParent(GetDlgItem(hwndDlg, IDC_PCANCEL), GetDlgItem(hwndDlg, IDC_PNEW));
+						  ShowWindow(GetDlgItem(hwndDlg, IDC_PNEW), SW_HIDE);
 
-		projectdata.strokes.clear();
+						  SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_SETEVENTMASK, 0, ENM_SELCHANGE);
+						  SetWindowText(GetDlgItem(hwndDlg, IDC_PSTROKELIST), TEXT("                       "));
 
-		projectdata.addingnew = false;
-		projectdata.open = true;
-		projectdata.selectionmax = 0;
-		projectdata.selectionmin = 0;
-		projectdata.cursorpos = 0;
+						  projectdata.strokes.clear();
 
-		PViewProc(hwndDlg, WM_SIZE, 0, 0);
-		SetFocus(hwndDlg);
+						  projectdata.addingnew = false;
+						  projectdata.open = true;
+						  projectdata.selectionmax = 0;
+						  projectdata.selectionmin = 0;
+						  projectdata.cursorpos = 0;
+
+						  PViewProc(hwndDlg, WM_SIZE, 0, 0);
+						  SetFocus(hwndDlg);
+	}
 		return FALSE;
 	case WM_NOTIFY:
 		hdr = (NMHDR*)lParam;
@@ -177,24 +216,47 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 			settingsel = true;
 			SELCHANGE* s = (SELCHANGE*)lParam;
 			if (hdr->hwndFrom == GetDlgItem(hwndDlg, IDC_PSTROKELIST)) {
-				int line = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, s->chrg.cpMin);
-				int lineb = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, s->chrg.cpMax);
+				int line = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, s->chrg.cpMin)+1;
+				int lineb = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, s->chrg.cpMax)+1;
+
+				//protect against selecting in the middle of a word
+				auto it = GetItem(line);
+				if (it != projectdata.strokes.cend()) {
+					while ((*it)->textout->first != (*it)) {
+						it--;
+						line++;
+					}
+				}
+
+				if (line > lineb)
+					lineb = line;
+
+				if (lineb != line) {
+					it = GetItem(lineb);
+					if (it != projectdata.strokes.cend()) {
+						while ((*it)->textout->first != (*it)) {
+							it--;
+							lineb++;
+						}
+					}
+				}
+
 				int lineindex = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_LINEINDEX, line, 0);
 				int lineindexb = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_LINEINDEX, lineb, 0);
 				CHARRANGE crnew;
 				crnew.cpMin = lineindex;
-				crnew.cpMax = lineindexb + 23;
+				crnew.cpMax = lineindexb;
 				SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXSETSEL, 0, (LPARAM)&crnew);
 				SetTextSel(line, lineb);
 			}
 			else if (hdr->hwndFrom == GetDlgItem(hwndDlg, IDC_MAINTEXT)) {
-				int line = StrokeFromTextIndx(s->chrg.cpMin);
-				int lineb = StrokeFromTextIndx(s->chrg.cpMax);
+				int line = StrokeFromTextIndx(s->chrg.cpMin)+1;
+				int lineb = StrokeFromTextIndx(s->chrg.cpMax)+1;
 				int lineindex = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_LINEINDEX, line, 0);
 				int lineindexb = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_LINEINDEX, lineb, 0);
 				CHARRANGE crnew;
 				crnew.cpMin = lineindex;
-				crnew.cpMax = lineindexb + 23;
+				crnew.cpMax = lineindexb;
 				SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXSETSEL, 0, (LPARAM)&crnew);
 				SetTextSel(line, lineb);
 			}

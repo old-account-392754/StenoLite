@@ -24,6 +24,7 @@ struct indexedtext : public textoutput {
 void PViewNextFocus();
 std::list<singlestroke*>::iterator GetItem(int index);
 void AdjustTextStart(std::list<singlestroke*>::iterator last, int adjustment);
+std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex);
 
 extern pdata projectdata;
 
