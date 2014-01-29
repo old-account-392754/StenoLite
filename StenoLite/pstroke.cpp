@@ -920,7 +920,8 @@ void processSingleStroke(unsigned __int8* stroke) {
 
 		charstodelete = delnP(max, min, projectdata.strokes.cend(), spacestoadd, sremoved);
 
-		if (max != target->cbegin() && settings.space == 0) {
+		bool altered = false;
+		if (max != target->cbegin()) {
 			auto maxn = --max;
 			max++;
 			if ((*maxn)->textout->text.length() > 0) {
@@ -928,10 +929,24 @@ void processSingleStroke(unsigned __int8* stroke) {
 					(*maxn)->textout->text.erase((*maxn)->textout->text.begin());
 					AdjustTextStart(maxn, -1);
 					crng.cpMax++;
-					SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
+					altered = true;
 				}
 			}
 		}
+
+		if (min != target->cend()) {
+			if ((*min)->textout->text.length() > 0) {
+				if ((*min)->textout->text[(*min)->textout->text.length()-1] == TEXT(' ')) {
+					(*min)->textout->text.pop_back();
+					//AdjustTextStart(maxn, -1);
+					crng.cpMin--;
+					altered = true;
+				}
+			}
+		}
+
+		if (altered)
+			SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
 
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
 		crng.cpMin += spacestoadd;
@@ -972,7 +987,31 @@ void processSingleStroke(unsigned __int8* stroke) {
 		std::list<singlestroke*> temp;
 		deletess(*insert);
 		insert = target->erase(insert);
+
+		if (insert != target->cend() && insert != target->cbegin() && projectdata.open && inputstate.redirect == NULL) {
+			auto prev = --insert;
+			++insert;
+			if (((*prev)->textout->flags & TF_INOSPACE) == 0 && ((*insert)->textout->flags & TF_ENOSPACE) == 0 && (((*prev)->textout->flags & TF_IPSPACE) == 0 || ((*insert)->textout->flags & TF_EPSPACE) == 0)) {
+				if ((*prev)->textout->text.length() > 0 && (*insert)->textout->text.length() > 0) {
+					if ((*prev)->textout->text[0] != TEXT(' ') && (*insert)->textout->text[(*insert)->textout->text.length() - 1] != TEXT(' ')) {
+						(*insert)->textout->text += TEXT(' ');
+						SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)TEXT(" "));
+					}
+				}
+			}
+		}
+
 		temp.splice(temp.end(), *target, insert, deli);
+		// need to delete extra strokes from view
+		if (temp.size() > 0 && projectdata.open && inputstate.redirect == NULL) {
+			CHARRANGE crng;
+			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crng);
+			int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crng.cpMin);
+			crng.cpMin = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line - temp.size(), 0) + 23;
+			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crng);
+			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
+		}
+
 		deletelist(temp);
 		return;
 	}

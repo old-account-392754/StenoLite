@@ -96,7 +96,8 @@ void SetTextSel(unsigned int min, unsigned int max) {
 			if (index == min) {
 				crnew.cpMin = pos + (*it)->textout->text.length();
 			}
-			pos += (*it)->textout->text.length();
+			if ((*it)->textout->first == *it)
+				pos += (*it)->textout->text.length();
 			index++;
 		}
 		if (index <= max) {
@@ -116,7 +117,7 @@ std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex) {
 		return projectdata.strokes.end();
 	}
 
-	auto it = (--projectdata.strokes.end());
+	/*auto it = (--projectdata.strokes.end());
 	for (; it != projectdata.strokes.cbegin(); it--) {
 		if (textindex <= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
 			it++;
@@ -127,6 +128,29 @@ std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex) {
 
 	if (it == projectdata.strokes.cbegin()) {
 		if (textindex <= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
+			it++;
+			return it;
+		}
+		else {
+			return it;
+		}
+	}*/
+
+	auto it = (--projectdata.strokes.end());
+	int pos = 0;
+	for (; it != projectdata.strokes.cbegin(); it--) {
+		if ((*it)->textout->first == *it) {
+			if (textindex <= pos + (*it)->textout->text.length() / 2) {
+				it++;
+				return it;
+			}
+			pos += (*it)->textout->text.length();
+		}
+		iindex--;
+	}
+
+	if (it == projectdata.strokes.cbegin()) {
+		if (textindex <= pos + (*it)->textout->text.length() / 2) {
 			it++;
 			return it;
 		}
@@ -167,7 +191,10 @@ int StrokeFromTextIndx(unsigned int txtindex) {
 		if (txtindex <= pos + (*it)->textout->text.length() / 2) {
 			return index - 1;
 		}
-		pos += (*it)->textout->text.length();
+
+		if ((*it)->textout->first == *it) {
+			pos += (*it)->textout->text.length();
+		}
 		index++;
 	}
 	if (it == projectdata.strokes.cbegin()) {
