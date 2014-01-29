@@ -819,10 +819,18 @@ bool dictionary::opentransient(tstring &dformat) {
 	longest = 1;
 
 	env->set_lk_detect(env, DB_LOCK_MINWRITE);
-	env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
-	env->set_lg_max(env, 1048576);
+	//env->log_set_config(env, DB_LOG_AUTO_REMOVE, 1);
+	//env->set_lg_max(env, 1048576);
 
-	env->open(env, NULL, DB_INIT_MPOOL | DB_CREATE | DB_INIT_MPOOL | DB_REGISTER | DB_INIT_TXN | DB_RECOVER | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
+	env->set_cachesize(env,
+		0,    /* 0 gigabytes */
+		100 * 1024 * 1024,    /* 100 megabytes */
+		1);
+
+	if(env->log_set_config(env, DB_LOG_IN_MEMORY, 1) == 0)
+		env->set_lg_bsize(env, 1 * 1024 * 1024);
+
+	env->open(env, NULL, DB_INIT_MPOOL | DB_CREATE | DB_PRIVATE | DB_INIT_MPOOL  | DB_INIT_TXN  | DB_INIT_LOCK | DB_INIT_LOG | DB_THREAD, 0);
 
 	db_create(&contents, env, 0);
 
@@ -830,6 +838,9 @@ bool dictionary::opentransient(tstring &dformat) {
 		return false;
 
 	}
+
+	DB_MPOOLFILE* mpf = contents->get_mpf(contents);
+	mpf->set_flags(mpf, DB_MPOOL_NOFILE, 1);
 
 	secondary = NULL;
 

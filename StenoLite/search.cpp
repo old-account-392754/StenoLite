@@ -161,10 +161,9 @@ DWORD WINAPI searchDictionary(LPVOID lpParam)
 						if (prev.compare((char*)(keyin.data)) != 0) {
 							//needs new header
 							prev = (char*)(keyin.data);
-							prev += "\r\n";
 							len = SendMessage(controls.mesuggest, WM_GETTEXTLENGTH, 0, 0);
 							SendMessage(controls.mesuggest, EM_SETSEL, len, len);
-							SendMessage(controls.mesuggest, EM_REPLACESEL, FALSE, (LPARAM)(strtotstr(prev).c_str()));
+							SendMessage(controls.mesuggest, EM_REPLACESEL, FALSE, (LPARAM)(strtotstr(prev +"\r\n").c_str()));
 						}
 
 						tstring rlt = stroketomultitext((unsigned __int8*)(pkey.data), pkey.size / 3, sharedData.currentd->format);

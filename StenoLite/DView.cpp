@@ -246,49 +246,6 @@ void Search(bool text) {
 	}
 }
 
-/*bool DelCheck(const unsigned __int8* data, const int &size) {
-	DBT keyin;
-	keyin.data = new unsigned __int8[dviewdata.d->longest * 3];
-	keyin.size = 0;
-	keyin.ulen = dviewdata.d->longest * 3;
-	keyin.dlen = 0;
-	keyin.doff = 0;
-	keyin.flags = DB_DBT_USERMEM;
-
-	DBT strin;
-	strin.data = new unsigned __int8[dviewdata.d->lchars + 1];
-	strin.size = 0;
-	strin.ulen = dviewdata.d->lchars + 1;
-	strin.dlen = 0;
-	strin.doff = 0;
-	strin.flags = DB_DBT_USERMEM;
-
-	DBT strinb;
-	strinb.data = new unsigned __int8[dviewdata.d->lchars + 1];
-	strinb.size = 0;
-	strinb.ulen = dviewdata.d->lchars + 1;
-	strinb.dlen = 0;
-	strinb.doff = 0;
-	strinb.flags = DB_DBT_USERMEM;
-
-	if (dviewdata.bystrokes) 
-		dviewdata.startcursor->get(dviewdata.startcursor, &keyin, &strin, DB_CURRENT);
-	else
-		dviewdata.startcursor->pget(dviewdata.startcursor, &strin, &keyin, &strinb, DB_CURRENT);
-	
-	if (keyin.size == size) {
-		for (int i = 0; i < size; i++){
-			if (((unsigned __int8*)(keyin.data))[i] != data[i])
-				return false;
-		}
-		if (dviewdata.bystrokes)
-			dviewdata.startcursor->get(dviewdata.startcursor, &keyin, &strin, DB_NEXT);
-		else
-			dviewdata.startcursor->pget(dviewdata.startcursor, &strin, &keyin, &strinb, DB_NEXT);
-		return true;
-	}
-	return false;
-}*/
 
 void Move(bool up) {
 	if (dviewdata.dlgwnd == NULL)
