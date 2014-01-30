@@ -713,7 +713,7 @@ void deleteandspace(const int& del, const int &space) {
 
 		//crng.cpMin += space;
 		//crng.cpMax = crng.cpMin;
-		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
+		//SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
 		projectdata.settingsel = false;
 	} 
 	else {
@@ -742,17 +742,14 @@ void deletelist(std::list<singlestroke*> temp, std::list<singlestroke*>::iterato
 	}
 }
 
-void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>::iterator insert, std::list<singlestroke*> * list, bool shortver = false) {
+void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>::iterator insert, std::list<singlestroke*> * list, std::list<singlestroke*>::iterator* end = NULL) {
 	unsigned __int8 tflags = 0;
 	unsigned __int8 nflags = 0;
-	if (shortver) {
-		tflags = s->textout->flags;
+	
+	if (insert != list->cend()) {
+		tflags = (*insert)->textout->flags;
 	}
-	else {
-		if (insert != list->cend()) {
-			tflags = (*insert)->textout->flags;
-		}
-	}
+	
 
 	if (insert != list->cbegin() && list->size() != 0) {
 		auto icpy = insert;
@@ -765,19 +762,15 @@ void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>:
 		settings.space = 2;
 
 	BOOL prependspace = FALSE;
-	if (shortver) {
-		s->textout->text = sendText(txt, s->textout->flags, TF_ENOSPACE, nflags, prependspace, inputstate.redirect != NULL || projectdata.open);
-		s->textout->flags = tflags;
-	}
-	else {
-		s->textout->text = sendText(txt, s->textout->flags, tflags, nflags, prependspace, inputstate.redirect != NULL || projectdata.open);
-		//MessageBox(NULL, std::to_wstring(s->textout->first == s).c_str(), TEXT("C1"), MB_OK);
-		if (prependspace == TRUE) {
-			if (insert != list->cend()) {
-				(*insert)->textout->text.pop_back();
-			}
+	
+	s->textout->text = sendText(txt, s->textout->flags, tflags, nflags, prependspace, inputstate.redirect != NULL || projectdata.open);
+
+	if (prependspace == TRUE) {
+		if (insert != list->cend()) {
+			(*insert)->textout->text.pop_back();
 		}
 	}
+	
 	settings.space = t;
 
 	if (inputstate.redirect != NULL) {
@@ -792,21 +785,45 @@ void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>:
 		crng.cpMin = crng.cpMax;
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
 
-		if (s->textout->text.length() > 0 && settings.space != 2) {
-			if (insert != list->cend()) {
-				if ((s->textout->flags & TF_INOSPACE) == 0 && ((*insert)->textout->flags & TF_ENOSPACE) == 0 && ((s->textout->flags & TF_IPSPACE) == 0 || ((*insert)->textout->flags & TF_EPSPACE) == 0)) {
+		if (settings.space != 2) {
+			auto inscpy = insert;
+			while (inscpy != list->cend()) {
+				if ((*inscpy)->textout->text.length() > 0)
+					break;
+				if (((*inscpy)->textout->flags & TF_ENOSPACE) != 0)
+					inscpy = list->end();
+				inscpy++;
+			}
+
+			if (inscpy != list->cend()) {
+				if ((s->textout->flags & TF_INOSPACE) == 0 && ((*inscpy)->textout->flags & TF_ENOSPACE) == 0 && ((s->textout->flags & TF_IPSPACE) == 0 || ((*inscpy)->textout->flags & TF_EPSPACE) == 0)) {
 					//should have beggining seperation
-					if ((*insert)->textout->text.length() > 0 && s->textout->text[0] != TEXT(' ')) {
-						if ((*insert)->textout->text[(*insert)->textout->text.length() - 1] != TEXT(' ')) {
+
+					if ((*inscpy)->textout->text.length() > 0) {
+						if ((*inscpy)->textout->text[(*inscpy)->textout->text.length() - 1] != TEXT(' ')) {
 							s->textout->text = TEXT(' ') + s->textout->text;
 						}
 					}
 				}
 			}
-			if ((s->textout->flags & TF_ENOSPACE) == 0 && (nflags & TF_INOSPACE) == 0 && ((s->textout->flags & TF_EPSPACE) == 0 || (nflags & TF_IPSPACE) == 0)) {
-				//should have end seperation
-				if (insert != list->cbegin() && s->textout->text[s->textout->text.length()-1] != TEXT(' ')) {
+
+			if (end != NULL) {
+				insert = *end;
+			}
+
+			if (insert != list->cbegin()) {
+
+				while (insert != list->cbegin()) {
 					insert--;
+					if ((*insert)->textout->text.length() > 0)
+						break;
+					if (((*insert)->textout->flags & TF_INOSPACE) != 0)
+						insert = list->begin();
+				}
+
+				if ((s->textout->flags & TF_ENOSPACE) == 0 && (nflags & TF_INOSPACE) == 0 && ((s->textout->flags & TF_EPSPACE) == 0 || (nflags & TF_IPSPACE) == 0)) {
+					//should have end seperation
+				
 					if ((*insert)->textout->text.length() > 0) {
 						if ((*insert)->textout->text[0] != TEXT(' ')) {
 							s->textout->text += TEXT(' ');
@@ -849,6 +866,9 @@ void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &i
 					bool poppedspace = false;
 
 					int oldlen = tx->text.length();
+					if (tx->text[0] == TEXT(' ')) {
+						tx->text.erase(tx->text.begin());
+					}
 					if (tx->text[tx->text.length() - 1] == TEXT(' ')) {
 						tx->text.pop_back();
 						poppedspace = true;
@@ -862,11 +882,15 @@ void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &i
 					singlestroke* s = new singlestroke(stroke);
 					s->textout = tx;
 					tx->first = s;
+					auto itemp = insert;
+					itemp++;
+					while (itemp != target->cend()) {
+						if ((*itemp)->textout->first == (*itemp))
+							break;
+						itemp++;
+					}
 
-					if (projectdata.open && inputstate.redirect == NULL)
-						sendstandard(tx->text, s, insert, target);
-					else
-						sendstandard(tx->text, s, insert, target, true);
+					sendstandard(tx->text, s, itemp, target, &insert);
 
 					standardcleanup(s, insert, target);
 					return;
@@ -1067,7 +1091,10 @@ void processSingleStroke(unsigned __int8* stroke) {
 		if (stroke[0] == sharedData.currentd->sdelete[0] && stroke[1] == sharedData.currentd->sdelete[1] && stroke[2] == sharedData.currentd->sdelete[2]) {
 			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crng);
 			int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crng.cpMin);
-			crng.cpMin = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line - 1, 0) + 23;
+			if (line != 0)
+				crng.cpMin = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line - 1, 0) + 23;
+			else
+				crng.cpMin = 23;
 			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crng);
 			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
 		}
@@ -1093,8 +1120,13 @@ void processSingleStroke(unsigned __int8* stroke) {
 		if (max != target->cbegin()) {
 			auto maxn = --max;
 			max++;
+			while ((*maxn)->textout->text.length() == 0 && maxn != target->cbegin()) {
+				--maxn;
+				if (((*maxn)->textout->flags & TF_INOSPACE) != 0)
+					break;
+			}
 			if ((*maxn)->textout->text.length() > 0) {
-				if ((*maxn)->textout->text[0] == TEXT(' ')) {
+				if ((*maxn)->textout->text[0] == TEXT(' ') && ((*maxn)->textout->flags & TF_INOSPACE) == 0) {
 					(*maxn)->textout->text.erase((*maxn)->textout->text.begin());
 					crng.cpMax++;
 					altered = true;
@@ -1102,28 +1134,39 @@ void processSingleStroke(unsigned __int8* stroke) {
 			}
 		}
 
-		if (min != target->cend()) {
-			if ((*min)->textout->text.length() > 0) {
-				if ((*min)->textout->text[(*min)->textout->text.length()-1] == TEXT(' ')) {
-					(*min)->textout->text.pop_back();
+		
+		auto minn = min;
+		while (minn != target->cend()) {
+			if ((*minn)->textout->text.length() == 0)
+				break;
+			if (((*minn)->textout->flags & TF_ENOSPACE) != 0)
+				break;
+			minn++;
+		}
+		if (minn != target->cend()) {
+			if ((*minn)->textout->text.length() > 0) {
+				if ((*minn)->textout->text[(*minn)->textout->text.length() - 1] == TEXT(' ') && ((*minn)->textout->flags & TF_ENOSPACE) == 0) {
+					(*minn)->textout->text.pop_back();
 					crng.cpMin--;
 					altered = true;
 				}
 			}
 		}
+		
 
 		if (altered)
 			SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
 
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
-		crng.cpMin += spacestoadd;
-		crng.cpMax = crng.cpMin;
-		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
+		target->erase(max, min);
+		//crng.cpMin += spacestoadd;
+		//crng.cpMax = crng.cpMin;
+		//SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
 
 
-		if (spacestoadd != 0 && min != projectdata.strokes.cend()) {
-			(*min)->textout->text += TEXT(' ');
-		}
+		//if (spacestoadd != 0 && min != projectdata.strokes.cend()) {
+		//	(*min)->textout->text += TEXT(' ');
+		//}
 		insert = min;
 		projectdata.settingsel = false;
 	}
@@ -1154,11 +1197,13 @@ void processSingleStroke(unsigned __int8* stroke) {
 		deletess(*insert);
 		insert = target->erase(insert);
 
+	
 		if (insert != target->cend() && insert != target->cbegin() && projectdata.open && inputstate.redirect == NULL) {
 			auto prev = --insert;
 			++insert;
 			if (((*prev)->textout->flags & TF_INOSPACE) == 0 && ((*insert)->textout->flags & TF_ENOSPACE) == 0 && (((*prev)->textout->flags & TF_IPSPACE) == 0 || ((*insert)->textout->flags & TF_EPSPACE) == 0)) {
 				if ((*prev)->textout->text.length() > 0 && (*insert)->textout->text.length() > 0) {
+					
 					if ((*prev)->textout->text[0] != TEXT(' ') && (*insert)->textout->text[(*insert)->textout->text.length() - 1] != TEXT(' ')) {
 						(*insert)->textout->text += TEXT(' ');
 						SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)TEXT(" "));
@@ -1168,17 +1213,14 @@ void processSingleStroke(unsigned __int8* stroke) {
 		}
 
 		temp.splice(temp.end(), *target, insert, deli);
-		// need to delete extra strokes from view
-		if (temp.size() > 0 && projectdata.open && inputstate.redirect == NULL) {
-			CHARRANGE crng;
-			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crng);
-			int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crng.cpMin);
-			crng.cpMin = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line - temp.size(), 0) + 23;
-			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crng);
-			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
-		}
 
 		deletelist(temp, deli, target);
+
+		CHARRANGE crng;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXGETSEL, NULL, (LPARAM)&crng);
+		crng.cpMin = crng.cpMax;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
+
 		return;
 	}
 
