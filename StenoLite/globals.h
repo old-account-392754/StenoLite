@@ -53,6 +53,9 @@ struct sstruct {
 	int xpos;
 	int ypos;
 	tstring dict;
+	int fsize;
+	int fweight;
+	tstring fname;
 	unsigned __int8 map[256];
 } ;
 

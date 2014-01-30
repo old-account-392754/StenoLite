@@ -8,6 +8,7 @@
 #include <list>
 #include <db.h>
 #include <Windowsx.h>
+#include <Commdlg.h>
 
 pdata projectdata;
 
@@ -40,21 +41,6 @@ std::list<singlestroke*>::iterator GetItem(int index) {
 	return it;
 }
 
-void AdjustTextStart(std::list<singlestroke*>::iterator last, int adjustment) {
-	if (last == projectdata.strokes.cbegin())
-		return;
-
-	auto it = (--last);
-	for (; it != projectdata.strokes.cbegin(); it--) {
-		if ((*it)->textout->first == (*it)) {
-			((indexedtext*)((*it)->textout))->startingindex += adjustment;
-		}
-	}
-	if ((*it)->textout->first == (*it)) {
-		((indexedtext*)((*it)->textout))->startingindex += adjustment;
-	}
-}
-
 void SetTextSel(unsigned int min, unsigned int max) {
 	CHARRANGE crnew;
 	unsigned int index = 1;
@@ -70,23 +56,7 @@ void SetTextSel(unsigned int min, unsigned int max) {
 	}
 
 	if (projectdata.strokes.size() > 0){
-		/*auto it = (--projectdata.strokes.cend());
-		for (; it != projectdata.strokes.cbegin(); it--) {
-			if (index == max) {
-				crnew.cpMax = ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length();
-			}
-			if (index == min) {
-				crnew.cpMin = ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length();
-			}
-			index++;
-		}
-		if (index <= max) {
-			crnew.cpMax = ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length();
-		}
-		if (index <= min) {
-			crnew.cpMin = ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length();
-		}*/
-
+	
 		auto it = (--projectdata.strokes.cend());
 		int pos = 0;
 		for (; it != projectdata.strokes.cbegin(); it--) {
@@ -117,30 +87,12 @@ std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex) {
 		return projectdata.strokes.end();
 	}
 
-	/*auto it = (--projectdata.strokes.end());
-	for (; it != projectdata.strokes.cbegin(); it--) {
-		if (textindex <= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
-			it++;
-			return it;
-		}
-		iindex--;
-	}
-
-	if (it == projectdata.strokes.cbegin()) {
-		if (textindex <= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
-			it++;
-			return it;
-		}
-		else {
-			return it;
-		}
-	}*/
 
 	auto it = (--projectdata.strokes.end());
 	int pos = 0;
 	for (; it != projectdata.strokes.cbegin(); it--) {
 		if ((*it)->textout->first == *it) {
-			if (textindex <= pos + (*it)->textout->text.length() / 2) {
+			if (textindex < pos + (*it)->textout->text.length() / 2) {
 				it++;
 				return it;
 			}
@@ -150,7 +102,7 @@ std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex) {
 	}
 
 	if (it == projectdata.strokes.cbegin()) {
-		if (textindex <= pos + (*it)->textout->text.length() / 2) {
+		if (textindex < pos + (*it)->textout->text.length() / 2) {
 			it++;
 			return it;
 		}
@@ -168,27 +120,10 @@ int StrokeFromTextIndx(unsigned int txtindex) {
 		return 0;
 	}
 
-	/*
-	auto it = (--projectdata.strokes.cend());
-	for (; it != projectdata.strokes.cbegin(); it--) {
-		if (txtindex <= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
-			return index-1;
-		}
-		index++;
-	}
-	if (it == projectdata.strokes.cbegin()) {
-		if (txtindex <= ((indexedtext*)((*it)->textout))->startingindex + (*it)->textout->text.length() / 2) {
-			return index-1;
-		}
-		else {
-			return index;
-		}
-	}*/
-
 	auto it = (--projectdata.strokes.cend());
 	int pos = 0;
 	for (; it != projectdata.strokes.cbegin(); it--) {
-		if (txtindex <= pos + (*it)->textout->text.length() / 2) {
+		if (txtindex < pos + (*it)->textout->text.length() / 2) {
 			return index - 1;
 		}
 
@@ -198,7 +133,7 @@ int StrokeFromTextIndx(unsigned int txtindex) {
 		index++;
 	}
 	if (it == projectdata.strokes.cbegin()) {
-		if (txtindex <= pos + (*it)->textout->text.length() / 2) {
+		if (txtindex < pos + (*it)->textout->text.length() / 2) {
 			return index - 1;
 		}
 		else {
@@ -349,17 +284,21 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 
 	switch (uMsg) {
 	case WM_ACTIVATE:
-		if (wParam == 0)
+		if (wParam == 0) {
 			modelesswnd = NULL;
-		else
+			projectdata.open = false;
+		}
+		else {
 			modelesswnd = hwndDlg;
+			projectdata.open = true;
+		}
 		return FALSE;
 	case WM_SIZE:
 	{
 					RECT rt;
 					GetClientRect(hwndDlg, &rt);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKELIST), NULL, 0, 0, controls.width, rt.bottom - rt.top, SWP_NOZORDER);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_MAINTEXT), NULL, controls.width, 0, rt.right - rt.left - controls.width, rt.bottom - rt.top, SWP_NOZORDER);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKELIST), NULL, 0, 0, projectdata.textwidth, rt.bottom - rt.top, SWP_NOZORDER);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_MAINTEXT), NULL, projectdata.textwidth, 0, rt.right - rt.left - projectdata.textwidth, rt.bottom - rt.top, SWP_NOZORDER);
 
 					SetWindowPos(GetDlgItem(hwndDlg, IDC_PNEW), NULL, 0, rt.bottom-rt.top - 30, rt.right - rt.left, 30, SWP_NOZORDER);
 
@@ -401,7 +340,37 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 						  SetParent(GetDlgItem(hwndDlg, IDC_PCANCEL), GetDlgItem(hwndDlg, IDC_PNEW));
 						  ShowWindow(GetDlgItem(hwndDlg, IDC_PNEW), SW_HIDE);
 
-						  
+						 
+						  PARAFORMAT2 pf;
+						  memset(&pf, 0, sizeof(pf));
+						  pf.cbSize = sizeof(PARAFORMAT2);
+						  pf.dwMask = PFM_OFFSETINDENT | PFM_SPACEAFTER | PFM_OFFSET;
+						  pf.dxStartIndent = (24 * 1440) / 72;
+						  pf.dySpaceAfter = (5 * 1440) / 72;
+						  pf.dxOffset = -pf.dxStartIndent;
+						  SendMessage(GetDlgItem(hwndDlg, IDC_MAINTEXT), EM_SETPARAFORMAT, 0, (LPARAM)&pf);
+
+						  CHARFORMAT2 cf;
+						  memset(&cf, 0, sizeof(cf));
+						  cf.cbSize = sizeof(CHARFORMAT2);
+						  cf.dwMask = CFM_FACE | CFM_SIZE;
+						  cf.yHeight = (10 * 1440) / 72;
+						  _tcscpy_s(cf.szFaceName, LF_FACESIZE, TEXT("Consolas"));
+
+						  if (SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_SETCHARFORMAT, SCF_ALL, (LPARAM)&cf) == 0) {
+							  _tcscpy_s(cf.szFaceName, LF_FACESIZE, TEXT("Courier New"));
+							  SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_SETCHARFORMAT, SCF_ALL, (LPARAM)&cf);
+						  }
+
+						  memset(&cf, 0, sizeof(cf));
+						  cf.cbSize = sizeof(CHARFORMAT2);
+						  cf.dwMask = CFM_FACE | CFM_SIZE | CFM_WEIGHT;
+						  cf.yHeight = (settings.fsize * 1440) / 72;
+						  cf.wWeight = settings.fweight;
+						  _tcscpy_s(cf.szFaceName, LF_FACESIZE, settings.fname.c_str());
+
+						  SendMessage(GetDlgItem(hwndDlg, IDC_MAINTEXT), EM_SETCHARFORMAT, SCF_ALL, (LPARAM)&cf);
+
 						  SetWindowText(GetDlgItem(hwndDlg, IDC_PSTROKELIST), TEXT("                       "));
 						  CHARRANGE crnew;
 						  crnew.cpMax = 23;
@@ -421,67 +390,17 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 						  projectdata.selectionmin = 0;
 						  projectdata.cursorpos = 0;
 
+						  POINTL pt;
+						  SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_POSFROMCHAR, (WPARAM)&pt, 1);
+						  projectdata.textwidth = pt.x * 23;
+
 						  PViewProc(hwndDlg, WM_SIZE, 0, 0);
 						  SetFocus(hwndDlg);
 	}
 		return FALSE;
 	case WM_NOTIFY:
 		hdr = (NMHDR*)lParam;
-		/*if (hdr->code == EN_SELCHANGE && !projectdata.settingsel) {
-			projectdata.settingsel = true;
-			SELCHANGE* s = (SELCHANGE*)lParam;
-			if (s->chrg.cpMin > s->chrg.cpMax) {
-				LONG t = s->chrg.cpMax;
-				s->chrg.cpMax = s->chrg.cpMin;
-				s->chrg.cpMin = t;
-			}
-			if (hdr->hwndFrom == GetDlgItem(hwndDlg, IDC_PSTROKELIST)) {
-				int line = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, s->chrg.cpMin);
-				int lineb = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, s->chrg.cpMax);
-
-				//protect against selecting in the middle of a word
-				auto it = GetItem(line);
-				if (it != projectdata.strokes.cend()) {
-					while ((*it)->textout->first != (*it)) {
-						it--;
-						line++;
-					}
-				}
-
-				if (line > lineb)
-					lineb = line;
-
-				if (lineb != line) {
-					it = GetItem(lineb);
-					if (it != projectdata.strokes.cend()) {
-						while ((*it)->textout->first != (*it)) {
-							it--;
-							lineb++;
-						}
-					}
-				}
-
-				int lineindex = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_LINEINDEX, line, 0);
-				int lineindexb = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_LINEINDEX, lineb, 0);
-				CHARRANGE crnew;
-				crnew.cpMin = lineindex+23;
-				crnew.cpMax = lineindexb+23;
-				SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXSETSEL, 0, (LPARAM)&crnew);
-				SetTextSel(line, lineb);
-			}
-			else if (hdr->hwndFrom == GetDlgItem(hwndDlg, IDC_MAINTEXT)) {
-				int line = StrokeFromTextIndx(s->chrg.cpMin);
-				int lineb = StrokeFromTextIndx(s->chrg.cpMax);
-				int lineindex = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_LINEINDEX, line, 0);
-				int lineindexb = SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_LINEINDEX, lineb, 0);
-				CHARRANGE crnew;
-				crnew.cpMin = lineindex+23;
-				crnew.cpMax = lineindexb+23;
-				SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXSETSEL, 0, (LPARAM)&crnew);
-				SetTextSel(line, lineb);
-			}
-			projectdata.settingsel = false;
-		}*/
+		
 		return TRUE;
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
@@ -512,7 +431,42 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 			projectdata.addingnew = false;
 			inputstate.redirect = NULL;
 			break;
+		case IDM_PFONT:
+			CHOOSEFONT cf;
+			memset(&cf, 0, sizeof(cf));
+			cf.lStructSize = sizeof(CHOOSEFONT);
+			cf.hwndOwner = hwndDlg;
+			cf.Flags =  CF_NOSCRIPTSEL | CF_INITTOLOGFONTSTRUCT | CF_SCREENFONTS;
+			cf.rgbColors = RGB(0, 0, 0);
+
+			LOGFONT lf;
+			memset(&lf, 0, sizeof(lf));
+			HDC screen = GetDC(NULL);
+			lf.lfHeight = -MulDiv(settings.fsize, GetDeviceCaps(screen, LOGPIXELSY), 72);
+			ReleaseDC(NULL, screen);
+			lf.lfWeight = settings.fweight;
+
+			_tcscpy_s(lf.lfFaceName, LF_FACESIZE, settings.fname.c_str());
+			cf.lpLogFont = &lf;
+
+			if (ChooseFont(&cf)) {
+				settings.fsize = cf.iPointSize / 10;
+				settings.fweight = lf.lfWeight;
+				settings.fname = lf.lfFaceName;
+
+				CHARFORMAT2 cf;
+				memset(&cf, 0, sizeof(cf));
+				cf.cbSize = sizeof(CHARFORMAT2);
+				cf.dwMask = CFM_FACE | CFM_SIZE | CFM_WEIGHT;
+				cf.yHeight = (settings.fsize * 1440) / 72;
+				cf.wWeight = settings.fweight;
+				_tcscpy_s(cf.szFaceName, LF_FACESIZE, settings.fname.c_str());
+
+				SendMessage(GetDlgItem(hwndDlg, IDC_MAINTEXT), EM_SETCHARFORMAT, SCF_ALL, (LPARAM)&cf);
+			}
+			break;
 		}
+
 		return TRUE;
 	case WM_NEWITEMDLG:
 		ShowWindow(GetDlgItem(hwndDlg, IDC_PNEW), SW_SHOW);

@@ -16,6 +16,8 @@
 #include <Richedit.h>
 #include "resource.h"
 
+void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target);
+
 void addStroke(__int32 s) {
 	WaitForSingleObject(sharedData.protectqueue, INFINITE);
 	sharedData.inputs.push(s);
@@ -373,7 +375,7 @@ tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevf
 			inescape = true;
 		}
 		else {
-			finaltext += *i;
+			
 			SHORT rval = VkKeyScanEx(*i, locale);
 			if (((HIBYTE(rval) & 1) != 0 || (first && (TF_CAPNEXT & prevflags) != 0)) && (!first || (TF_LOWNEXT & prevflags) == 0)){
 				inputs[index].type = INPUT_KEYBOARD;
@@ -391,6 +393,8 @@ tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevf
 				inputs[index + 3].ki.wVk = VK_SHIFT;
 
 				index += 4;
+
+				finaltext += towupper(*i);
 			}
 			else {
 				inputs[index].type = INPUT_KEYBOARD;
@@ -401,6 +405,8 @@ tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevf
 				inputs[index + 1].ki.wVk = LOBYTE(rval);
 
 				index += 2;
+
+				finaltext += towlower(*i);
 			}
 			first = false;
 		}
@@ -705,8 +711,8 @@ void deleteandspace(const int& del, const int &space) {
 
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
 
-		crng.cpMin += space;
-		crng.cpMax = crng.cpMin;
+		//crng.cpMin += space;
+		//crng.cpMax = crng.cpMin;
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
 		projectdata.settingsel = false;
 	} 
@@ -723,15 +729,15 @@ void deletess(singlestroke* t) {
 	delete t;
 }
 
-void deletelist(std::list<singlestroke*> &temp) {
+void deletelist(std::list<singlestroke*> temp, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target) {
 	std::list<singlestroke*>::iterator ti = temp.end();
 	if (temp.size() > 0) {
 		ti--;
 		for (; ti != temp.begin(); ti--) {
-			processSingleStroke((*ti)->value.ival);
+			InnerProcess((*ti)->value.ival, insert, target);
 			deletess((*ti));
 		}
-		processSingleStroke((*ti)->value.ival);
+		InnerProcess((*ti)->value.ival, insert, target);
 		deletess((*ti));
 	}
 }
@@ -756,7 +762,7 @@ void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>:
 
 	int t = settings.space;
 	if (projectdata.open && inputstate.redirect == NULL)
-		settings.space = -1;
+		settings.space = 2;
 
 	BOOL prependspace = FALSE;
 	if (shortver) {
@@ -765,6 +771,7 @@ void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>:
 	}
 	else {
 		s->textout->text = sendText(txt, s->textout->flags, tflags, nflags, prependspace, inputstate.redirect != NULL || projectdata.open);
+		//MessageBox(NULL, std::to_wstring(s->textout->first == s).c_str(), TEXT("C1"), MB_OK);
 		if (prependspace == TRUE) {
 			if (insert != list->cend()) {
 				(*insert)->textout->text.pop_back();
@@ -815,8 +822,170 @@ void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>:
 }
 
 void standardcleanup(singlestroke* s, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * list) {
-	list->insert(insert, s);
+	//MessageBox(NULL, std::to_wstring(s->textout->flags).c_str(), TEXT("C1"), MB_OK);
+	insert = list->insert(insert, s);
+	//MessageBox(NULL, std::to_wstring(projectdata.strokes.size()).c_str(), TEXT("C2"), MB_OK);
 	trimStokesList();
+}
+
+void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target) {
+	int longest = 0;
+
+	std::string ilongstemp;
+	findanentry(stroke, sharedData.currentd, insert, target->cend(), ilongstemp, longest);
+	tstring ilongs = strtotstr(ilongstemp);
+
+	// is this a predefined suffix?
+	if (longest == 0 && insert != target->cend()) {
+		union {
+			unsigned __int8 sval[4];
+			unsigned __int32 ival;
+		} tstroke;
+		for (auto it = sharedData.currentd->suffix.cbegin(); it != sharedData.currentd->suffix.cend(); it++) {
+			tstroke.ival = (*it).first;
+			if (stroke[0] == tstroke.sval[0] && stroke[1] == tstroke.sval[1] && stroke[2] == tstroke.sval[2]) {
+				if ((*insert)->textout->text.length() >= 3) {
+					textoutput *tx = (*insert)->textout;
+					bool poppedspace = false;
+
+					int oldlen = tx->text.length();
+					if (tx->text[tx->text.length() - 1] == TEXT(' ')) {
+						tx->text.pop_back();
+						poppedspace = true;
+					}
+					addending(tx->text, (*it).second);
+					//if (poppedspace)
+					//	tx->text += TEXT(' ');
+
+					deleteandspace(oldlen, 0);
+
+					singlestroke* s = new singlestroke(stroke);
+					s->textout = tx;
+					tx->first = s;
+
+					if (projectdata.open && inputstate.redirect == NULL)
+						sendstandard(tx->text, s, insert, target);
+					else
+						sendstandard(tx->text, s, insert, target, true);
+
+					standardcleanup(s, insert, target);
+					return;
+				}
+			}
+		}
+	}
+
+	//is a predefined suffix folded into this stroke?
+	if (longest == 0) {
+		union {
+			unsigned __int8 sval[4];
+			unsigned __int32 ival;
+		} tstroke;
+		unsigned __int8 stemp[4];
+		memset(stemp, 0, 4);
+		for (auto it = sharedData.currentd->suffix.cbegin(); longest == 0 && it != sharedData.currentd->suffix.cend(); it++) {
+			tstroke.ival = (*it).first;
+			if ((stroke[0] & tstroke.sval[0]) == tstroke.sval[0] && (stroke[1] & tstroke.sval[1]) == tstroke.sval[1] && (stroke[2] & tstroke.sval[2]) == tstroke.sval[2]) {
+				for (int i = 0; i < 3; i++)
+					stemp[i] = stroke[i] & ~(tstroke.sval[i]);
+				findanentry(stemp, sharedData.currentd, insert, target->cend(), ilongstemp, longest);
+				ilongs = strtotstr(ilongstemp);
+				if (longest != 0)
+					addending(ilongs, (*it).second);
+			}
+		}
+	}
+
+	//either mistraslate or number
+	if (longest == 0) {
+		ilongs = TEXT("");
+		bool number = false;
+
+		if ((stroke[0] & (sharedData.number[0] | sharedData.currentd->number[0])) == stroke[0] &&
+			(stroke[1] & (sharedData.number[1] | sharedData.currentd->number[1])) == stroke[1] &&
+			(stroke[2] & (sharedData.number[2] | sharedData.currentd->number[2])) == stroke[2] &&
+			(stroke[2] & 0x40) != 0) {
+
+			bool special = ((stroke[0] & sharedData.currentd->number[0]) == sharedData.currentd->number[0]) &&
+				((stroke[1] & sharedData.currentd->number[1]) == sharedData.currentd->number[1]) &&
+				((stroke[2] & sharedData.currentd->number[2]) == sharedData.currentd->number[2]);
+
+			number = true;
+			stroke[0] &= ~sharedData.currentd->number[0];
+			stroke[1] &= ~sharedData.currentd->number[1];
+			stroke[2] &= ~sharedData.currentd->number[2];
+
+			stroketocsteno(stroke, ilongs, sharedData.currentd->format, true);
+			if (special) {
+				if (ilongs.length() == 1) {
+					ilongs += ilongs;
+				}
+				else {
+					std::reverse(ilongs.begin(), ilongs.end());
+				}
+			}
+
+			ilongs = TEXT("&") + ilongs + TEXT("&");
+		}
+		else {
+			if (settings.mistrans == FALSE)
+				stroketocsteno(stroke, ilongs, sharedData.currentd->format);
+		}
+
+		longest = 1;
+	}
+
+	// this is how strokes get sent and old data erased
+
+	singlestroke* s = new singlestroke(stroke);
+
+	s->textout = new textoutput();
+
+	s->textout->first = s;
+
+	std::list<singlestroke*> temp;
+	std::list<singlestroke*> newword;
+	std::list<singlestroke*>::iterator deli = insert;
+	int sremoved = 0;
+	int spacestoadd = 0;
+	int charstodelete = 0;
+
+	while (sremoved + 1 < longest) {
+		spacestoadd = 0;
+		charstodelete += deln(deli, target->end(), spacestoadd, sremoved);
+	}
+	if (projectdata.open && inputstate.redirect == NULL)
+		spacestoadd = 0;
+	//process
+
+	deleteandspace(charstodelete, spacestoadd);
+
+	if (spacestoadd != 0 && deli != target->end()) {
+		(*deli)->textout->text += TEXT(' ');
+	}
+
+	for (int i = 0; i < longest - 1; i++) {
+		newword.push_front((*insert));
+		insert = target->erase(insert);
+	}
+
+	temp.splice(temp.end(), *target, insert, deli);
+	deletelist(temp, deli, target);
+
+	sendstandard(ilongs, s, deli, target);
+
+	for (auto ti = newword.begin(); ti != newword.cend(); ti++) {
+		if ((*ti)->textout->first == *ti) {
+			delete (*ti)->textout;
+		}
+		(*ti)->textout = s->textout;
+		deli = target->insert(deli, (*ti));
+	}
+
+	//MessageBox(NULL, s->textout->text.c_str(), TEXT("A"), MB_OK);
+
+	standardcleanup(s, deli, target);
+	insert = deli;
 }
 
 void processSingleStroke(unsigned __int8* stroke) {
@@ -927,7 +1096,6 @@ void processSingleStroke(unsigned __int8* stroke) {
 			if ((*maxn)->textout->text.length() > 0) {
 				if ((*maxn)->textout->text[0] == TEXT(' ')) {
 					(*maxn)->textout->text.erase((*maxn)->textout->text.begin());
-					AdjustTextStart(maxn, -1);
 					crng.cpMax++;
 					altered = true;
 				}
@@ -938,7 +1106,6 @@ void processSingleStroke(unsigned __int8* stroke) {
 			if ((*min)->textout->text.length() > 0) {
 				if ((*min)->textout->text[(*min)->textout->text.length()-1] == TEXT(' ')) {
 					(*min)->textout->text.pop_back();
-					//AdjustTextStart(maxn, -1);
 					crng.cpMin--;
 					altered = true;
 				}
@@ -953,7 +1120,6 @@ void processSingleStroke(unsigned __int8* stroke) {
 		crng.cpMax = crng.cpMin;
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
 
-		AdjustTextStart(min, spacestoadd - sremoved);
 
 		if (spacestoadd != 0 && min != projectdata.strokes.cend()) {
 			(*min)->textout->text += TEXT(' ');
@@ -1012,183 +1178,11 @@ void processSingleStroke(unsigned __int8* stroke) {
 			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
 		}
 
-		deletelist(temp);
+		deletelist(temp, deli, target);
 		return;
 	}
 
-	int longest = 0;
-
-	std::string ilongstemp;
-	findanentry(stroke, sharedData.currentd, insert, target->cend(), ilongstemp, longest);
-	tstring ilongs = strtotstr(ilongstemp);
-
-	// is this a predefined suffix?
-	if (longest == 0 && insert != target->cend()) {
-		union {
-			unsigned __int8 sval[4];
-			unsigned __int32 ival;
-		} tstroke;
-		for (auto it = sharedData.currentd->suffix.cbegin(); it != sharedData.currentd->suffix.cend(); it++) {
-			tstroke.ival = (*it).first;
-			if (stroke[0] == tstroke.sval[0] && stroke[1] == tstroke.sval[1] && stroke[2] == tstroke.sval[2]) {
-				if ((*insert)->textout->text.length() >= 3) {
-					textoutput *tx = (*insert)->textout;
-					bool poppedspace = false;
-
-					int oldlen = tx->text.length();
-					if (tx->text[tx->text.length() - 1] == TEXT(' ')) {
-						tx->text.pop_back();
-						poppedspace = true;
-					}
-					addending(tx->text, (*it).second);
-					//if (poppedspace)
-					//	tx->text += TEXT(' ');
-
-					deleteandspace(oldlen, 0);
-
-					singlestroke* s = new singlestroke(stroke);
-					s->textout = tx;
-					tx->first = s;
-
-					if (projectdata.open && inputstate.redirect == NULL)
-						sendstandard(tx->text, s, insert, target);
-					else
-						sendstandard(tx->text, s, insert, target, true);
-
-					if (projectdata.open && inputstate.redirect == NULL)
-						AdjustTextStart(insert, tx->text.length() - oldlen);
-
-					standardcleanup(s, insert, target);
-					return;
-				}
-			}
-		}
-	}
-
-	//is a predefined suffix folded into this stroke?
-	if (longest == 0) {
-		union {
-			unsigned __int8 sval[4];
-			unsigned __int32 ival;
-		} tstroke;
-		unsigned __int8 stemp[4];
-		memset(stemp, 0, 4);
-		for (auto it = sharedData.currentd->suffix.cbegin(); longest == 0 && it != sharedData.currentd->suffix.cend(); it++) {
-			tstroke.ival = (*it).first;
-			if ((stroke[0] & tstroke.sval[0]) == tstroke.sval[0] && (stroke[1] & tstroke.sval[1]) == tstroke.sval[1] && (stroke[2] & tstroke.sval[2]) == tstroke.sval[2]) {
-				for (int i = 0; i < 3; i++)
-					stemp[i] = stroke[i] & ~(tstroke.sval[i]);
-				findanentry(stemp, sharedData.currentd, insert, target->cend(), ilongstemp, longest);
-				ilongs = strtotstr(ilongstemp);
-				if (longest != 0)
-					addending(ilongs, (*it).second);
-			}
-		}
-	}
-
-	//either mistraslate or number
-	if (longest == 0) {
-		ilongs = TEXT("");
-		bool number = false;
-
-		if ((stroke[0] & (sharedData.number[0] | sharedData.currentd->number[0])) == stroke[0] &&
-			(stroke[1] & (sharedData.number[1] | sharedData.currentd->number[1])) == stroke[1] &&
-			(stroke[2] & (sharedData.number[2] | sharedData.currentd->number[2])) == stroke[2] &&
-			(stroke[2] & 0x40) != 0) {
-
-			bool special = ((stroke[0] & sharedData.currentd->number[0]) == sharedData.currentd->number[0]) &&
-				((stroke[1] & sharedData.currentd->number[1]) == sharedData.currentd->number[1]) &&
-				((stroke[2] & sharedData.currentd->number[2]) == sharedData.currentd->number[2]);
-
-			number = true;
-			stroke[0] &= ~sharedData.currentd->number[0];
-			stroke[1] &= ~sharedData.currentd->number[1];
-			stroke[2] &= ~sharedData.currentd->number[2];
-
-			stroketocsteno(stroke, ilongs, sharedData.currentd->format, true);
-			if (special) {
-				if (ilongs.length() == 1) {
-					ilongs += ilongs;
-				}
-				else {
-					std::reverse(ilongs.begin(), ilongs.end());
-				}
-			}
-
-			ilongs = TEXT("&") + ilongs + TEXT("&");
-		}
-		else {
-			if (settings.mistrans == FALSE)
-				stroketocsteno(stroke, ilongs, sharedData.currentd->format);
-		}
-
-		longest = 1;
-	}
-	
-	// this is how strokes get sent and old data erased
-
-		singlestroke* s = new singlestroke(stroke);
-		if (projectdata.open && inputstate.redirect == NULL)
-			s->textout = new indexedtext();
-		else
-			s->textout = new textoutput();
-
-		s->textout->first = s;
-
-		std::list<singlestroke*> temp;
-		std::list<singlestroke*> newword;
-		std::list<singlestroke*>::iterator deli = insert;
-		int sremoved = 0;
-		int spacestoadd = 0;
-		int charstodelete = 0;
-
-		while (sremoved + 1 < longest) {
-			spacestoadd = 0;
-			charstodelete += deln(deli, target->end(), spacestoadd, sremoved);
-		}
-		if (projectdata.open && inputstate.redirect == NULL)
-			spacestoadd = 0;
-		//process
-
-		deleteandspace(charstodelete, spacestoadd);
-		if (projectdata.open && inputstate.redirect == NULL)
-			AdjustTextStart(deli, spacestoadd - charstodelete);
-
-		if (spacestoadd != 0 && deli != target->end()) {
-			(*deli)->textout->text += TEXT(' ');
-		}
-
-		for (int i = 0; i < longest - 1; i++) {
-			newword.push_front((*insert));
-			insert = target->erase(insert);
-		}
-
-		temp.splice(temp.end(), *target, insert, deli);
-		deletelist(temp);
-
-		sendstandard(ilongs, s, insert, target);
-
-
-		if (projectdata.open && inputstate.redirect == NULL) {
-			if (insert != target->cend()) {
-				((indexedtext*)(s->textout))->startingindex = ((indexedtext*)((*insert)->textout))->startingindex + (*insert)->textout->text.length();
-			}
-			else {
-				((indexedtext*)(s->textout))->startingindex = 0;
-			}
-			AdjustTextStart(insert, s->textout->text.length());
-		}
-
-		for (auto ti = newword.begin(); ti != newword.cend(); ti++) {
-			if ((*ti)->textout->first == *ti) {
-				delete (*ti)->textout;
-			}
-			(*ti)->textout = s->textout;
-			insert = target->insert(insert, (*ti));
-			//sharedData.strokes.push_front(*ti);
-		}
-
-		standardcleanup(s, insert, target);
+	InnerProcess(stroke, insert, target);
 }
 
 

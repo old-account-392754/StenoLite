@@ -16,15 +16,11 @@ struct pdata {
 	int selectionmax;
 	dictionary *d;
 	bool settingsel = false;
-};
-
-struct indexedtext : public textoutput {
-	unsigned int startingindex;
+	int textwidth;
 };
 
 void PViewNextFocus();
 std::list<singlestroke*>::iterator GetItem(int index);
-void AdjustTextStart(std::list<singlestroke*>::iterator last, int adjustment);
 std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex);
 void LaunchProjDlg(HINSTANCE hInst);
 

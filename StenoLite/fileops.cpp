@@ -119,6 +119,18 @@ void saveSettings() {
 		writestr(hfile, std::to_string(settings.ypos));
 		writestr(hfile, "\r\n");
 
+		writestr(hfile, "FSIZE = ");
+		writestr(hfile, std::to_string(settings.fsize));
+		writestr(hfile, "\r\n");
+
+		writestr(hfile, "FWEIGHT = ");
+		writestr(hfile, std::to_string(settings.fweight));
+		writestr(hfile, "\r\n");
+
+		writestr(hfile, "FNAME = ");
+		writestr(hfile, ttostr(settings.fname));
+		writestr(hfile, "\r\n");
+
 		HKL locale = GetKeyboardLayout(GetCurrentThreadId());
 		for (int i = 0; i < 256; i++){
 			if (settings.map[i] != 0) {
@@ -879,11 +891,20 @@ void strtosetting(const std::string& setting, const std::string& value) {
 	else if (setting.compare("DICT") == 0) {
 		settings.dict = strtotstr(value);
 	}
+	else if (setting.compare("FNAME") == 0) {
+		settings.fname = strtotstr(value);
+	}
 	else if (setting.compare("X") == 0) {
 		settings.xpos = std::atoi(value.c_str());
 	}
 	else if (setting.compare("Y") == 0) {
 		settings.ypos = std::atoi(value.c_str());
+	}
+	else if (setting.compare("FWEIGHT") == 0) {
+		settings.fweight = std::atoi(value.c_str());
+	}
+	else if (setting.compare("FSIZE") == 0) {
+		settings.fsize = std::atoi(value.c_str());
 	}
 	else if (setting.compare("MAP") == 0) {
 		std::cmatch m;
@@ -956,7 +977,9 @@ void loadSettings() {
 	settings.mode = 0;
 	settings.xpos = 200;
 	settings.ypos = 200;
-
+	settings.fname = TEXT("Times New Roman");
+	settings.fsize = 12;
+	settings.fweight = 400;
 
 	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 	std::regex property("^\\s*(\\S+)\\s*=\\s*(\\S+)\\s*");
