@@ -167,12 +167,18 @@ struct stroke {
 };
 
 void delat(std::vector<stroke> &slist, int n) {
+	if (n < 0 || n > slist.size() - 1)
+		return;
+
 	auto it = slist.begin();
 	it += n;
 	slist.erase(it);
 }
 
 void addat(std::vector<stroke> &slist, int n, unsigned __int8* str) {
+	if (n < 0 || n > slist.size())
+		return;
+
 	stroke toadd;
 	toadd.sval[0] = str[0];
 	toadd.sval[1] = str[1];
@@ -437,7 +443,7 @@ std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex) {
 	int pos = 0;
 	for (; it != projectdata.strokes.cbegin(); it--) {
 		
-			if (textindex < pos + (*it)->textout->text.length() / 2) {
+			if (textindex < pos + ((*it)->textout->text.length()+1) / 2) {
 				it++;
 				return it;
 			}
@@ -449,7 +455,7 @@ std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex) {
 	}
 
 	if (it == projectdata.strokes.cbegin()) {
-		if (textindex < pos + (*it)->textout->text.length() / 2) {
+		if (textindex < pos + ((*it)->textout->text.length()+1) / 2) {
 			it++;
 			return it;
 		}
@@ -470,7 +476,7 @@ int StrokeFromTextIndx(unsigned int txtindex) {
 	auto it = (--projectdata.strokes.cend());
 	int pos = 0;
 	for (; it != projectdata.strokes.cbegin(); it--) {
-		if (txtindex < pos + (*it)->textout->text.length() / 2) {
+		if (txtindex < pos + ((*it)->textout->text.length()+1) / 2) {
 			return index - 1;
 		}
 
@@ -480,7 +486,7 @@ int StrokeFromTextIndx(unsigned int txtindex) {
 		index++;
 	}
 	if (it == projectdata.strokes.cbegin()) {
-		if (txtindex < pos + (*it)->textout->text.length() / 2) {
+		if (txtindex < pos + ((*it)->textout->text.length()+1) / 2) {
 			return index - 1;
 		}
 		else {
