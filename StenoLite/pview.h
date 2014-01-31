@@ -19,12 +19,15 @@ struct pdata {
 	bool settingsel = false;
 	int textwidth;
 	tstring file;
+	HANDLE realtime;
 };
 
 void PViewNextFocus();
 std::list<singlestroke*>::iterator GetItem(int index);
 std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex);
 void LaunchProjDlg(HINSTANCE hInst);
+void RegisterStroke(unsigned _int8* stroke, int n);
+void RegisterDelete(int n);
 
 extern pdata projectdata;
 

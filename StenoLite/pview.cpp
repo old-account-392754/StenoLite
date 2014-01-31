@@ -10,6 +10,8 @@
 #include <Windowsx.h>
 #include <Commdlg.h>
 #include "fileops.h"
+#include <vector>
+#include "pstroke.h"
 
 pdata projectdata;
 #define STROKES  "#####STROKES#####"
@@ -134,6 +136,111 @@ void SaveText(HWND hWnd)
 	}
 	
 
+}
+
+void RegisterDelete(int n) {
+	if (n < 0)
+		return;
+
+	if (projectdata.realtime != NULL) {
+		writestr(projectdata.realtime, "\r\nD ");
+		writestr(projectdata.realtime, std::to_string(n));
+	}
+}
+
+void RegisterStroke(unsigned _int8* stroke, int n) {
+	if (n < 0)
+		return;
+
+	if (projectdata.realtime != NULL) {
+		tstring buffer;
+		stroketocsteno(stroke, buffer, sharedData.currentd->format);
+		writestr(projectdata.realtime, "\r\n");
+		writestr(projectdata.realtime, std::to_string(n));
+		writestr(projectdata.realtime, " ");
+		writestr(projectdata.realtime, ttostr(buffer));
+	}
+}
+
+struct stroke {
+	unsigned __int8 sval[4];
+};
+
+void delat(std::vector<stroke> &slist, int n) {
+	auto it = slist.begin();
+	it += n;
+	slist.erase(it);
+}
+
+void addat(std::vector<stroke> &slist, int n, unsigned __int8* str) {
+	stroke toadd;
+	toadd.sval[0] = str[0];
+	toadd.sval[1] = str[1];
+	toadd.sval[2] = str[2];
+
+	auto it = slist.begin();
+	it += n;
+	slist.insert(it, toadd);
+}
+
+void LoadRealtime() {
+	const static std::regex parsefile("^(\\S+?)\\s(\\S*)$");
+	std::cmatch m;
+	
+	std::vector<stroke> slist;
+
+	char c;
+	DWORD bytes;
+	std::string cline("");
+
+	int totalb = 0;
+	ReadFile(projectdata.realtime, &c, 1, &bytes, NULL);
+	while (bytes > 0) {
+		totalb++;
+		if (c != '\r')
+			cline += c;
+		std::string::size_type r = cline.find("\n");
+		if (r != std::string::npos) {
+			cline.erase(r, 1);
+			if (std::regex_match(cline.c_str(), m, parsefile)) {
+				if (m[1].str().compare("D") == 0) {
+					delat(slist, atoi(m[2].str().c_str()));
+				}
+				else {
+					unsigned __int8 sbuf[4];
+					textToStroke(strtotstr(m[2].str()), sbuf, sharedData.currentd->format);
+					addat(slist, atoi(m[1].str().c_str()), sbuf);
+
+					//MessageBox(NULL, TEXT("ADD"), TEXT("ADD"), MB_OK);
+				}
+			}
+			
+			cline.clear();
+
+		}
+		ReadFile(projectdata.realtime, &c, 1, &bytes, NULL);
+	}
+
+	if (std::regex_match(cline.c_str(), m, parsefile)) {
+		if (m[1].str().compare("D") == 0) {
+			delat(slist, atoi(m[2].str().c_str()));
+		}
+		else {
+			unsigned __int8 sbuf[4];
+			textToStroke(strtotstr(m[2].str()), sbuf, sharedData.currentd->format);
+			addat(slist, atoi(m[1].str().c_str()), sbuf);
+		}
+	}
+	HANDLE rtback = projectdata.realtime;
+	projectdata.realtime = NULL;
+	for (auto i = slist.cbegin(); i != slist.cend(); i++) {
+		unsigned __int8 temp[3];
+		temp[0] = (*i).sval[0];
+		temp[1] = (*i).sval[1];
+		temp[2] = (*i).sval[2];
+		processSingleStroke(&(temp[0]));
+	}
+	projectdata.realtime = rtback;
 }
 
 void ProcessItem(std::string &cline, textoutput* &last, bool &matchdict, DB_TXN* trans) {
@@ -573,6 +680,7 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 		inputstate.redirect = NULL;
 		saveProject(projectdata.file);
 		projectdata.d->close();
+		CloseHandle(projectdata.realtime);
 		return FALSE;
 	case WM_INITDIALOG:
 	{
@@ -633,15 +741,32 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 
 						  projectdata.strokes.clear();
 
-						  if (!loadProject(projectdata.file)) {
-							  //try loading realtime file
-						  }
 
 						  projectdata.addingnew = false;
 						  projectdata.open = true;
 						  projectdata.selectionmax = 0;
 						  projectdata.selectionmin = 0;
 						  projectdata.cursorpos = 0;
+
+						  if (projectdata.file.find(TEXT(".srf")) != std::string::npos) {
+							  projectdata.realtime = CreateFile(projectdata.file.c_str(), GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, 0, NULL);
+							  
+							  LoadRealtime();
+
+							  projectdata.file = projectdata.file.replace(projectdata.file.find(TEXT(".srf")), 4, TEXT(".prj"));
+						  }
+						  else {
+							  loadProject(projectdata.file);
+							  //open realtime file
+
+							  tstring realtime = projectdata.file;
+							  realtime = realtime.replace(realtime.find(TEXT(".prj")), 4, TEXT(".srf"));
+
+							  projectdata.realtime = CreateFile(realtime.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, 0, NULL);
+							  if (projectdata.realtime != INVALID_HANDLE_VALUE) {
+									SetFilePointer(projectdata.realtime, 0, NULL, FILE_END);
+							  }
+						  }
 
 						  POINTL pt;
 						  SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_POSFROMCHAR, (WPARAM)&pt, 1);

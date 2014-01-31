@@ -223,7 +223,7 @@ tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevf
 				index += 2;
 				inescape = false;
 				if (projectdata.open)
-					finaltext += TEXT('\r\n');
+					finaltext += TEXT("\r\n");
 				else
 					finaltext += TEXT('\n');
 			}
@@ -1125,20 +1125,32 @@ void processSingleStroke(unsigned __int8* stroke) {
 		auto min = GetItemByText(crng.cpMin);
 		multidelete = max != min;
 
+		CHARRANGE crngb;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
+		int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMin);
+		int lineb = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMax);
+
 		if (stroke[0] == sharedData.currentd->sdelete[0] && stroke[1] == sharedData.currentd->sdelete[1] && stroke[2] == sharedData.currentd->sdelete[2]) {
 			if (!multidelete) {
-				CHARRANGE crngb;
-				SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
-				int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMin);
+				RegisterDelete(line-1);
+
 				if (line != 0)
 					crngb.cpMin = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line - 1, 0) + 23;
 				else
 					crngb.cpMin = 23;
 				SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crngb);
 			}
+			else {
+				for (int i = lineb-1; i >= line; i--)
+					RegisterDelete(i);
+			}
 			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
 		}
 		else {
+			for (int i = lineb-1; i >= line; i--)
+				RegisterDelete(i);
+			RegisterStroke(stroke, line);
+
 			TCHAR buffer[32] = TEXT("\r\n");
 			stroketosteno(stroke, &buffer[2], sharedData.currentd->format);
 			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)buffer);
