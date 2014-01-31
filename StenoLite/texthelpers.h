@@ -20,5 +20,6 @@ tstring getSubSeq(tstring::const_iterator &i, tstring::const_iterator &end);
 tstring getWinStr(HWND hwnd);
 std::string ttostr(const tstring &in);
 tstring strtotstr(const std::string &in);
-
+tstring escapestr(const tstring &in);
+tstring unescapestr(const tstring &in);
 #endif

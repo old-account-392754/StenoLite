@@ -18,7 +18,91 @@ std::string trimstr(std::string const& str, char const* sepSet)
 		: str.substr(first, str.find_last_not_of(sepSet) - first + 1);
 }
 
+tstring escapestr(const tstring &in) {
+	tstring result(TEXT(""));
+	for (auto i = in.cbegin(); i != in.cend(); i++) {
+		switch (*i) {
+		case TEXT('\r'):
+			result += TEXT("\\r");
+			break;
+		case TEXT('\n'):
+			result += TEXT("\\n");
+			break;
+		case TEXT('\t'):
+			result += TEXT("\\t");
+			break;
+		case TEXT('\\'):
+			result += TEXT("\\\\");
+			break;
+		case TEXT(' '):
+			result += TEXT("\\s");
+			break;
+		default:
+			result += *i;
+			break;
+		}
+	}
+	return result;
+}
 
+tstring unescapestr(const tstring &in) {
+	tstring result(TEXT(""));
+	bool inescape = false;
+	for (auto i = in.cbegin(); i != in.cend(); i++) {
+		switch (*i) {
+		case TEXT('r'):
+			if (inescape) {
+				result += TEXT('\r');
+				inescape = false;
+			}
+			else{
+				result += *i;
+			}
+			break;
+		case TEXT('n'):
+			if (inescape) {
+				result += TEXT('\n');
+				inescape = false;
+			}
+			else{
+				result += *i;
+			}
+			break;
+		case TEXT('t'):
+			if (inescape) {
+				result += TEXT('\t');
+				inescape = false;
+			}
+			else{
+				result += *i;
+			}
+			break;
+		case TEXT('\\'):
+			if (inescape) {
+				result += TEXT('\\');
+				inescape = false;
+			}
+			else{
+				inescape = true;
+			}
+			break;
+		case TEXT('s'):
+			if (inescape) {
+				result += TEXT(' ');
+				inescape = false;
+			}
+			else{
+				result += *i;
+			}
+			break;
+		default:
+			result += *i;
+			inescape = false;
+			break;
+		}
+	}
+	return result;
+}
 
 tstring getWinStr(HWND hwnd) {
 	int tlen = GetWindowTextLength(hwnd) + 1;

@@ -19,6 +19,9 @@ void LoadJson(dictionary* d, const tstring &file, HWND progress = NULL, bool ove
 void LoadRTF(dictionary* d, const tstring &file, HWND progress = NULL, bool overwrite = false);
 void SaveJson(dictionary* d, const tstring &file, HWND progress);
 void SaveRTF(dictionary* d, const tstring &file, HWND progress);
+void writestr(HANDLE hfile, const std::string& data);
+void writeBOM(HANDLE hfile);
+bool isReturn(char value);
 
 
 #endif

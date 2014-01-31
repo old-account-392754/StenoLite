@@ -4,6 +4,7 @@
 
 #include <list>
 #include "globals.h"
+#include "texthelpers.h"
 
 struct pdata {
 	bool open;
@@ -17,6 +18,7 @@ struct pdata {
 	dictionary *d;
 	bool settingsel = false;
 	int textwidth;
+	tstring file;
 };
 
 void PViewNextFocus();

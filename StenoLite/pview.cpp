@@ -9,10 +9,248 @@
 #include <db.h>
 #include <Windowsx.h>
 #include <Commdlg.h>
+#include "fileops.h"
 
 pdata projectdata;
+#define STROKES  "#####STROKES#####"
+
+void saveProject(const tstring &file) {
+	static tstring sbuffer;
+	HANDLE hfile = CreateFile(file.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hfile != INVALID_HANDLE_VALUE) {
+		writeBOM(hfile);
+
+		DB_TXN* trans;
+		projectdata.d->env->txn_begin(projectdata.d->env, NULL, &trans, DB_READ_UNCOMMITTED);
+
+		DBC* startcursor;
+
+		DBT keyin;
+		keyin.data = new unsigned __int8[projectdata.d->longest * 3];
+		keyin.size = 0;
+		keyin.ulen = projectdata.d->longest * 3;
+		keyin.dlen = 0;
+		keyin.doff = 0;
+		keyin.flags = DB_DBT_USERMEM;
+
+		DBT strin;
+		strin.data = new unsigned __int8[projectdata.d->lchars + 1];
+		strin.size = 0;
+		strin.ulen = projectdata.d->lchars + 1;
+		strin.dlen = 0;
+		strin.doff = 0;
+		strin.flags = DB_DBT_USERMEM;
+
+		projectdata.d->contents->cursor(projectdata.d->contents, trans, &startcursor, 0);
+		int result = startcursor->get(startcursor, &keyin, &strin, DB_FIRST);
+
+		while (result == 0) {
+			tstring acc;
+			stroketocsteno((unsigned __int8*)(keyin.data), acc, sharedData.currentd->format);
+			for (unsigned int i = 1; i * 3 < keyin.size; i++) {
+				acc += TEXT("/");
+				tstring tmp;
+				stroketocsteno(&(((unsigned __int8*)(keyin.data))[i * 3]), tmp, sharedData.currentd->format);
+				acc += tmp;
+			}
+			writestr(hfile, ttostr(acc));
+			writestr(hfile, " 0 ");
+			writestr(hfile, (char*)(strin.data));
+			writestr(hfile, "\r\n");
+
+			result = startcursor->get(startcursor, &keyin, &strin, DB_NEXT);
+		}
+
+		writestr(hfile, STROKES);
+		writestr(hfile, "\r\n");
+
+		startcursor->close(startcursor);
+		trans->commit(trans, 0);
 
 
+		for (auto it = projectdata.strokes.cbegin(); it != projectdata.strokes.cend(); it++) {
+			if ((*it)->textout->first == (*it)) {
+				sbuffer.clear();
+				stroketocsteno((*it)->value.ival, sbuffer, sharedData.currentd->format);
+				writestr(hfile, ttostr(sbuffer));
+				writestr(hfile, " ");
+				writestr(hfile, std::to_string((*it)->textout->flags));
+				writestr(hfile, " ");
+				writestr(hfile, ttostr(escapestr((*it)->textout->text)));
+				writestr(hfile, "\r\n");
+			}
+			else {
+				sbuffer.clear();
+				stroketocsteno((*it)->value.ival, sbuffer, sharedData.currentd->format);
+				writestr(hfile, ttostr(sbuffer));
+				writestr(hfile, "\r\n");
+			}
+		}
+
+		CloseHandle(hfile);
+	}
+}
+
+
+DWORD CALLBACK StreamOutCallback(_In_  DWORD_PTR dwCookie, _In_  LPBYTE pbBuff, _In_  LONG cb, _In_  LONG *pcb)
+{
+	HANDLE* pFile = (HANDLE*)dwCookie;
+	DWORD dwW;
+	WriteFile(*pFile, pbBuff, cb, &dwW, NULL);
+	*pcb = cb;
+	return 0;
+}
+
+void SaveText(HWND hWnd)
+{
+
+	OPENFILENAME file;
+	TCHAR buffer[MAX_PATH] = TEXT("\0");
+	memset(&file, 0, sizeof(OPENFILENAME));
+	file.lStructSize = sizeof(OPENFILENAME);
+	file.hwndOwner = NULL;
+	file.lpstrFilter = TEXT("Text Files\0*.txt\0\0");
+	file.nFilterIndex = 1;
+	file.lpstrFile = buffer;
+	file.nMaxFile = MAX_PATH;
+	file.Flags = OFN_DONTADDTORECENT | OFN_NOCHANGEDIR;
+	if (GetSaveFileName(&file)) {
+		tstring filename = buffer;
+		if (filename.find(TEXT(".txt")) == std::string::npos) {
+			filename += TEXT(".txt");
+		}
+
+		HANDLE hfile = CreateFile(filename.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (hfile != INVALID_HANDLE_VALUE) {
+			EDITSTREAM es;
+			es.dwError = 0;
+			es.dwCookie = (DWORD)&hfile;
+			es.pfnCallback = StreamOutCallback;
+
+			SendMessage(hWnd, EM_STREAMOUT, (WPARAM)SF_TEXT, (LPARAM)&es);
+
+			CloseHandle(hfile);
+		}
+	}
+	
+
+}
+
+void ProcessItem(std::string &cline, textoutput* &last, bool &matchdict, DB_TXN* trans) {
+	const static std::regex parsefile("^(\\S+?)\\s(\\S+?)\\s(\\S*)$");
+	std::cmatch m;
+
+	if (std::regex_match(cline.c_str(), m, parsefile)) {
+		if (matchdict) {
+			int len = 0;
+			unsigned __int8* strokes = texttomultistroke(strtotstr(m[1].str()), len, sharedData.currentd->format);
+			projectdata.d->addDItem(strokes, len*3, m[3].str(), trans);
+			delete strokes;
+		}
+		else {
+			unsigned __int8 stroke[4];
+			textToStroke(strtotstr(m[1].str()), stroke, sharedData.currentd->format);
+			singlestroke* s = new singlestroke(stroke);
+			s->textout = new textoutput();
+			s->textout->flags = atoi(m[2].str().c_str());
+			s->textout->text = unescapestr(strtotstr(m[3].str()));
+			s->textout->first = s;
+			projectdata.strokes.push_back(s);
+			last = s->textout;
+
+			TCHAR buffer[32] = TEXT("\r\n");
+			stroketosteno(s->value.ival, &buffer[2], sharedData.currentd->format);
+			
+			CHARRANGE crngb;
+			crngb.cpMin = crngb.cpMax = 23;
+			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crngb);
+			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)buffer);
+			
+			
+			crngb.cpMin = crngb.cpMax = 0;
+			SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crngb);
+			SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)(s->textout->text.c_str()));
+		}
+	}
+	else {
+		if (cline.compare(STROKES) == 0) {
+			matchdict = false;
+		}
+		else if (cline.length() > 0) {
+			unsigned __int8 stroke[4];
+			textToStroke(strtotstr(cline), stroke, sharedData.currentd->format);
+			singlestroke* s = new singlestroke(stroke);
+			s->textout = last;
+			projectdata.strokes.push_back(s);
+
+			TCHAR buffer[32] = TEXT("\r\n");
+			stroketosteno(s->value.ival, &buffer[2], sharedData.currentd->format);
+
+			CHARRANGE crngb;
+			crngb.cpMin = crngb.cpMax = 23;
+			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crngb);
+			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)buffer);
+		}
+	}
+
+}
+
+bool loadProject(const tstring &file) {
+	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+	
+	bool matchdict = true;
+
+	if (hfile != INVALID_HANDLE_VALUE) {
+
+		char c;
+		DWORD bytes;
+		std::string cline("");
+
+		//detect and erase BOM
+		unsigned __int8 bom[3] = "\0\0";
+		ReadFile(hfile, bom, 3, &bytes, NULL);
+		if (bom[0] != 239 || bom[1] != 187 || bom[2] != 191) {
+			cline += bom[0];
+			cline += bom[1];
+			cline += bom[2];
+			std::string::iterator end_pos = std::remove_if(cline.begin(), cline.end(), isReturn);
+			cline.erase(end_pos, cline.end());
+
+		}
+		DB_TXN* trans = NULL;
+		projectdata.d->env->txn_begin(projectdata.d->env, NULL, &trans, DB_TXN_BULK);
+		textoutput* last = NULL;
+
+		int totalb = 0;
+		ReadFile(hfile, &c, 1, &bytes, NULL);
+		while (bytes > 0) {
+			totalb++;
+			if (c != '\r')
+				cline += c;
+			std::string::size_type r = cline.find("\n");
+			if (r != std::string::npos) {
+				cline.erase(r, 1);
+				ProcessItem(cline, last, matchdict, trans);
+				cline.clear();
+
+			}
+			ReadFile(hfile, &c, 1, &bytes, NULL);
+		}
+
+		ProcessItem(cline, last, matchdict, trans);
+
+		trans->commit(trans, 0);
+		CloseHandle(hfile);
+
+		CHARRANGE crngb;
+		crngb.cpMin = crngb.cpMax = GetWindowTextLength(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST));
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crngb);
+		crngb.cpMin = crngb.cpMax = GetWindowTextLength(GetDlgItem(projectdata.dlg, IDC_MAINTEXT));
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crngb);
+		return true;
+	}
+	return false;
+}
 
 void PViewNextFocus() {
 	if (projectdata.addingnew) {
@@ -91,11 +329,13 @@ std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex) {
 	auto it = (--projectdata.strokes.end());
 	int pos = 0;
 	for (; it != projectdata.strokes.cbegin(); it--) {
-		if ((*it)->textout->first == *it) {
+		
 			if (textindex < pos + (*it)->textout->text.length() / 2) {
 				it++;
 				return it;
 			}
+
+		if ((*it)->textout->first == *it) {
 			pos += (*it)->textout->text.length();
 		}
 		iindex--;
@@ -279,6 +519,14 @@ LRESULT CALLBACK MainText(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UI
 	return DefSubclassProc(hWnd, uMsg, wParam, lParam);
 }
 
+void ShowBatch(int show) {
+	ShowWindow(GetDlgItem(projectdata.dlg, IDC_PENTRY), show);
+	ShowWindow(GetDlgItem(projectdata.dlg, IDC_PSTROKE), show);
+	ShowWindow(GetDlgItem(projectdata.dlg, IDC_POK), show);
+	ShowWindow(GetDlgItem(projectdata.dlg, IDC_PCANCEL), show);
+	ShowWindow(GetDlgItem(projectdata.dlg, IDC_PNEW), show);
+}
+
 INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wParam, _In_  LPARAM lParam) {
 	NMHDR* hdr;
 
@@ -297,15 +545,20 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 	{
 					RECT rt;
 					GetClientRect(hwndDlg, &rt);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKELIST), NULL, 0, 0, projectdata.textwidth, rt.bottom - rt.top, SWP_NOZORDER);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_MAINTEXT), NULL, projectdata.textwidth, 0, rt.right - rt.left - projectdata.textwidth, rt.bottom - rt.top, SWP_NOZORDER);
-
+					if (projectdata.addingnew) {
+						SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKELIST), NULL, 0, 0, projectdata.textwidth, rt.bottom - rt.top-30, SWP_NOZORDER);
+						SetWindowPos(GetDlgItem(hwndDlg, IDC_MAINTEXT), NULL, projectdata.textwidth, 0, rt.right - rt.left - projectdata.textwidth, rt.bottom - rt.top-30, SWP_NOZORDER);
+					}
+					else {
+						SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKELIST), NULL, 0, 0, projectdata.textwidth, rt.bottom - rt.top, SWP_NOZORDER);
+						SetWindowPos(GetDlgItem(hwndDlg, IDC_MAINTEXT), NULL, projectdata.textwidth, 0, rt.right - rt.left - projectdata.textwidth, rt.bottom - rt.top, SWP_NOZORDER);
+					}
 					SetWindowPos(GetDlgItem(hwndDlg, IDC_PNEW), NULL, 0, rt.bottom-rt.top - 30, rt.right - rt.left, 30, SWP_NOZORDER);
 
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_PENTRY), NULL, 5, rt.bottom - rt.top - 25, 160, 20, SWP_NOZORDER);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKE), NULL, 170, rt.bottom - rt.top - 25, 160, 20, SWP_NOZORDER);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_POK), NULL, 235, rt.bottom - rt.top - 25, 30, 20, SWP_NOZORDER);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_PCANCEL), NULL, 270, rt.bottom - rt.top - 25, 30, 20, SWP_NOZORDER);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKE), GetDlgItem(hwndDlg, IDC_PNEW), 5, rt.bottom - rt.top - 25, 160, 20, 0);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_PENTRY), GetDlgItem(hwndDlg, IDC_PNEW), 170, rt.bottom - rt.top - 25, 160, 20, 0);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_POK), GetDlgItem(hwndDlg, IDC_PNEW), 335, rt.bottom - rt.top - 25, 30, 20, 0);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_PCANCEL), GetDlgItem(hwndDlg, IDC_PNEW), 370, rt.bottom - rt.top - 25, 30, 20, 0);
 	}
 		return TRUE;
 	case WM_QUIT:
@@ -318,6 +571,7 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 		projectdata.open = false;
 		projectdata.dlg = NULL;
 		inputstate.redirect = NULL;
+		saveProject(projectdata.file);
 		projectdata.d->close();
 		return FALSE;
 	case WM_INITDIALOG:
@@ -334,12 +588,7 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 						  if (!projectdata.d->opentransient(form))
 							  MessageBox(NULL, TEXT("Unable to open project's dictionary"), TEXT("Error"), MB_OK);
 
-						  SetParent(GetDlgItem(hwndDlg, IDC_PENTRY), GetDlgItem(hwndDlg, IDC_PNEW));
-						  SetParent(GetDlgItem(hwndDlg, IDC_PSTROKE), GetDlgItem(hwndDlg, IDC_PNEW));
-						  SetParent(GetDlgItem(hwndDlg, IDC_POK), GetDlgItem(hwndDlg, IDC_PNEW));
-						  SetParent(GetDlgItem(hwndDlg, IDC_PCANCEL), GetDlgItem(hwndDlg, IDC_PNEW));
-						  ShowWindow(GetDlgItem(hwndDlg, IDC_PNEW), SW_HIDE);
-
+						 ShowBatch(SW_HIDE);
 						 
 						  PARAFORMAT2 pf;
 						  memset(&pf, 0, sizeof(pf));
@@ -384,6 +633,10 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 
 						  projectdata.strokes.clear();
 
+						  if (!loadProject(projectdata.file)) {
+							  //try loading realtime file
+						  }
+
 						  projectdata.addingnew = false;
 						  projectdata.open = true;
 						  projectdata.selectionmax = 0;
@@ -395,7 +648,14 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 						  projectdata.textwidth = pt.x * 23;
 
 						  PViewProc(hwndDlg, WM_SIZE, 0, 0);
-						  SetFocus(hwndDlg);
+
+						  CHARRANGE crngb;
+						  crngb.cpMin = crngb.cpMax = GetWindowTextLength(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST));
+						  SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crngb);
+						  crngb.cpMin = crngb.cpMax = GetWindowTextLength(GetDlgItem(projectdata.dlg, IDC_MAINTEXT));
+						  SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crngb);
+
+						  SetFocus(GetDlgItem(projectdata.dlg, IDC_MAINTEXT));
 	}
 		return FALSE;
 	case WM_NOTIFY:
@@ -405,9 +665,15 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
+		case IDM_PSTROKEEX:
+			SaveText(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST));
+			break;
+		case IDM_PTEXTEX:
+			SaveText(GetDlgItem(projectdata.dlg, IDC_MAINTEXT));
+			break;
 		case IDC_POK:
 		{
-						ShowWindow(GetDlgItem(hwndDlg, IDC_PNEW), SW_HIDE);
+						ShowBatch(SW_HIDE);
 						projectdata.addingnew = false;
 						inputstate.redirect = NULL;
 
@@ -424,12 +690,14 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 						trans->commit(trans, 0);
 
 						delete sdata;
+						PViewProc(hwndDlg, WM_SIZE, 0, 0);
 		}
 			break;
 		case IDC_PCANCEL:
-			ShowWindow(GetDlgItem(hwndDlg, IDC_PNEW), SW_HIDE);
+			ShowBatch(SW_HIDE);
 			projectdata.addingnew = false;
 			inputstate.redirect = NULL;
+			PViewProc(hwndDlg, WM_SIZE, 0, 0);
 			break;
 		case IDM_PFONT:
 			CHOOSEFONT cf;
@@ -469,12 +737,14 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 
 		return TRUE;
 	case WM_NEWITEMDLG:
-		ShowWindow(GetDlgItem(hwndDlg, IDC_PNEW), SW_SHOW);
+		ShowBatch(SW_SHOW);
 		projectdata.focusedcontrol = 0;
 		inputstate.redirect = GetDlgItem(projectdata.dlg, IDC_PSTROKE);
 		inputstate.sendasstrokes = true;
-		SendMessage(projectdata.dlg, WM_NEXTDLGCTL, (WPARAM)inputstate.redirect, TRUE);
+		//SendMessage(projectdata.dlg, WM_NEXTDLGCTL, (WPARAM)inputstate.redirect, TRUE);
+		SetFocus(inputstate.redirect);
 		projectdata.addingnew = true;
+		PViewProc(hwndDlg, WM_SIZE, 0, 0);
 		return TRUE;
 	}
 	
@@ -488,16 +758,34 @@ void LaunchProjDlg(HINSTANCE hInst) {
 		return;
 	}
 	if (projectdata.dlg == NULL) {
-		projectdata.dlg = CreateDialog(hInst, MAKEINTRESOURCE(IDD_PROJECT), NULL, PViewProc);
-		if (projectdata.dlg == NULL)
-		{
-			TCHAR* msg;
-			// Ask Windows to prepare a standard message for a  code:
-			FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&msg, 0, NULL);
-			MessageBox(NULL, msg, TEXT("Error"), MB_OK);
-		}
-			
 
-		ShowWindow(projectdata.dlg, SW_SHOW);
+		OPENFILENAME file;
+		TCHAR buffer[MAX_PATH] = TEXT("\0");
+		memset(&file, 0, sizeof(OPENFILENAME));
+		file.lStructSize = sizeof(OPENFILENAME);
+		file.hwndOwner = NULL;
+		file.lpstrFilter = TEXT("Project Files\0*.prj\0Stroke Record Files\0*.srf\0\0");
+		file.nFilterIndex = 1;
+		file.lpstrFile = buffer;
+		file.nMaxFile = MAX_PATH;
+		file.Flags = OFN_DONTADDTORECENT | OFN_NOCHANGEDIR;
+		if (GetOpenFileName(&file)) {
+			tstring filename = buffer;
+			if (filename.find(TEXT(".srf")) != std::string::npos) {
+				//filename += TEXT(".rtf");
+			}
+			else if (filename.find(TEXT(".prj")) != std::string::npos) {
+
+			}
+			else {
+				filename += TEXT(".prj");
+			}
+			projectdata.file = filename;
+
+			projectdata.dlg = CreateDialog(hInst, MAKEINTRESOURCE(IDD_PROJECT), NULL, PViewProc);
+		
+			ShowWindow(projectdata.dlg, SW_SHOW);
+			SetForegroundWindow(projectdata.dlg);
+		}
 	}
 }
