@@ -57,6 +57,12 @@
     <ClInclude Include="addendings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="pview.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="basicserial.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -93,6 +99,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="addendings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pview.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="basicserial.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
