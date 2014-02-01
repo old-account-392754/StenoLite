@@ -263,6 +263,54 @@ void saveDictSettings(dictionary* d) {
 		writestr(hfile, ttostr(sbuffer));
 		writestr(hfile, "\r\n");
 
+		writestr(hfile, "CUT = ");
+		sbuffer.clear();
+		stroketocsteno(d->scut, sbuffer, d->format);
+		writestr(hfile, ttostr(sbuffer));
+		writestr(hfile, "\r\n");
+
+		writestr(hfile, "COPY = ");
+		sbuffer.clear();
+		stroketocsteno(d->scopy, sbuffer, d->format);
+		writestr(hfile, ttostr(sbuffer));
+		writestr(hfile, "\r\n");
+
+		writestr(hfile, "PASTE = ");
+		sbuffer.clear();
+		stroketocsteno(d->spaste, sbuffer, d->format);
+		writestr(hfile, ttostr(sbuffer));
+		writestr(hfile, "\r\n");
+
+		writestr(hfile, "RPROCESS = ");
+		sbuffer.clear();
+		stroketocsteno(d->sreprocess, sbuffer, d->format);
+		writestr(hfile, ttostr(sbuffer));
+		writestr(hfile, "\r\n");
+
+		writestr(hfile, "LEFT = ");
+		sbuffer.clear();
+		stroketocsteno(d->sleft, sbuffer, d->format);
+		writestr(hfile, ttostr(sbuffer));
+		writestr(hfile, "\r\n");
+
+		writestr(hfile, "RIGHT = ");
+		sbuffer.clear();
+		stroketocsteno(d->sright, sbuffer, d->format);
+		writestr(hfile, ttostr(sbuffer));
+		writestr(hfile, "\r\n");
+
+		writestr(hfile, "SLEFT = ");
+		sbuffer.clear();
+		stroketocsteno(d->sshleft, sbuffer, d->format);
+		writestr(hfile, ttostr(sbuffer));
+		writestr(hfile, "\r\n");
+
+		writestr(hfile, "SRIGHT = ");
+		sbuffer.clear();
+		stroketocsteno(d->sshright, sbuffer, d->format);
+		writestr(hfile, ttostr(sbuffer));
+		writestr(hfile, "\r\n");
+
 		writestr(hfile, "ITEMS = ");
 		writestr(hfile, std::to_string(d->items));
 		writestr(hfile, "\r\n");
@@ -317,6 +365,30 @@ void strtodsetting(dictionary* d, const std::string& setting, const std::string&
 	else if (setting.compare("NUMBER") == 0) {
 		textToStroke(strtotstr(value), d->number, d->format);
 	}
+	else if (setting.compare("CUT") == 0) {
+		textToStroke(strtotstr(value), d->scut, d->format);
+	}
+	else if (setting.compare("COPY") == 0) {
+		textToStroke(strtotstr(value), d->scopy, d->format);
+	}
+	else if (setting.compare("PASTE") == 0) {
+		textToStroke(strtotstr(value), d->spaste, d->format);
+	}
+	else if (setting.compare("RPROCESS") == 0) {
+		textToStroke(strtotstr(value), d->sreprocess, d->format);
+	}
+	else if (setting.compare("RIGHT") == 0) {
+		textToStroke(strtotstr(value), d->sright, d->format);
+	}
+	else if (setting.compare("LEFT") == 0) {
+		textToStroke(strtotstr(value), d->sleft, d->format);
+	}
+	else if (setting.compare("SRIGHT") == 0) {
+		textToStroke(strtotstr(value), d->sshright, d->format);
+	}
+	else if (setting.compare("SLEFT") == 0) {
+		textToStroke(strtotstr(value), d->sshleft, d->format);
+	}
 	else if (setting.compare("EXTRAS") == 0) {
 		if (std::atoi(value.c_str()) == 1) {
 			d->extras = TRUE;
@@ -343,6 +415,15 @@ void loadDictSettings(dictionary* d, const tstring& file) {
 	textToStroke(tstring(TEXT("*")), d->number, d->format);
 	textToStroke(tstring(TEXT("T-B")), d->stab, d->format);
 	textToStroke(tstring(TEXT("R-RPB")), d->sreturn, d->format);
+	textToStroke(tstring(TEXT("-")), d->scut, d->format);
+	textToStroke(tstring(TEXT("-")), d->scopy, d->format);
+	textToStroke(tstring(TEXT("-")), d->spaste, d->format);
+	textToStroke(tstring(TEXT("-")), d->sreprocess, d->format);
+	textToStroke(tstring(TEXT("-")), d->sleft, d->format);
+	textToStroke(tstring(TEXT("-")), d->sright, d->format);
+	textToStroke(tstring(TEXT("-")), d->sshleft, d->format);
+	textToStroke(tstring(TEXT("-")), d->sshright, d->format);
+
 	d->longest = 1;
 	d->lchars = 1;
 	d->items = 0;

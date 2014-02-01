@@ -20,6 +20,10 @@ void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &i
 bool spaceafter(std::list<singlestroke*>::iterator it, std::list<singlestroke*>* target, bool erase);
 bool spacebefore(std::list<singlestroke*>::iterator it, std::list<singlestroke*>* target, bool erase);
 
+inline bool compare3(const unsigned __int8* a, const unsigned __int8* b) {
+	return a[0] == b[0] && a[1] == b[1] && a[2] == b[2];
+}
+
 void addStroke(__int32 s) {
 	WaitForSingleObject(sharedData.protectqueue, INFINITE);
 	sharedData.inputs.push(s);
@@ -474,7 +478,7 @@ tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevf
 	}
 
 	if (finaltext.length() == 0) {
-		flags = flags | prevflags;
+		flags = flags | prevflags | TF_INOSPACE;
 	}
 
 
@@ -1045,11 +1049,11 @@ bool spaceafter(std::list<singlestroke*>::iterator it, std::list<singlestroke*>*
 void processSingleStroke(unsigned __int8* stroke) {
 
 	if (newwordwin.running) {
-		if (stroke[0] == sharedData.currentd->stab[0] && stroke[1] == sharedData.currentd->stab[1] && stroke[2] == sharedData.currentd->stab[2]) {
+		if (compare3(stroke, sharedData.currentd->stab)) {
 			NewDlgNextFocus();
 			return;
 		}
-		if (stroke[0] == sharedData.currentd->sreturn[0] && stroke[1] == sharedData.currentd->sreturn[1] && stroke[2] == sharedData.currentd->sreturn[2]) {
+		if (compare3(stroke, sharedData.currentd->sreturn)) {
 			if (newwordwin.focusedcontrol == 0) {
 				NewDlgNextFocus();
 			}
@@ -1064,18 +1068,18 @@ void processSingleStroke(unsigned __int8* stroke) {
 	}
 
 	if (projectdata.open && projectdata.addingnew) {
-		if (stroke[0] == sharedData.currentd->stab[0] && stroke[1] == sharedData.currentd->stab[1] && stroke[2] == sharedData.currentd->stab[2]) {
+		if (compare3(stroke, sharedData.currentd->stab)) {
 			PViewNextFocus();
 			return;
 		}
-		if (stroke[0] == sharedData.currentd->sreturn[0] && stroke[1] == sharedData.currentd->sreturn[1] && stroke[2] == sharedData.currentd->sreturn[2]) {
+		if (compare3(stroke, sharedData.currentd->sreturn)) {
 			if (projectdata.focusedcontrol == 0) {
 				PViewNextFocus();
 			}
-			else if (newwordwin.focusedcontrol == 1 || newwordwin.focusedcontrol == 2) {
+			else if (projectdata.focusedcontrol == 1 || projectdata.focusedcontrol == 2) {
 				PostMessage(projectdata.dlg, WM_COMMAND, IDC_POK, NULL);
 			}
-			else if (newwordwin.focusedcontrol == 3) {
+			else if (projectdata.focusedcontrol == 3) {
 				PostMessage(projectdata.dlg, WM_COMMAND, IDC_PCANCEL, NULL);
 			}
 			return;
@@ -1085,7 +1089,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 	if (inputstate.redirect != NULL && inputstate.sendasstrokes) {
 		tstring wntxt = getWinStr(inputstate.redirect);
 
-		if (stroke[0] == sharedData.currentd->sdelete[0] && stroke[1] == sharedData.currentd->sdelete[1] && stroke[2] == sharedData.currentd->sdelete[2]) {
+		if (compare3(stroke, sharedData.currentd->sdelete)) {
 			while (wntxt.length() > 0) {
 				if (wntxt.back() == TEXT('/')) {
 					wntxt.pop_back();
@@ -1125,26 +1129,44 @@ void processSingleStroke(unsigned __int8* stroke) {
 		auto min = GetItemByText(crng.cpMin);
 		multidelete = max != min;
 
+		bool nostroke = compare3(stroke, sharedData.currentd->spaste) || compare3(stroke, sharedData.currentd->scut) || compare3(stroke, sharedData.currentd->scopy) || compare3(stroke, sharedData.currentd->sdelete)
+			|| compare3(stroke, sharedData.currentd->sleft) || compare3(stroke, sharedData.currentd->sright) || compare3(stroke, sharedData.currentd->sshleft) || compare3(stroke, sharedData.currentd->sshright)
+			|| compare3(stroke, sharedData.currentd->sreprocess);
+		bool nodelete = compare3(stroke, sharedData.currentd->scopy) || compare3(stroke, sharedData.currentd->sleft) || compare3(stroke, sharedData.currentd->sright) || compare3(stroke, sharedData.currentd->sshleft) || compare3(stroke, sharedData.currentd->sshright);
+
+
 		CHARRANGE crngb;
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
 		int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMin);
 		int lineb = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMax);
 
-		if (stroke[0] == sharedData.currentd->sdelete[0] && stroke[1] == sharedData.currentd->sdelete[1] && stroke[2] == sharedData.currentd->sdelete[2]) {
-			if (!multidelete) {
-				RegisterDelete(line-1);
+		if (compare3(stroke, sharedData.currentd->scut) || compare3(stroke, sharedData.currentd->scopy) || compare3(stroke, sharedData.currentd->sreprocess)) {
+			freeRange(projectdata.clipboard.begin(), projectdata.clipboard.end());
+			projectdata.clipboard.clear();
+			for (auto i = max; i != min; i++) {
+				projectdata.clipboard.push_front(*i);
+			}
+		}
 
-				if (line != 0)
-					crngb.cpMin = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line - 1, 0) + 23;
-				else
-					crngb.cpMin = 23;
-				SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crngb);
+		if (nostroke) {
+			if (nodelete) {
 			}
 			else {
-				for (int i = lineb-1; i >= line; i--)
-					RegisterDelete(i);
+				if (!multidelete && compare3(stroke, sharedData.currentd->sdelete)) {
+					RegisterDelete(line - 1);
+
+					if (line != 0)
+						crngb.cpMin = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line - 1, 0) + 23;
+					else
+						crngb.cpMin = 23;
+					SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crngb);
+				}
+				else {
+					for (int i = lineb - 1; i >= line; i--)
+						RegisterDelete(i);
+				}
+				SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
 			}
-			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
 		}
 		else {
 			for (int i = lineb-1; i >= line; i--)
@@ -1161,38 +1183,175 @@ void processSingleStroke(unsigned __int8* stroke) {
 		int sremoved = 0;
 		int charstodelete = 0;
 
-		charstodelete = delnP(max, min, projectdata.strokes.cend(), spacestoadd, sremoved);
+		if (!nodelete) {
+			charstodelete = delnP(max, min, projectdata.strokes.cend(), spacestoadd, sremoved);
 
-		if (settings.space != 2) {
-			bool altered = false;
-			
-			if (spaceafter(max, target, true)) {
-				crng.cpMax++;
-				altered = true;
+			if (settings.space != 2) {
+				bool altered = false;
+
+				if (spaceafter(max, target, true)) {
+					crng.cpMax++;
+					altered = true;
+				}
+
+				if (spacebefore(min, target, true)) {
+					if (crng.cpMin != 0)
+						crng.cpMin--;
+					altered = true;
+				}
+
+				if (altered)
+					SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
 			}
 
-			if (spacebefore(min, target, true)) {
-				if (crng.cpMin != 0)
-					crng.cpMin--;
-				altered = true;
-			}
 
-			if (altered)
-				SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
+
+			SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
+			if (!compare3(stroke, sharedData.currentd->scut) && !compare3(stroke, sharedData.currentd->sreprocess))
+				freeRange(max, min);
+
+			target->erase(max, min);
 		}
-	
-	
-
-		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
-		freeRange(max, min);
-		target->erase(max, min);
 		insert = min;
 		projectdata.settingsel = false;
 	}
 
+	if ((compare3(stroke, sharedData.currentd->spaste) || compare3(stroke, sharedData.currentd->sreprocess)) && inputstate.redirect == NULL && projectdata.open) {
 
+		CHARRANGE crngb;
 
-	if (stroke[0] == sharedData.currentd->sdelete[0] && stroke[1] == sharedData.currentd->sdelete[1] && stroke[2] == sharedData.currentd->sdelete[2]) {
+		for (auto i = projectdata.clipboard.cbegin(); i != projectdata.clipboard.cend(); i++) {
+			InnerProcess((*i)->value.ival, insert, target);
+			if (!compare3(stroke, sharedData.currentd->sreprocess)) {
+				TCHAR buffer[32] = TEXT("\r\n");
+				stroketosteno((*i)->value.ival, &buffer[2], sharedData.currentd->format);
+
+				SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
+				int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMin);
+				RegisterStroke((*i)->value.ival, line);
+
+				SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)buffer);
+				
+				SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
+				crngb.cpMin = crngb.cpMax;
+				SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, 0, (LPARAM)&crngb);
+			}
+		}
+		return;
+	}
+	else if (compare3(stroke, sharedData.currentd->scopy) && inputstate.redirect == NULL && projectdata.open) {
+		return;
+	}
+	else if (compare3(stroke, sharedData.currentd->scut) && inputstate.redirect == NULL && projectdata.open) {
+		if (insert != target->cend() && insert != target->cbegin()) {
+			auto prev = insert;
+			--prev;
+			if (((*prev)->textout->flags & TF_INOSPACE) == 0 && ((*insert)->textout->flags & TF_ENOSPACE) == 0 && (((*prev)->textout->flags & TF_IPSPACE) == 0 || ((*insert)->textout->flags & TF_EPSPACE) == 0)) {
+				if (!spacebefore(insert, target, false) && !spaceafter(insert, target, false) && settings.space != 2) {
+					(*insert)->textout->text += TEXT(' ');
+					SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)TEXT(" "));
+				}
+
+			}
+		}
+	}
+	else if (compare3(stroke, sharedData.currentd->sleft) && inputstate.redirect == NULL && projectdata.open){
+		CHARRANGE crngb;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
+		int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMin);
+		auto it = GetItem(line);
+		int sub = 0;
+		while (it != target->cend()) {
+			it++;
+			sub++;
+			if ((*it) == (*it)->textout->first) {
+				break;
+			}
+		}
+
+		int lineindex = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line-sub, 0);
+
+		crngb.cpMin = lineindex + 23;
+		crngb.cpMax = lineindex + 23;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, 0, (LPARAM)&crngb);
+
+		SetTextSel(line - sub, line - sub);
+		return;
+	}
+	else if (compare3(stroke, sharedData.currentd->sshleft) && inputstate.redirect == NULL && projectdata.open){
+		CHARRANGE crngb;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
+		int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMin);
+		int lineb = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMax);
+
+		auto it = GetItem(line);
+		int sub = 0;
+		while (it != target->cend()) {
+			it++;
+			sub++;
+			if ((*it) == (*it)->textout->first) {
+				break;
+			}
+		}
+
+		int lineindex = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line - sub, 0);
+
+		crngb.cpMin = lineindex + 23;
+
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, 0, (LPARAM)&crngb);
+		SetTextSel(line - sub, lineb);
+
+		return;
+	}
+	else if (compare3(stroke, sharedData.currentd->sright) && inputstate.redirect == NULL && projectdata.open){
+		CHARRANGE crngb;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
+		int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMax);
+		auto it = GetItem(line);
+		int sub = 0;
+		while (it != target->cbegin()) {
+			it--;
+			sub++;
+			if ((*it) == (*it)->textout->first) {
+				break;
+			}
+		}
+
+		int lineindex = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line + sub, 0);
+
+		crngb.cpMin = lineindex + 23;
+		crngb.cpMax = lineindex + 23;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, 0, (LPARAM)&crngb);
+		SetTextSel(line + sub, line + sub);
+
+		return;
+	}
+	else if (compare3(stroke, sharedData.currentd->sshright) && inputstate.redirect == NULL && projectdata.open){
+		CHARRANGE crngb;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
+		int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMax);
+		int lineb = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMin);
+
+		auto it = GetItem(line);
+		int sub = 0;
+		while (it != target->cbegin()) {
+			it--;
+			sub++;
+			if ((*it) == (*it)->textout->first) {
+				break;
+			}
+		}
+
+		int lineindex = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line + sub, 0);
+
+		crngb.cpMax = lineindex + 23;
+		
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, 0, (LPARAM)&crngb);
+		SetTextSel(lineb, line + sub);
+
+		return;
+	}
+	else if (compare3(stroke, sharedData.currentd->sdelete)) {
 		int sremoved = 0;
 		int spacestoadd = 0;
 		int charstodelete = 0;

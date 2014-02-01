@@ -148,6 +148,15 @@ void RegisterDelete(int n) {
 	}
 }
 
+void RegisterDef(tstring stroke, tstring val) {
+	if (projectdata.realtime != NULL) {
+		writestr(projectdata.realtime, "\r\nX ");
+		writestr(projectdata.realtime, ttostr(stroke));
+		writestr(projectdata.realtime, " ");
+		writestr(projectdata.realtime, ttostr(val));
+	}
+}
+
 void RegisterStroke(unsigned _int8* stroke, int n) {
 	if (n < 0)
 		return;
@@ -189,10 +198,79 @@ void addat(std::vector<stroke> &slist, int n, unsigned __int8* str) {
 	slist.insert(it, toadd);
 }
 
+void reRealtime() {
+	WaitForSingleObject(sharedData.protectqueue, INFINITE);
+
+	CloseHandle(projectdata.realtime);
+
+	tstring realtime = projectdata.file;
+	realtime = realtime.replace(realtime.find(TEXT(".prj")), 4, TEXT(".srf"));
+
+	projectdata.realtime = CreateFile(realtime.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+
+	if (projectdata.realtime != INVALID_HANDLE_VALUE) {
+
+		DB_TXN* trans;
+		projectdata.d->env->txn_begin(projectdata.d->env, NULL, &trans, DB_READ_UNCOMMITTED);
+
+		DBC* startcursor;
+
+		DBT keyin;
+		keyin.data = new unsigned __int8[projectdata.d->longest * 3];
+		keyin.size = 0;
+		keyin.ulen = projectdata.d->longest * 3;
+		keyin.dlen = 0;
+		keyin.doff = 0;
+		keyin.flags = DB_DBT_USERMEM;
+
+		DBT strin;
+		strin.data = new unsigned __int8[projectdata.d->lchars + 1];
+		strin.size = 0;
+		strin.ulen = projectdata.d->lchars + 1;
+		strin.dlen = 0;
+		strin.doff = 0;
+		strin.flags = DB_DBT_USERMEM;
+
+		projectdata.d->contents->cursor(projectdata.d->contents, trans, &startcursor, 0);
+		int result = startcursor->get(startcursor, &keyin, &strin, DB_FIRST);
+
+		while (result == 0) {
+			tstring acc;
+			stroketocsteno((unsigned __int8*)(keyin.data), acc, sharedData.currentd->format);
+			for (unsigned int i = 1; i * 3 < keyin.size; i++) {
+				acc += TEXT("/");
+				tstring tmp;
+				stroketocsteno(&(((unsigned __int8*)(keyin.data))[i * 3]), tmp, sharedData.currentd->format);
+				acc += tmp;
+			}
+			writestr(projectdata.realtime, "\r\nX ");
+			writestr(projectdata.realtime, ttostr(acc));
+			writestr(projectdata.realtime, " ");
+			writestr(projectdata.realtime, (char*)(strin.data));
+
+			result = startcursor->get(startcursor, &keyin, &strin, DB_NEXT);
+		}
+
+		startcursor->close(startcursor);
+		trans->commit(trans, 0);
+
+		for (auto i = projectdata.strokes.cbegin(); i != projectdata.strokes.cend(); i++) {
+			RegisterStroke((*i)->value.ival, 0);
+		}
+	}
+
+	ReleaseMutex(sharedData.protectqueue);
+}
+
 void LoadRealtime() {
-	const static std::regex parsefile("^(\\S+?)\\s(\\S*)$");
+	const static std::regex parsefile("^(\\S+?)\\s(.*)$");
+	const static std::regex parseX("^(\\S+?)\\s(.*)$");
 	std::cmatch m;
+	std::cmatch n;
 	
+	WaitForSingleObject(sharedData.protectqueue, INFINITE);
+
 	std::vector<stroke> slist;
 
 	char c;
@@ -209,7 +287,23 @@ void LoadRealtime() {
 		if (r != std::string::npos) {
 			cline.erase(r, 1);
 			if (std::regex_match(cline.c_str(), m, parsefile)) {
-				if (m[1].str().compare("D") == 0) {
+				if (m[1].str().compare("X") == 0) {
+					std::string temp = m[2].str();
+					if (std::regex_match(temp.c_str(), n, parseX)) {
+						int numstrokes = 0;
+						unsigned __int8* sdata = texttomultistroke(strtotstr(n[1].str()), numstrokes, sharedData.currentd->format);
+
+						DB_TXN* trans;
+						projectdata.d->env->txn_begin(projectdata.d->env, NULL, &trans, 0);
+						projectdata.d->addDItem(sdata, numstrokes * 3, n[2].str(), trans);
+						trans->commit(trans, 0);
+
+						MessageBoxA(NULL, n[2].str().c_str(), n[1].str().c_str(), MB_OK);
+
+						delete sdata;
+					}
+				}
+				else if (m[1].str().compare("D") == 0) {
 					delat(slist, atoi(m[2].str().c_str()));
 				}
 				else {
@@ -228,7 +322,21 @@ void LoadRealtime() {
 	}
 
 	if (std::regex_match(cline.c_str(), m, parsefile)) {
-		if (m[1].str().compare("D") == 0) {
+		if (m[1].str().compare("X") == 0) {
+			std::string temp = m[2].str();
+			if (std::regex_match(temp.c_str(), m, parseX)) {
+				int numstrokes = 0;
+				unsigned __int8* sdata = texttomultistroke(strtotstr(m[1].str()), numstrokes, sharedData.currentd->format);
+
+				DB_TXN* trans;
+				projectdata.d->env->txn_begin(projectdata.d->env, NULL, &trans, 0);
+				projectdata.d->addDItem(sdata, numstrokes * 3, m[2].str(), trans);
+				trans->commit(trans, 0);
+
+				delete sdata;
+			}
+		}
+		else if (m[1].str().compare("D") == 0) {
 			delat(slist, atoi(m[2].str().c_str()));
 		}
 		else {
@@ -247,10 +355,12 @@ void LoadRealtime() {
 		processSingleStroke(&(temp[0]));
 	}
 	projectdata.realtime = rtback;
+
+	ReleaseMutex(sharedData.protectqueue);
 }
 
 void ProcessItem(std::string &cline, textoutput* &last, bool &matchdict, DB_TXN* trans) {
-	const static std::regex parsefile("^(\\S+?)\\s(\\S+?)\\s(\\S*)$");
+	const static std::regex parsefile("^(\\S+?)\\s(\\S+?)\\s(.*)$");
 	std::cmatch m;
 
 	if (std::regex_match(cline.c_str(), m, parsefile)) {
@@ -308,7 +418,29 @@ void ProcessItem(std::string &cline, textoutput* &last, bool &matchdict, DB_TXN*
 
 }
 
+void exDict()
+{
+	OPENFILENAME file;
+	TCHAR buffer[MAX_PATH] = TEXT("\0");
+	memset(&file, 0, sizeof(OPENFILENAME));
+	file.lStructSize = sizeof(OPENFILENAME);
+	file.hwndOwner = projectdata.dlg;
+	file.lpstrFilter = TEXT("Json Files\0*.json\0\0");
+	file.nFilterIndex = 1;
+	file.lpstrFile = buffer;
+	file.nMaxFile = MAX_PATH;
+	file.Flags = OFN_DONTADDTORECENT | OFN_NOCHANGEDIR;
+	if (GetSaveFileName(&file)) {
+		tstring filename = buffer;
+		if (filename.find(TEXT(".json")) == std::string::npos) {
+			filename += TEXT(".json");
+		}
+		SaveJson(projectdata.d, filename, NULL);
+	}
+}
+
 bool loadProject(const tstring &file) {
+	WaitForSingleObject(sharedData.protectqueue, INFINITE);
 	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 	
 	bool matchdict = true;
@@ -360,8 +492,11 @@ bool loadProject(const tstring &file) {
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crngb);
 		crngb.cpMin = crngb.cpMax = GetWindowTextLength(GetDlgItem(projectdata.dlg, IDC_MAINTEXT));
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crngb);
+
+		ReleaseMutex(sharedData.protectqueue);
 		return true;
 	}
+	ReleaseMutex(sharedData.protectqueue);
 	return false;
 }
 
@@ -390,6 +525,26 @@ std::list<singlestroke*>::iterator GetItem(int index) {
 	}
 
 	return it;
+}
+
+int GetTextFromItem(const std::list<singlestroke*>::const_iterator &item) {
+
+	int pos = 0;
+
+	if (item == projectdata.strokes.cend())
+		return 0;
+
+	if (projectdata.strokes.size() > 0){
+		auto it = (--projectdata.strokes.cend());
+		for (; it != projectdata.strokes.cbegin(); it--) {
+			if ((*it)->textout->first == *it)
+				pos += (*it)->textout->text.length();
+			if (it == item)
+				return pos;
+		}
+	}
+	pos += (*projectdata.strokes.cbegin())->textout->text.length();
+	return pos;
 }
 
 void SetTextSel(unsigned int min, unsigned int max) {
@@ -505,6 +660,10 @@ LRESULT CALLBACK StrokeList(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, 
 	static bool capturing = false;
 
 	switch (uMsg) {
+	case WM_KEYDOWN:
+	case WM_KEYUP:
+	case WM_CHAR:
+		return 0;
 	case WM_LBUTTONDOWN:
 		SetCapture(hWnd);
 		POINTL p;
@@ -583,6 +742,10 @@ LRESULT CALLBACK MainText(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UI
 	static bool capturing = false;
 
 	switch (uMsg) {
+	case WM_KEYDOWN:
+	case WM_KEYUP:
+	case WM_CHAR:
+		return 0;
 	case WM_LBUTTONDOWN:
 		SetCapture(hWnd);
 		POINTL p;
@@ -670,8 +833,8 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 
 					SetWindowPos(GetDlgItem(hwndDlg, IDC_PSTROKE), GetDlgItem(hwndDlg, IDC_PNEW), 5, rt.bottom - rt.top - 25, 160, 20, 0);
 					SetWindowPos(GetDlgItem(hwndDlg, IDC_PENTRY), GetDlgItem(hwndDlg, IDC_PNEW), 170, rt.bottom - rt.top - 25, 160, 20, 0);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_POK), GetDlgItem(hwndDlg, IDC_PNEW), 335, rt.bottom - rt.top - 25, 30, 20, 0);
-					SetWindowPos(GetDlgItem(hwndDlg, IDC_PCANCEL), GetDlgItem(hwndDlg, IDC_PNEW), 370, rt.bottom - rt.top - 25, 30, 20, 0);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_POK), GetDlgItem(hwndDlg, IDC_PNEW), 335, rt.bottom - rt.top - 26, 30, 22, 0);
+					SetWindowPos(GetDlgItem(hwndDlg, IDC_PCANCEL), GetDlgItem(hwndDlg, IDC_PNEW), 370, rt.bottom - rt.top - 26, 45, 22, 0);
 	}
 		return TRUE;
 	case WM_QUIT:
@@ -796,6 +959,26 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
+		case IDC_PSTROKE:
+			if (HIWORD(wParam) == EN_SETFOCUS) {
+				projectdata.focusedcontrol = 0;
+				inputstate.redirect = GetDlgItem(projectdata.dlg, IDC_PSTROKE);
+				inputstate.sendasstrokes = true;
+			}
+			break;
+		case IDC_PENTRY:
+			if (HIWORD(wParam) == EN_SETFOCUS) {
+				projectdata.focusedcontrol = 1;
+				inputstate.redirect = GetDlgItem(projectdata.dlg, IDC_PENTRY);
+				inputstate.sendasstrokes = false;
+			}
+			break;
+		case IDM_RECREATE:
+			reRealtime();
+			break;
+		case IDM_EXDICT:
+			exDict();
+			break;
 		case IDM_PSTROKEEX:
 			SaveText(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST));
 			break;
@@ -804,16 +987,19 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 			break;
 		case IDC_POK:
 		{
+						SetFocus(GetDlgItem(hwndDlg, IDC_MAINTEXT));
 						ShowBatch(SW_HIDE);
 						projectdata.addingnew = false;
 						inputstate.redirect = NULL;
 
 						tstring txt = getWinStr(GetDlgItem(hwndDlg, IDC_PENTRY));
-						tstring stroke = getWinStr(GetDlgItem(hwndDlg, IDC_PSTROKE));
+						tstring strke = getWinStr(GetDlgItem(hwndDlg, IDC_PSTROKE));
 						int numstrokes = 0;
 
-						unsigned __int8* sdata = texttomultistroke(stroke, numstrokes, sharedData.currentd->format);
+						unsigned __int8* sdata = texttomultistroke(strke, numstrokes, sharedData.currentd->format);
 						std::string trmd = trimstr(ttostr(txt), " ");
+
+						RegisterDef(strke, strtotstr(trmd));
 
 						DB_TXN* trans;
 						projectdata.d->env->txn_begin(projectdata.d->env, NULL, &trans, 0);
@@ -822,13 +1008,29 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 
 						delete sdata;
 						PViewProc(hwndDlg, WM_SIZE, 0, 0);
+
+						union {
+							unsigned __int8 sval[4];
+							unsigned __int32 ival;
+						} tstroke;
+						memcpy(tstroke.sval, sharedData.currentd->sdelete, 3);
+						addStroke(tstroke.ival);
 		}
 			break;
 		case IDC_PCANCEL:
+			SetFocus(GetDlgItem(hwndDlg, IDC_MAINTEXT));
 			ShowBatch(SW_HIDE);
 			projectdata.addingnew = false;
 			inputstate.redirect = NULL;
 			PViewProc(hwndDlg, WM_SIZE, 0, 0);
+
+			union {
+				unsigned __int8 sval[4];
+				unsigned __int32 ival;
+			} tstroke;
+			memcpy(tstroke.sval, sharedData.currentd->sdelete, 3);
+			addStroke(tstroke.ival);
+
 			break;
 		case IDM_PFONT:
 			CHOOSEFONT cf;
@@ -868,7 +1070,10 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 
 		return TRUE;
 	case WM_NEWITEMDLG:
+		SetWindowText(GetDlgItem(projectdata.dlg, IDC_PSTROKE), TEXT(""));
+		SetWindowText(GetDlgItem(projectdata.dlg, IDC_PENTRY), TEXT(""));
 		ShowBatch(SW_SHOW);
+
 		projectdata.focusedcontrol = 0;
 		inputstate.redirect = GetDlgItem(projectdata.dlg, IDC_PSTROKE);
 		inputstate.sendasstrokes = true;

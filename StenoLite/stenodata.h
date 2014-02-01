@@ -19,6 +19,16 @@ struct dictionary {
 	unsigned __int8 stab[4];
 	unsigned __int8 number[4];
 	unsigned __int8 sreturn[4];
+
+	unsigned __int8 scopy[4];
+	unsigned __int8 scut[4];
+	unsigned __int8 spaste[4];
+	unsigned __int8 sreprocess[4];
+	unsigned __int8 sleft[4];
+	unsigned __int8 sright[4];
+	unsigned __int8 sshleft[4];
+	unsigned __int8 sshright[4];
+
 	tstring settingslocation;
 	std::string hm;
 	BOOL extras = FALSE;

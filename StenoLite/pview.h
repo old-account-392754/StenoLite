@@ -20,6 +20,7 @@ struct pdata {
 	int textwidth;
 	tstring file;
 	HANDLE realtime;
+	std::list<singlestroke*> clipboard;
 };
 
 void PViewNextFocus();
@@ -28,6 +29,7 @@ std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex);
 void LaunchProjDlg(HINSTANCE hInst);
 void RegisterStroke(unsigned _int8* stroke, int n);
 void RegisterDelete(int n);
+void SetTextSel(unsigned int min, unsigned int max);
 
 extern pdata projectdata;
 

@@ -1,7 +1,7 @@
 # StenoLite
 
-Latest installer: https://github.com/boborama/StenoLite/releases/download/v0.8.8-beta/StenoLiteSetup.msi <br>
-Mobile version: https://github.com/boborama/StenoLite/releases/download/v0.8.8-beta/StenoLite088.zip
+Latest installer
+Mobile version
 
 This project is a sister project to plover: http://github.com/plover/plover
 
@@ -13,6 +13,7 @@ Supports only keyboard and Treal input for the moment
 ### But it does have the following features:
 
 Built in dictionary look-up as you type, with two search modes<br>
+Built in project viewer/editor--create and edit text in a more natural way<br>
 Extremely fast load times with compiled dictionaries<br>
 Smaller RAM footprint<br>
 Built in dictionary editor/viewer<br>
@@ -24,7 +25,7 @@ Push and pop commands: use a single stroke for closing quotations, parenthesis, 
 
 ## Upcoming Features
 
-Project viewer: save a project as a collection of strokes; insert and delete strokes anywhere in the project; customize your dictionary on a per-project basis
+Import and convert the syntax of plover commands in a dictionary file to StenoLite commands
 
 ##Desired Features (but not currently under development)
 
