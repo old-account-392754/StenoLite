@@ -48,7 +48,7 @@ void setMode(int mode) {
 	else if (cmode == 2) {
 
 	}
-	else if (cmode == 3) {
+	else if (cmode == 3 || cmode == 4 || cmode == 5) {
 		EndThreads();
 	}
 	cmode = mode;
@@ -105,6 +105,24 @@ void setMode(int mode) {
 	else if (cmode == 3) {
 		if (openCom(settings.port, CBR_9600) != INVALID_HANDLE_VALUE) {
 			CreateThread(NULL, 0, TXBolt, NULL, 0, NULL);
+		}
+		else {
+			cmode = 0;
+			SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+		}
+	}
+	else if (cmode == 4) {
+		if (openCom(settings.port, CBR_38400) != INVALID_HANDLE_VALUE) {
+			CreateThread(NULL, 0, Passport, NULL, 0, NULL);
+		}
+		else {
+			cmode = 0;
+			SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+		}
+	}
+	else if (cmode == 5) {
+		if (openCom(settings.port, CBR_9600) != INVALID_HANDLE_VALUE) {
+			CreateThread(NULL, 0, Gemini, NULL, 0, NULL);
 		}
 		else {
 			cmode = 0;

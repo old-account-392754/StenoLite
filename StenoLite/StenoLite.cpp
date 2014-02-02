@@ -344,6 +344,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	SendMessage(controls.inputs, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)(L"Keyboard"));
 	SendMessage(controls.inputs, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)(L"Treal"));
 	SendMessage(controls.inputs, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)(L"TX Bolt (Serial)"));
+	SendMessage(controls.inputs, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)(L"Passport (Serial)"));
+	SendMessage(controls.inputs, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)(L"Gemini (Serial)"));
+	
 	SendMessage(controls.inputs, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), (LPARAM)true);
 	SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)sel, (LPARAM)0);
 

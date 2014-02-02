@@ -85,6 +85,9 @@ void textToStroke(unsigned __int8* dest, tstring::const_iterator &i, tstring::co
 		case TEXT('-'):
 			position = 12;
 			break;
+		case TEXT('#'):
+			dest[2] |= 0x40;
+			break;
 		case TEXT('1'):
 			dest[0] |= 0x01;
 			dest[2] |= 0x40;
