@@ -1,3 +1,6 @@
+0.9.2
+Minor bug with com config
+
 0.9.1
 Added completely untested TX Bolt input mode; probability that it actually works is low.
 

@@ -86,7 +86,6 @@ DWORD WINAPI TXBolt(LPVOID lpParam)
 
 
 HANDLE openCom(tstring port, int baud) {
-	DCB dcb;
 
 	com = CreateFile(port.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 
@@ -94,13 +93,14 @@ HANDLE openCom(tstring port, int baud) {
 		DCB dcbstruct;
 		memset(&dcbstruct, 0, sizeof(DCB));
 		dcbstruct.DCBlength = sizeof(DCB);
+
 		dcbstruct.fBinary = TRUE;
 		dcbstruct.BaudRate = baud;
 		dcbstruct.Parity = NOPARITY;
 		dcbstruct.ByteSize = 8;
 		dcbstruct.StopBits = ONESTOPBIT;
-
-		if (SetCommState(com, &dcb)) {
+	
+		if (SetCommState(com, &dcbstruct)) {
 			COMMTIMEOUTS timeouts;
 			memset(&timeouts, 0, sizeof(timeouts));
 			SetCommTimeouts(com, &timeouts);
