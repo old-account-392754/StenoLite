@@ -1,7 +1,7 @@
 # StenoLite
 
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.1-beta/StenoLiteSetup.msi">Latest installer</a>
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.1-beta/StenoLite091.zip">Mobile version</a>
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.2-beta/StenoLiteSetup.msi">Latest installer</a>
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.2-beta/StenoLite091.zip">Mobile version</a>
 
 This project is a sister project to plover: http://github.com/plover/plover
 
