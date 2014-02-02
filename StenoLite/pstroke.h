@@ -11,5 +11,6 @@ void processSingleStroke(unsigned __int8* stroke);
 tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevflags, unsigned __int8 nextflags, BOOL &trimspace, bool redirect);
 void addStroke(__int32 s);
 inline bool compare3(const unsigned __int8* a, const unsigned __int8* b);
+void sendstroke(unsigned __int8* keys);
 
 #endif

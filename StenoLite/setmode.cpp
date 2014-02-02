@@ -5,6 +5,7 @@
 #include <regex>
 #include <string>
 #include "texthelpers.h"
+#include "basicserial.h"
 
 void setDictionary(dictionary* d) {
 	bool send = false;
@@ -46,6 +47,9 @@ void setMode(int mode) {
 	}
 	else if (cmode == 2) {
 
+	}
+	else if (cmode == 3) {
+		EndThreads();
 	}
 	cmode = mode;
 
@@ -96,6 +100,15 @@ void setMode(int mode) {
 
 		if (RegisterRawInputDevices(&Rid, 1, sizeof(RAWINPUTDEVICE)) == FALSE) {
 			MessageBox(NULL, TEXT("Could not register Treal\r\nTreal mode will not function"), TEXT("Error"), MB_OK);
+		}
+	}
+	else if (cmode == 3) {
+		if (openCom(settings.port, CBR_9600) != INVALID_HANDLE_VALUE) {
+			CreateThread(NULL, 0, TXBolt, NULL, 0, NULL);
+		}
+		else {
+			cmode = 0;
+			SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 		}
 	}
 }

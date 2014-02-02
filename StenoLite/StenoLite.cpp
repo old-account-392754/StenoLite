@@ -25,6 +25,7 @@
 #include "setmode.h"
 #include "DView.h"
 #include "pview.h"
+#include "basicserial.h"
 
 using namespace Gdiplus;
 #pragma comment (lib,"Gdiplus.lib")
@@ -102,6 +103,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	sharedData.newentry = CreateEvent(NULL, FALSE, FALSE, NULL);
 	sharedData.newtext = CreateEvent(NULL, FALSE, FALSE, NULL);
 	sharedData.protectqueue = CreateMutex(NULL, FALSE, NULL);
+	InitEvents();
 	textToStroke(tstring(TEXT("1234567890")), sharedData.number, TEXT("#STKPWHRAO*EUFRPBLGTSDZ"));
 
 	projectdata.dlg = NULL;
@@ -164,13 +166,18 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 			}
 		}
 	}
-	setMode(0);
-	
+
+	if (projectdata.dlg != NULL) {
+		SendMessage(projectdata.dlg, WM_CLOSE, 0, 0);
+		projectdata.dlg = NULL;
+	}
 
 	if (tskbrlst != NULL) {
 		tskbrlst->Release();
 	}
 	CoUninitialize();
+
+	setMode(0);
 
 	sharedData.running = FALSE;
 	SetEvent(sharedData.newentry);
@@ -193,6 +200,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 		DestroyWindow(newwordwin.dlgwnd);
 		newwordwin.dlgwnd = NULL;
 	}
+	
 	return (int)msg.wParam;
 }
 
@@ -335,6 +343,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	SendMessage(controls.inputs, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)(L"Off"));
 	SendMessage(controls.inputs, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)(L"Keyboard"));
 	SendMessage(controls.inputs, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)(L"Treal"));
+	SendMessage(controls.inputs, (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)(L"TX Bolt (Serial)"));
 	SendMessage(controls.inputs, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), (LPARAM)true);
 	SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)sel, (LPARAM)0);
 
@@ -466,29 +475,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	return TRUE;
 }
 
-void sendstroke(unsigned __int8* keys) {
-	TCHAR buffer[32] = TEXT("\r\n");
-	if (sharedData.currentd != NULL)
-		stroketosteno(keys, &buffer[2], sharedData.currentd->format);
-	else
-		stroketosteno(keys, &buffer[2], TEXT("#STKPWHRAO*EUFRPBLGTSDZ"));
 
-	int lines = SendMessage(controls.mestroke, EM_GETLINECOUNT, 0, 0);
-	if (lines > controls.numlines-1) {
-		int end = SendMessage(controls.mestroke, EM_LINEINDEX, 1, 0);
-		SendMessage(controls.mestroke, EM_SETSEL, 0, end);
-		SendMessage(controls.mestroke, EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
-	}
-
-	int len = SendMessage(controls.mestroke, WM_GETTEXTLENGTH, 0, 0);
-	SendMessage(controls.mestroke, EM_SETSEL, len, len);
-	SendMessage(controls.mestroke, EM_REPLACESEL, FALSE, (LPARAM)buffer);
-	
-	__int32* val = (__int32*)keys;
-	addStroke(*val);
-
-	keys[0] = keys[1] = keys[2] = keys[4] = 0;
-}
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {

@@ -131,6 +131,10 @@ void saveSettings() {
 		writestr(hfile, ttostr(settings.fname));
 		writestr(hfile, "\r\n");
 
+		writestr(hfile, "PORT = ");
+		writestr(hfile, ttostr(settings.port));
+		writestr(hfile, "\r\n");
+
 		HKL locale = GetKeyboardLayout(GetCurrentThreadId());
 		for (int i = 0; i < 256; i++){
 			if (settings.map[i] != 0) {
@@ -975,6 +979,9 @@ void strtosetting(const std::string& setting, const std::string& value) {
 	else if (setting.compare("FNAME") == 0) {
 		settings.fname = strtotstr(value);
 	}
+	else if (setting.compare("PORT") == 0) {
+		settings.port = strtotstr(value);
+	}
 	else if (setting.compare("X") == 0) {
 		settings.xpos = std::atoi(value.c_str());
 	}
@@ -1061,6 +1068,7 @@ void loadSettings() {
 	settings.fname = TEXT("Times New Roman");
 	settings.fsize = 12;
 	settings.fweight = 400;
+	settings.port = TEXT("COM1");
 
 	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 	std::regex property("^\\s*(\\S+)\\s*=\\s*(\\S+)\\s*");

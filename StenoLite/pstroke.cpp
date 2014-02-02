@@ -31,6 +31,29 @@ void addStroke(__int32 s) {
 	SetEvent(sharedData.newentry);
 }
 
+void sendstroke(unsigned __int8* keys) {
+	TCHAR buffer[32] = TEXT("\r\n");
+	if (sharedData.currentd != NULL)
+		stroketosteno(keys, &buffer[2], sharedData.currentd->format);
+	else
+		stroketosteno(keys, &buffer[2], TEXT("#STKPWHRAO*EUFRPBLGTSDZ"));
+
+	int lines = SendMessage(controls.mestroke, EM_GETLINECOUNT, 0, 0);
+	if (lines > controls.numlines - 1) {
+		int end = SendMessage(controls.mestroke, EM_LINEINDEX, 1, 0);
+		SendMessage(controls.mestroke, EM_SETSEL, 0, end);
+		SendMessage(controls.mestroke, EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
+	}
+
+	int len = SendMessage(controls.mestroke, WM_GETTEXTLENGTH, 0, 0);
+	SendMessage(controls.mestroke, EM_SETSEL, len, len);
+	SendMessage(controls.mestroke, EM_REPLACESEL, FALSE, (LPARAM)buffer);
+
+	__int32* val = (__int32*)keys;
+	addStroke(*val);
+
+	keys[0] = keys[1] = keys[2] = keys[4] = 0;
+}
 
 void trimStokesList() {
 	if (sharedData.strokes.size() > 100) {

@@ -56,6 +56,7 @@ struct sstruct {
 	int fsize;
 	int fweight;
 	tstring fname;
+	tstring port;
 	unsigned __int8 map[256];
 } ;
 
