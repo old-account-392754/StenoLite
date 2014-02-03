@@ -1464,7 +1464,9 @@ DWORD WINAPI processStrokes(LPVOID lpParam)
 			ReleaseMutex(sharedData->protectqueue);
 
 			if (sharedData->currentd != NULL) {
+				WaitForSingleObject(sharedData->lockprocessing, INFINITE);
 				processSingleStroke(cstroke.ival);
+				ReleaseMutex(sharedData->lockprocessing);
 
 				sharedData->addedtext = TRUE;
 				SetEvent(sharedData->newtext);

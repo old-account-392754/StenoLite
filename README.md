@@ -1,16 +1,16 @@
 # StenoLite
 
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.2-beta/StenoLiteSetup.msi">Latest installer</a>
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.2-beta/StenoLite091.zip">Mobile version</a>
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.3-beta/StenoLiteSetup.msi">Latest installer</a><br>
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.3-beta/StenoLite091.zip">Mobile version</a>
 
 This project is a sister project to plover: http://github.com/plover/plover
 
-### It lacks the following capabilities in comparison to plover:
+#### It lacks the following capabilities in comparison to plover:
 
 Windows only (XP with SP3 or newer)<br>
-Supports only keyboard and Treal input for the moment
+Currently the Gemini, Passport, and Stentura serial modes are untested
 
-### But it does have the following features:
+#### But it does have the following features:
 
 Built in dictionary look-up as you type, with two search modes<br>
 Built in project viewer/editor--create and edit text in a more natural way<br>
@@ -23,11 +23,11 @@ Push and pop commands: use a single stroke for closing quotations, parenthesis, 
 #### Please read the manual for more details
 
 
-## Upcoming Features
+### Upcoming Features
 
 Import and convert the syntax of plover commands in a dictionary file to StenoLite commands
 
-##Desired Features (but not currently under development)
+### Desired Features (but not currently under development)
 
 Get permission to distribute the plover default dictionary<br>
 Take input from only some keyboards rather than every keyboard indiscriminately.  This requires me to obtain another NKRO keyboard to test with.<br>

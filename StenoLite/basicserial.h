@@ -9,6 +9,7 @@ void EndThreads();
 DWORD WINAPI TXBolt(LPVOID lpParam);
 DWORD WINAPI Passport(LPVOID lpParam);
 DWORD WINAPI Gemini(LPVOID lpParam);
-HANDLE openCom(tstring port, int baud);
+DWORD WINAPI Stentura(LPVOID lpParam);
+HANDLE openCom(tstring port, int baud, int timeoutms = 0);
 
 #endif

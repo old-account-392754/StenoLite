@@ -48,7 +48,7 @@ void setMode(int mode) {
 	else if (cmode == 2) {
 
 	}
-	else if (cmode == 3 || cmode == 4 || cmode == 5) {
+	else if (cmode == 3 || cmode == 4 || cmode == 5 || cmode == 6) {
 		EndThreads();
 	}
 	cmode = mode;
@@ -103,7 +103,8 @@ void setMode(int mode) {
 		}
 	}
 	else if (cmode == 3) {
-		if (openCom(settings.port, CBR_9600) != INVALID_HANDLE_VALUE) {
+		//open with a .5 sec read timeout
+		if (openCom(settings.port, CBR_9600, 500) != INVALID_HANDLE_VALUE) {
 			CreateThread(NULL, 0, TXBolt, NULL, 0, NULL);
 		}
 		else {
@@ -123,6 +124,16 @@ void setMode(int mode) {
 	else if (cmode == 5) {
 		if (openCom(settings.port, CBR_9600) != INVALID_HANDLE_VALUE) {
 			CreateThread(NULL, 0, Gemini, NULL, 0, NULL);
+		}
+		else {
+			cmode = 0;
+			SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+		}
+	}
+	else if (cmode == 6) {
+		// open with a 1 second time out
+		if (openCom(settings.port, CBR_9600, 1000) != INVALID_HANDLE_VALUE) {
+			CreateThread(NULL, 0, Stentura, NULL, 0, NULL);
 		}
 		else {
 			cmode = 0;

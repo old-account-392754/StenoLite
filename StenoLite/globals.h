@@ -86,6 +86,7 @@ struct sdata  {
 	HANDLE newentry;
 	HANDLE newtext;
 	HANDLE protectqueue;
+	HANDLE lockprocessing;
 	std::queue<__int32> inputs;
 	std::list<std::tuple<tstring, dictionary*>> dicts;
 	std::list<singlestroke*> strokes;

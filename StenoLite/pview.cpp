@@ -199,7 +199,7 @@ void addat(std::vector<stroke> &slist, int n, unsigned __int8* str) {
 }
 
 void reRealtime() {
-	WaitForSingleObject(sharedData.protectqueue, INFINITE);
+	WaitForSingleObject(sharedData.lockprocessing, INFINITE);
 
 	CloseHandle(projectdata.realtime);
 
@@ -260,7 +260,7 @@ void reRealtime() {
 		}
 	}
 
-	ReleaseMutex(sharedData.protectqueue);
+	ReleaseMutex(sharedData.lockprocessing);
 }
 
 void LoadRealtime() {
@@ -269,7 +269,7 @@ void LoadRealtime() {
 	std::cmatch m;
 	std::cmatch n;
 	
-	WaitForSingleObject(sharedData.protectqueue, INFINITE);
+	WaitForSingleObject(sharedData.lockprocessing, INFINITE);
 
 	std::vector<stroke> slist;
 
@@ -356,7 +356,7 @@ void LoadRealtime() {
 	}
 	projectdata.realtime = rtback;
 
-	ReleaseMutex(sharedData.protectqueue);
+	ReleaseMutex(sharedData.lockprocessing);
 }
 
 void ProcessItem(std::string &cline, textoutput* &last, bool &matchdict, DB_TXN* trans) {
@@ -440,7 +440,7 @@ void exDict()
 }
 
 bool loadProject(const tstring &file) {
-	WaitForSingleObject(sharedData.protectqueue, INFINITE);
+	WaitForSingleObject(sharedData.lockprocessing, INFINITE);
 	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 	
 	bool matchdict = true;
@@ -493,10 +493,10 @@ bool loadProject(const tstring &file) {
 		crngb.cpMin = crngb.cpMax = GetWindowTextLength(GetDlgItem(projectdata.dlg, IDC_MAINTEXT));
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crngb);
 
-		ReleaseMutex(sharedData.protectqueue);
+		ReleaseMutex(sharedData.lockprocessing);
 		return true;
 	}
-	ReleaseMutex(sharedData.protectqueue);
+	ReleaseMutex(sharedData.lockprocessing);
 	return false;
 }
 
