@@ -625,6 +625,7 @@ LRESULT CALLBACK KickUpMouse(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
 #define MODE_NEW 2
 #define MODE_EXJ 3
 #define MODE_EXRTF 4
+#define MODE_PLOVER 5
 
 DWORD WINAPI addAll(LPVOID lpParam)
 {
@@ -648,6 +649,29 @@ DWORD WINAPI addAll(LPVOID lpParam)
 			LoadRTF(dviewdata.d, file.lpstrFile, GetDlgItem(dlg, IDC_PROGRESS), true);
 		}
 		//setMode(settings.mode);
+		addDVEvent(DVE_RESET);
+	}
+	EndDialog(dlg, 0);
+	return 0;
+}
+
+DWORD WINAPI importPlover(LPVOID lpParam)
+{
+	HWND dlg = (HWND)lpParam;
+	OPENFILENAME file;
+	TCHAR buffer[MAX_PATH] = TEXT("\0");
+	memset(&file, 0, sizeof(OPENFILENAME));
+	file.lStructSize = sizeof(OPENFILENAME);
+	file.hwndOwner = dlg;
+	file.lpstrFilter = TEXT("Json Files\0*.json\0\0");
+	file.nFilterIndex = 1;
+	file.lpstrFile = buffer;
+	file.nMaxFile = MAX_PATH;
+	file.Flags = OFN_DONTADDTORECENT | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR | OFN_PATHMUSTEXIST;
+	if (GetOpenFileName(&file)) {
+		//setMode(0);
+		LoadPloverJson(dviewdata.d, file.lpstrFile, GetDlgItem(dlg, IDC_PROGRESS));
+
 		addDVEvent(DVE_RESET);
 	}
 	EndDialog(dlg, 0);
@@ -746,6 +770,9 @@ INT_PTR CALLBACK PdlgProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 			break;
 		case MODE_EXRTF:
 			CreateThread(NULL, 0, exRTF, (LPVOID)hwndDlg, 0, NULL);
+			break;
+		case MODE_PLOVER:
+			CreateThread(NULL, 0, importPlover, (LPVOID)hwndDlg, 0, NULL);
 			break;
 		}
 		
@@ -862,6 +889,9 @@ INT_PTR CALLBACK ViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPar
 			return TRUE;
 		case ID_A_P:
 			addDVEvent(DVE_UP, dviewdata.displayitems - 2);
+			return TRUE;
+		case IDM_PLV:
+			DialogBoxParam(hlocalInst, MAKEINTRESOURCE(IDD_PROCESS), hwndDlg, (DLGPROC)PdlgProc, MODE_PLOVER);
 			return TRUE;
 		case IDM_IALL:
 			DialogBoxParam(hlocalInst, MAKEINTRESOURCE(IDD_PROCESS), hwndDlg, (DLGPROC)PdlgProc, MODE_ALL);

@@ -1,9 +1,9 @@
 # StenoLite
 
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.3-beta/StenoLiteSetup.msi">Latest installer</a><br>
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.3-beta/StenoLite091.zip">Mobile version</a>
-
-This project is a sister project to plover: http://github.com/plover/plover
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.4-beta/StenoLiteSetup.msi">Latest installer</a><br>
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.4-beta/StenoLite094.zip">Mobile version</a><br>
+<br>
+This project is a sister project to <a href="http://github.com/plover/plover">plover</a>
 
 #### It lacks the following capabilities in comparison to plover:
 
@@ -12,11 +12,11 @@ Currently the Gemini, Passport, and Stentura serial modes are untested
 
 #### But it does have the following features:
 
-Built in dictionary look-up as you type, with two search modes<br>
-Built in project viewer/editor--create and edit text in a more natural way<br>
+Built-in dictionary look up as you type, with two search modes<br>
+Built-in project viewer/editor--create and edit text in a more natural way<br>
+Built-in dictionary viewer/editor<br>
 Extremely fast load times with compiled dictionaries<br>
 Smaller RAM footprint<br>
-Built in dictionary editor/viewer<br>
 Support for non-English stenograph keyboard layouts<br>
 Push and pop commands: use a single stroke for closing quotations, parenthesis, brackets, html tags, etc.
 
@@ -25,7 +25,7 @@ Push and pop commands: use a single stroke for closing quotations, parenthesis, 
 
 ### Upcoming Features
 
-Import and convert the syntax of plover commands in a dictionary file to StenoLite commands
+More bug fixes (as bugs are found)
 
 ### Desired Features (but not currently under development)
 

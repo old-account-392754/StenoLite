@@ -347,18 +347,43 @@ tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevf
 				//other, posibly \] in subcommand -> add key to outputs
 
 				SHORT rval = VkKeyScanEx(*i, locale);
-				inputs[index].type = INPUT_KEYBOARD;
-				inputs[index].ki.wVk = LOBYTE(rval);
+				if ((HIBYTE(rval) & 1) != 0) {
+					inputs[index].type = INPUT_KEYBOARD;
+					inputs[index].ki.wVk = VK_SHIFT;
 
-				inputs[index + 1].type = INPUT_KEYBOARD;
-				inputs[index + 1].ki.dwFlags = KEYEVENTF_KEYUP;
-				inputs[index + 1].ki.wVk = LOBYTE(rval);
+					inputs[index + 1].type = INPUT_KEYBOARD;
+					inputs[index + 1].ki.wVk = LOBYTE(rval);
 
-				index += 2;
-				inescape = false;
-				if (!insubcommand) {
-					finaltext += *i;
+					inputs[index + 2].type = INPUT_KEYBOARD;
+					inputs[index + 2].ki.dwFlags = KEYEVENTF_KEYUP;
+					inputs[index + 2].ki.wVk = LOBYTE(rval);
+
+					inputs[index + 3].type = INPUT_KEYBOARD;
+					inputs[index + 3].ki.dwFlags = KEYEVENTF_KEYUP;
+					inputs[index + 3].ki.wVk = VK_SHIFT;
+
+					index += 4;
+
+					if (!insubcommand) {
+						finaltext += towupper(*i);
+					}
 				}
+				else {
+					inputs[index].type = INPUT_KEYBOARD;
+					inputs[index].ki.wVk = LOBYTE(rval);
+
+					inputs[index + 1].type = INPUT_KEYBOARD;
+					inputs[index + 1].ki.dwFlags = KEYEVENTF_KEYUP;
+					inputs[index + 1].ki.wVk = LOBYTE(rval);
+
+					index += 2;
+
+					if (!insubcommand) {
+						finaltext += towlower(*i);
+					}
+				}
+
+				inescape = false;
 			}
 		}
 		else if (insubcommand) {

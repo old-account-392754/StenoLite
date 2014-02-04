@@ -1,3 +1,7 @@
+0.9.4
+Added import from plover menu option
+Fixed bug with improperly capitalized escaped characters (such as \&)
+
 0.9.3
 Added untested Gemini, Passport, and Stentura modes (really unlikely the Stentura will work, given its complexity)
 

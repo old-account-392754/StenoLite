@@ -500,6 +500,69 @@ void addentry(dictionary* d, const tstring &stroke, const std::string &text, DB_
 	delete sdata;
 }
 
+void addPentry(dictionary* d, const tstring &stroke, const std::string &text, DB_TXN* trans) {
+	if (text.find("\\\"") != std::string::npos || text.find("{") != std::string::npos) {
+		const static std::regex unescapeq("\\\\\"");
+		std::string newtext = std::regex_replace(text, unescapeq, "\"");
+
+		const static std::regex left("#Left");
+		newtext = std::regex_replace(newtext, left, "\\h");
+		const static std::regex right("#Right");
+		newtext = std::regex_replace(newtext, right, "\\l");
+		const static std::regex up("#Up");
+		newtext = std::regex_replace(newtext, up, "\\k");
+		const static std::regex down("#Down");
+		newtext = std::regex_replace(newtext, down, "\\j");
+
+		const static std::regex back("#BackSpace");
+		newtext = std::regex_replace(newtext, back, "\\b");
+		const static std::regex esc("#Escape");
+		newtext = std::regex_replace(newtext, esc, "\\x");
+		const static std::regex ret("#Return");
+		newtext = std::regex_replace(newtext, ret, "\\n");
+		const static std::regex tab("#Tab");
+		newtext = std::regex_replace(newtext, tab, "\\t");
+		const static std::regex transl("\\{PLOVER:ADD_TRANSLATION\\}");
+		newtext = std::regex_replace(newtext, transl, "\\?");
+
+		const static std::regex ctrll("#Control_L\\(Left\\)");
+		newtext = std::regex_replace(newtext, ctrll, "\\C[\\j]");
+		const static std::regex ctrlr("#Control_L\\(Right\\)");
+		newtext = std::regex_replace(newtext, ctrlr, "\\C[\\l]");
+
+		const static std::regex ctrl("#Control_L\\(([^\\)]*)\\)");
+		newtext = std::regex_replace(newtext, ctrl, "\\C[$1]");
+		const static std::regex alt("#Alt_L\\(([^\\)]*)\\)");
+		newtext = std::regex_replace(newtext, alt, "\\A[$1]");
+
+		const static std::regex cap("\\-\\|");
+		newtext = std::regex_replace(newtext, cap, "\\+");
+
+		const static std::regex amper("\\{\\&([^}]*)\\}");
+		newtext = std::regex_replace(newtext, amper, "&$1&");
+
+		const static std::regex tspace("\\{([^}]*)\\}([^{[:s:]])");
+		newtext = std::regex_replace(newtext, tspace, "{$1} $2");
+
+		const static std::regex initbrc("\\{\\^([^}]*)\\}");
+		newtext = std::regex_replace(newtext, initbrc, "^$1");
+
+		const static std::regex finbrc("\\{([^}]*)\\^\\}");
+		newtext = std::regex_replace(newtext, finbrc, "$1^");
+
+		const static std::regex nodel("(.)\\{([^}]*)\\}");
+		newtext = std::regex_replace(newtext, nodel, "$1$2");
+
+		const static std::regex brc("\\{([^}]*)\\}");
+		newtext = std::regex_replace(newtext, brc, "^$1");
+
+		addentry(d, stroke, newtext, trans, true);
+	}
+	else {
+		addentry(d, stroke, text, trans, true);
+	}
+}
+
 void appendUser(dictionary* d, const tstring& stroke, const std::string& text) {
 	const static tregex rx(TEXT("\\\\[^\\\\]*$"));
 	tstring file = std::regex_replace(d->settingslocation, rx, TEXT("\\user"));
@@ -659,6 +722,76 @@ void SaveJson(dictionary* d, const tstring &file, HWND progress) {
 		PostMessage(controls.main, WM_LOAD_PROGRESS, 3, 0);
 		CloseHandle(hfile);
 	}
+}
+
+void LoadPloverJson(dictionary* d, const tstring &file, HWND progress) {
+	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+	std::regex parsejson("^\\\"(.+?)\\\"\\: \\\"(.*)\\\",?\\s*$");
+	std::cmatch m;
+
+
+	if (hfile != INVALID_HANDLE_VALUE) {
+		DWORD fsize = GetFileSize(hfile, NULL);
+		if (progress) {
+			SendMessage(progress, PBM_SETRANGE32, 0, fsize);
+			SendMessage(progress, PBM_SETPOS, 0, 0);
+		}
+		sharedData.totalprogress = fsize;
+		sharedData.currentprogress = 0;
+		PostMessage(controls.main, WM_LOAD_PROGRESS, 1, 0);
+
+		DB_TXN* trans = NULL;
+		d->env->txn_begin(d->env, NULL, &trans, DB_TXN_BULK);
+
+		char c;
+		DWORD bytes;
+		std::string cline("");
+
+		//detect and erase BOM
+		unsigned __int8 bom[3] = "\0\0";
+		ReadFile(hfile, bom, 3, &bytes, NULL);
+		if (bom[0] != 239 || bom[1] != 187 || bom[2] != 191) {
+			cline += bom[0];
+			cline += bom[1];
+			cline += bom[2];
+			std::string::iterator end_pos = std::remove_if(cline.begin(), cline.end(), isReturn);
+			cline.erase(end_pos, cline.end());
+
+		}
+
+		int totalb = 0;
+		ReadFile(hfile, &c, 1, &bytes, NULL);
+		while (bytes > 0) {
+			totalb++;
+			if (c != '\r')
+				cline += c;
+			std::string::size_type r = cline.find("\n");
+			if (r != std::string::npos) {
+				cline.erase(r, 1);
+				if (std::regex_match(cline.c_str(), m, parsejson)) {
+					addPentry(d, strtotstr(m[1].str()), m[2].str(), trans);
+				}
+				cline.clear();
+				if (progress) {
+					SendMessage(progress, PBM_DELTAPOS, totalb, 0);
+				}
+				sharedData.currentprogress += totalb;
+				PostMessage(controls.main, WM_LOAD_PROGRESS, 2, 0);
+				totalb = 0;
+			}
+			ReadFile(hfile, &c, 1, &bytes, NULL);
+		}
+
+		if (std::regex_match(cline.c_str(), m, parsejson)) {
+			addPentry(d, strtotstr(m[1].str()), m[2].str(), trans);
+		}
+
+		trans->commit(trans, 0);
+
+		PostMessage(controls.main, WM_LOAD_PROGRESS, 3, 0);
+		CloseHandle(hfile);
+	}
+
 }
 
 void LoadJson(dictionary* d, const tstring &file, HWND progress, bool overwrite) {

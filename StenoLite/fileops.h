@@ -22,6 +22,6 @@ void SaveRTF(dictionary* d, const tstring &file, HWND progress);
 void writestr(HANDLE hfile, const std::string& data);
 void writeBOM(HANDLE hfile);
 bool isReturn(char value);
-
+void LoadPloverJson(dictionary* d, const tstring &file, HWND progress);
 
 #endif
