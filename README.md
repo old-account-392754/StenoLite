@@ -3,7 +3,7 @@
 <a href="https://github.com/boborama/StenoLite/releases/download/v0.9.4-beta/StenoLiteSetup.msi">Latest installer</a><br>
 <a href="https://github.com/boborama/StenoLite/releases/download/v0.9.4-beta/StenoLite094.zip">Mobile version</a><br>
 <br>
-This project is a sister project to <a href="http://github.com/plover/plover">plover</a>
+This project is a sister project to <a href="http://github.com/plover/plover">plover</a>, and you can import/convert your plover dictionary.
 
 #### It lacks the following capabilities in comparison to plover:
 
@@ -26,12 +26,13 @@ Push and pop commands: use a single stroke for closing quotations, parenthesis, 
 ### Upcoming Features
 
 More bug fixes (as bugs are found)
+Audio recording, synchronization, and playback (eventually)
 
 ### Desired Features (but not currently under development)
 
 Get permission to distribute the plover default dictionary<br>
 Take input from only some keyboards rather than every keyboard indiscriminately.  This requires me to obtain another NKRO keyboard to test with.<br>
-Support more stenograph machines (over USB where possible).  Again, this requires me to have access to other machines to test with.
+Support more stenograph machines (over USB where possible).  Again, requires testers and/or machines to test with.
 
 
 ### Please report bugs and request features

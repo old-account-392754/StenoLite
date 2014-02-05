@@ -4,8 +4,16 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 12.0.21005.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "StenoLite", "StenoLite\StenoLite.vcxproj", "{54A8A502-D671-4D72-8215-DB8D2A369816}"
+	ProjectSection(ProjectDependencies) = postProject
+		{95D9CA57-0A52-4174-A424-A2917EE106AC} = {95D9CA57-0A52-4174-A424-A2917EE106AC}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SLKeyCap", "SLKeyCap\SLKeyCap.vcxproj", "{95D9CA57-0A52-4174-A424-A2917EE106AC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SLTutor", "SLTutor\SLTutor.vcxproj", "{F4FC09FC-4391-4752-B01F-2998A0E727A9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{54A8A502-D671-4D72-8215-DB8D2A369816} = {54A8A502-D671-4D72-8215-DB8D2A369816}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +29,11 @@ Global
 		{95D9CA57-0A52-4174-A424-A2917EE106AC}.Debug|Win32.Build.0 = Release|Win32
 		{95D9CA57-0A52-4174-A424-A2917EE106AC}.Release|Win32.ActiveCfg = Release|Win32
 		{95D9CA57-0A52-4174-A424-A2917EE106AC}.Release|Win32.Build.0 = Release|Win32
+		{F4FC09FC-4391-4752-B01F-2998A0E727A9}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F4FC09FC-4391-4752-B01F-2998A0E727A9}.Debug|Win32.Build.0 = Debug|Win32
+		{F4FC09FC-4391-4752-B01F-2998A0E727A9}.Release|Win32.ActiveCfg = Release|Win32
+		{F4FC09FC-4391-4752-B01F-2998A0E727A9}.Release|Win32.Build.0 = Release|Win32
+		{F4FC09FC-4391-4752-B01F-2998A0E727A9}.Release|Win32.Deploy.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

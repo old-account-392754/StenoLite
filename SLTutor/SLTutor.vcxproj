@@ -11,9 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{54A8A502-D671-4D72-8215-DB8D2A369816}</ProjectGuid>
+    <ProjectGuid>{F4FC09FC-4391-4752-B01F-2998A0E727A9}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>StenoLite</RootNamespace>
+    <RootNamespace>SLTutor</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -25,7 +25,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -44,7 +44,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <EmbedManifest>true</EmbedManifest>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -53,19 +52,13 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <CompileAsManaged>false</CompileAsManaged>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <MinimalRebuild>false</MinimalRebuild>
-      <ExceptionHandling>Async</ExceptionHandling>
-      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
-      <AdditionalIncludeDirectories>C:\BDB\build_windows;C:\Boost\include\boost-1_55;C:\Program Files %28x86%29\Oracle\Berkeley DB 12cR1 6.0.20\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Program Files %28x86%29\Oracle\Berkeley DB 12cR1 6.0.20\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>comdlg32.lib; libdb_stl60.lib; libdb60.lib; ComCtl32.lib; kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\BDB\build_windows\Win32\Release;C:\Boost\lib</AdditionalLibraryDirectories>
-      <Version>0.8</Version>
+      <AdditionalDependencies>comdlg32.lib; libdb60.lib; kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\BDB\build_windows\Win32\Release;</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -77,80 +70,40 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <CompileAsManaged>true</CompileAsManaged>
-      <ExceptionHandling>Async</ExceptionHandling>
-      <AdditionalIncludeDirectories>C:\Program Files %28x86%29\Oracle\Berkeley DB 12cR1 6.0.20\include;C:\Boost\include\boost-1_55</AdditionalIncludeDirectories>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <AdditionalIncludeDirectories>C:\Program Files %28x86%29\Oracle\Berkeley DB 12cR1 6.0.20\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>comdlg32.lib; libdb60.lib; ComCtl32.lib; kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\BDB\build_windows\Win32\Release</AdditionalLibraryDirectories>
-      <Version>0.8</Version>
-      <GenerateWindowsMetadata>true</GenerateWindowsMetadata>
+      <AdditionalLibraryDirectories>C:\BDB\build_windows\Win32\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>comdlg32.lib; libdb60.lib; kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <Manifest>
-      <OutputManifestFile>
-      </OutputManifestFile>
-      <InputResourceManifests>IDR_RT_MANIFEST1</InputResourceManifests>
-    </Manifest>
-    <ManifestResourceCompile>
-      <ResourceOutputFileName>
-      </ResourceOutputFileName>
-    </ManifestResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="addendings.h" />
-    <ClInclude Include="basicserial.h" />
-    <ClInclude Include="DView.h" />
-    <ClInclude Include="fileops.h" />
-    <ClInclude Include="globals.h" />
-    <ClInclude Include="interprocess.h" />
-    <ClInclude Include="newentrydlg.h" />
-    <ClInclude Include="pstroke.h" />
-    <ClInclude Include="pview.h" />
+    <ClInclude Include="..\StenoLite\stenodata.h" />
+    <ClInclude Include="..\StenoLite\texthelpers.h" />
     <ClInclude Include="Resource.h" />
-    <ClInclude Include="search.h" />
-    <ClInclude Include="setmode.h" />
+    <ClInclude Include="SLTutor.h" />
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="stenodata.h" />
-    <ClInclude Include="StenoLite.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="texthelpers.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="addendings.cpp" />
-    <ClCompile Include="basicserial.cpp" />
-    <ClCompile Include="DView.cpp" />
-    <ClCompile Include="fileops.cpp" />
-    <ClCompile Include="globals.cpp" />
-    <ClCompile Include="newentrydlg.cpp" />
-    <ClCompile Include="pstroke.cpp" />
-    <ClCompile Include="pview.cpp" />
-    <ClCompile Include="search.cpp" />
-    <ClCompile Include="setmode.cpp" />
+    <ClCompile Include="..\StenoLite\stenodata.cpp" />
+    <ClCompile Include="..\StenoLite\texthelpers.cpp" />
+    <ClCompile Include="SLTutor.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="stenodata.cpp" />
-    <ClCompile Include="StenoLite.cpp" />
-    <ClCompile Include="texthelpers.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="StenoLite.rc" />
+    <ResourceCompile Include="SLTutor.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="icon2.ico" />
-    <Image Include="StenoLite.ico" />
-    <Image Include="up1.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <Manifest Include="StenoLite.manifest" />
+    <Image Include="SLTutor.ico" />
+    <Image Include="small.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

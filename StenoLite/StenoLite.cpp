@@ -707,13 +707,176 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case WM_COPYDATA:
 		{
 							PCOPYDATASTRUCT pMyCDS = (PCOPYDATASTRUCT)lParam;
-							__int32* val = (__int32*)(pMyCDS->lpData);
-							union {
-								__int32 ival;
-								unsigned __int8 sval[4];
-							} dcopy;
-							dcopy.ival = *val;
-							sendstroke(dcopy.sval);
+							if (pMyCDS->dwData == 0) {
+								__int32* val = (__int32*)(pMyCDS->lpData);
+								union {
+									__int32 ival;
+									unsigned __int8 sval[4];
+								} dcopy;
+								dcopy.ival = *val;
+								sendstroke(dcopy.sval);
+								return TRUE;
+							}
+							else if (pMyCDS->dwData == 1) {
+								
+								BYTE* ptr = (BYTE*)(pMyCDS->lpData);
+								HWND ret = (HWND)(wParam);
+								unsigned int* len = (unsigned int*)(&ptr[sizeof(HWND)]);
+								unsigned __int8* stroke = (unsigned __int8*)(&ptr[sizeof(HWND)+sizeof(unsigned int)]);
+
+								if (ret != NULL) {
+									COPYDATASTRUCT MyCDS;
+									MyCDS.dwData = 2;            // function identifier
+									if (sharedData.currentd != NULL) {
+										std::string item;
+										DB_TXN* trans = NULL;
+										sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, DB_READ_COMMITTED | DB_TXN_NOWAIT);
+											
+
+										if (sharedData.currentd->findDItem(stroke, (*len) * 3, item, trans)) {
+											BYTE* buffer = new BYTE[sizeof(HWND)+sizeof(unsigned int)+item.length()+1];
+											memcpy(buffer, &hWnd, sizeof(HWND));
+											unsigned int retlen = item.length() + 1;
+											memcpy(buffer + sizeof(HWND), &retlen, sizeof(unsigned int));
+											memcpy(buffer + sizeof(HWND)+sizeof(unsigned int), item.c_str(), retlen);
+
+											MyCDS.cbData = sizeof(HWND)+sizeof(unsigned int)+item.length() + 1; // size of data
+											MyCDS.lpData = buffer;           // data structure
+											SendMessage(ret, WM_COPYDATA, (WPARAM)(HWND)hWnd, (LPARAM)(LPVOID)&MyCDS);
+											delete buffer;
+											trans->commit(trans, 0);
+											return TRUE;
+											
+										}
+										trans->commit(trans, 0);
+									}
+									
+									BYTE* buffer = new BYTE[sizeof(HWND)+sizeof(unsigned int)+1];
+									memcpy(buffer, &hWnd, sizeof(HWND));
+									unsigned int retlen = 0;
+									memcpy(buffer + sizeof(HWND), &retlen, sizeof(unsigned int));
+
+									MyCDS.cbData = sizeof(HWND)+sizeof(unsigned int)+1; // size of data
+									MyCDS.lpData = buffer;           // data structure
+									SendMessage(ret, WM_COPYDATA, (WPARAM)(HWND)hWnd, (LPARAM)(LPVOID)&MyCDS);
+									delete buffer;
+									return TRUE;
+								}
+								
+							}
+							else if (pMyCDS->dwData == 2) {
+
+								BYTE* ptr = (BYTE*)(pMyCDS->lpData);
+								HWND ret = (HWND)(wParam);
+								unsigned int* len = (unsigned int*)(&ptr[sizeof(HWND)]);
+								char* text = (char*)(&ptr[sizeof(HWND)+sizeof(unsigned int)]);
+
+								if (ret != NULL) {
+									
+
+									COPYDATASTRUCT MyCDS;
+									MyCDS.dwData = 1;            // function identifier
+									if (sharedData.currentd != NULL) {
+
+										DBC* cursor;
+										DBT keyin;
+										keyin.data = NULL;
+										keyin.size = 0;
+										keyin.ulen = 0;
+										keyin.dlen = 0;
+										keyin.doff = 0;
+										keyin.flags = DB_DBT_USERMEM;
+
+										DBT strin;
+										strin.data = NULL;
+										strin.size = 0;
+										strin.ulen = 0;
+										strin.dlen = 0;
+										strin.doff = 0;
+										strin.flags = DB_DBT_USERMEM;
+
+										DBT pkey;
+										pkey.data = NULL;
+										pkey.size = 0;
+										pkey.ulen = 0;
+										pkey.dlen = 0;
+										pkey.doff = 0;
+										pkey.flags = DB_DBT_USERMEM;
+
+										pkey.data = new unsigned __int8[sharedData.currentd->longest * 3 + 1];
+										pkey.size = 0;
+										pkey.ulen = sharedData.currentd->longest * 3 + 1;
+
+										strin.data = text;
+										strin.size = *len;
+										strin.ulen = *len;
+
+										keyin.data = new unsigned __int8[sharedData.currentd->lchars + 1];
+										keyin.size = 0;
+										keyin.ulen = sharedData.currentd->lchars + 1;
+
+										DB_TXN* trans = NULL;
+										sharedData.currentd->env->txn_begin(sharedData.currentd->env, NULL, &trans, DB_READ_COMMITTED | DB_TXN_NOWAIT);
+
+										sharedData.currentd->secondary->cursor(sharedData.currentd->secondary, trans, &cursor, 0);
+
+										bool outthisrun = false;
+										int result = cursor->pget(cursor, &strin, &pkey, &keyin, DB_SET);
+										BYTE* buffer = NULL;
+										unsigned int btotal = 0;
+										unsigned __int8 zeros[3] = { 0, 0, 0 };
+										while (sharedData.addedtext == FALSE && result == 0) {
+											BYTE* newb = new BYTE[btotal + pkey.size + 3];
+											if (buffer != NULL) {
+												memcpy(newb, buffer, btotal);
+												delete buffer;
+											}
+											memcpy(newb + btotal, pkey.data, pkey.size);
+											memcpy(newb + btotal + pkey.size, zeros, 3);
+											btotal = btotal + pkey.size + 3;
+											buffer = newb;
+
+											result = cursor->pget(cursor, &strin, &pkey, &keyin, DB_NEXT_DUP);
+										}
+										
+										delete pkey.data;
+										delete keyin.data;
+
+										if (buffer != NULL) {
+											BYTE* outbuffer = new BYTE[sizeof(HWND)+sizeof(unsigned int)+btotal];
+											memcpy(outbuffer, &hWnd, sizeof(HWND));
+											memcpy(outbuffer + sizeof(HWND), &btotal, sizeof(unsigned int));
+											memcpy(outbuffer + sizeof(HWND)+sizeof(unsigned int), buffer, btotal);
+
+											MyCDS.cbData = sizeof(HWND)+sizeof(unsigned int)+btotal; // size of data
+											MyCDS.lpData = outbuffer;           // data structure
+
+											SendMessage(ret, WM_COPYDATA, (WPARAM)(HWND)hWnd, (LPARAM)(LPVOID)&MyCDS);
+											delete outbuffer;
+											delete buffer;
+											cursor->close(cursor);
+											trans->commit(trans, 0);
+											return TRUE;
+										}
+
+										
+										cursor->close(cursor);
+										trans->commit(trans, 0);
+									}
+
+									BYTE* buffer = new BYTE[sizeof(HWND)+sizeof(unsigned int)+1];
+									memcpy(buffer, &hWnd, sizeof(HWND));
+									unsigned int retlen = 0;
+									memcpy(buffer + sizeof(HWND), &retlen, sizeof(unsigned int));
+
+									MyCDS.cbData = sizeof(HWND)+sizeof(unsigned int)+1; // size of data
+									MyCDS.lpData = buffer;           // data structure
+									
+									SendMessage(ret, WM_COPYDATA, (WPARAM)(HWND)hWnd, (LPARAM)(LPVOID)&MyCDS);
+									delete buffer;
+									return TRUE;
+								}
+							}
 		}
 			break;
 			/*
