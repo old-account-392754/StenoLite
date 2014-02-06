@@ -1,3 +1,6 @@
+0.9.6
+minor bug fixes
+
 0.9.5
 Added inter-program look-up protocol -- now any program can look up items in the currently open dictionary via stroke or textual content by messaging an open stenolite program
 Implemented a basic tutor program
