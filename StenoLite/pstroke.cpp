@@ -870,6 +870,34 @@ void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>:
 }
 
 
+tstring grabWordText(std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target) {
+	auto temp = insert;
+	tstring result(TEXT(""));
+	while (temp != target->cend()) {
+		if ((*temp)->textout != (*insert)->textout && (*temp)->textout->text.length() > 0) {
+			if ((*temp)->textout->text[(*temp)->textout->text.length() - 1] == TEXT(' ')) {
+				break;
+			}
+		}
+		result = (*temp)->textout->text + result;
+		if ((*temp)->textout != (*insert)->textout) {
+			delete (*temp)->textout;
+			(*temp)->textout = (*insert)->textout;
+		}
+
+		if (result.length() > 0) {
+			if (result[0] == TEXT(' ')) {
+				break;
+			}
+		}
+		else if (result.length() >= 40) {
+			break;
+		}
+		temp++;
+	}
+	
+	return result;
+}
 
 void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target) {
 	int longest = 0;
@@ -887,19 +915,19 @@ void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &i
 		for (auto it = sharedData.currentd->suffix.cbegin(); it != sharedData.currentd->suffix.cend(); it++) {
 			tstroke.ival = (*it).first;
 			if (stroke[0] == tstroke.sval[0] && stroke[1] == tstroke.sval[1] && stroke[2] == tstroke.sval[2]) {
-				if ((*insert)->textout->text.length() >= 3) {
-					textoutput *tx = (*insert)->textout;
-					bool poppedspace = false;
+				tstring word = grabWordText(insert, target);
 
-					int oldlen = tx->text.length();
-					if (tx->text[0] == TEXT(' ')) {
-						tx->text.erase(tx->text.begin());
+				if (word.length() >= 3) {
+					textoutput *tx = (*insert)->textout;
+
+					int oldlen = word.length();
+					if (word[0] == TEXT(' ')) {
+						word.erase(word.begin());
 					}
-					if (tx->text[tx->text.length() - 1] == TEXT(' ')) {
-						tx->text.pop_back();
-						poppedspace = true;
+					if (word[word.length() - 1] == TEXT(' ')) {
+						word.pop_back();
 					}
-					addending(tx->text, (*it).second);
+					addending(word, (*it).second);
 					//if (poppedspace)
 					//	tx->text += TEXT(' ');
 
@@ -908,6 +936,7 @@ void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &i
 					singlestroke* s = new singlestroke(stroke);
 					s->textout = tx;
 					tx->first = s;
+					tx->text = word;
 					auto itemp = insert;
 					itemp++;
 					while (itemp != target->cend()) {
@@ -924,6 +953,91 @@ void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &i
 				}
 			}
 		}
+	}
+
+	//is it stitch?
+	if (longest == 0 && compare3(stroke, sharedData.currentd->sstitch)) {
+			textoutput *tx = (*insert)->textout;
+			tstring word = grabWordText(insert, target);
+
+			int oldlen = word.length();
+			if (word.length() > 0)
+				if (word[0] == TEXT(' ')) {
+					word.erase(word.begin());
+				}
+			if (word.length() > 0)
+				if (word[word.length() - 1] == TEXT(' ')) {
+					word.pop_back();
+				}
+			tstring newtxt;
+			for (auto i = word.cbegin(); i != word.cend(); i++) {
+				newtxt += towupper(*i);
+				newtxt += TEXT('-');
+			}
+			newtxt.pop_back();
+			tx->text = newtxt;
+
+			deleteandspace(oldlen, 0);
+
+			singlestroke* s = new singlestroke(stroke);
+			s->textout = tx;
+			tx->first = s;
+			auto itemp = insert;
+			itemp++;
+			while (itemp != target->cend()) {
+				if ((*itemp)->textout->first == (*itemp))
+					break;
+				itemp++;
+			}
+
+			sendstandard(tx->text, s, itemp, target, &insert);
+
+			insert = target->insert(insert, s);
+			trimStokesList();
+			return;
+	}
+
+	//is it abbrev?
+	if (longest == 0 && compare3(stroke, sharedData.currentd->sabbrev)) {
+
+			textoutput *tx = (*insert)->textout;
+			tstring word = grabWordText(insert, target);
+
+
+			int oldlen = word.length();
+			if (word.length() > 0)
+				if (word[0] == TEXT(' ')) {
+					word.erase(word.begin());
+				}
+			if (word.length() > 0)
+				if (word[word.length() - 1] == TEXT(' ')) {
+					word.pop_back();
+				}
+			tstring newtxt;
+			for (auto i = word.cbegin(); i != word.cend(); i++) {
+				newtxt += towupper(*i);
+				newtxt += TEXT('.');
+			}
+			tx->text = newtxt;
+
+			deleteandspace(oldlen, 0);
+
+			singlestroke* s = new singlestroke(stroke);
+			s->textout = tx;
+			tx->first = s;
+			auto itemp = insert;
+			itemp++;
+			while (itemp != target->cend()) {
+				if ((*itemp)->textout->first == (*itemp))
+					break;
+				itemp++;
+			}
+
+			sendstandard(tx->text, s, itemp, target, &insert);
+
+			insert = target->insert(insert, s);
+			trimStokesList();
+			return;
 	}
 
 	//is a predefined suffix folded into this stroke?

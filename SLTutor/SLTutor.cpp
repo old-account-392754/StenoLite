@@ -19,6 +19,7 @@ HWND txtin;
 HWND hint;
 HANDLE hfile = NULL;
 std::string cline("");
+tstring format(TEXT("#STKPWHRAO*EUFRPBLGTSDZ"));
 
 // Forward declarations of functions included in this code module:
 ATOM				MyRegisterClass(HINSTANCE hInstance);
@@ -35,7 +36,6 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 
  	// TODO: Place code here.
 	MSG msg;
-	HACCEL hAccelTable;
 
 	// Initialize global strings
 	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -166,13 +166,13 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_LEFT | ES_READONLY,
 	   rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top - 30, hWnd, NULL, hInstance, NULL);
 
-   txtin = CreateWindow(TEXT("EDIT"), TEXT(""),
-	   WS_CHILD | WS_VISIBLE | ES_LEFT,
-	   rt.left, rt.bottom - rt.top - 30, (rt.right - rt.left) / 2, 30, hWnd, NULL, hInstance, NULL);
+   txtin = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("EDIT"), TEXT(""),
+	   WS_CHILD | WS_BORDER | WS_VISIBLE | ES_LEFT,
+	   rt.left, rt.bottom - rt.top - 30, (rt.right - rt.left) / 3, 30, hWnd, NULL, hInstance, NULL);
 
    hint = CreateWindow(TEXT("STATIC"), TEXT(""),
 	   WS_CHILD | WS_VISIBLE,
-	   rt.left + (rt.right - rt.left) / 2, rt.bottom - rt.top - 30, (rt.right - rt.left) / 2, 30, hWnd, NULL, hInstance, NULL);
+	   rt.left + (rt.right - rt.left) / 3, rt.bottom - rt.top - 30, (rt.right - rt.left)*2 / 3, 30, hWnd, NULL, hInstance, NULL);
 
    SendMessage(txtdisplay, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), (LPARAM)true);
    SendMessage(txtin, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), (LPARAM)true);
@@ -182,6 +182,20 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    UpdateWindow(hWnd);
 
    SetFocus(txtin);
+
+   COPYDATASTRUCT MyCDS;
+   MyCDS.dwData = 3;            
+
+   BYTE* buffer = new BYTE[sizeof(HWND)];
+   memcpy(buffer, &hWnd, sizeof(HWND));
+
+   MyCDS.cbData = sizeof(HWND); // size of data
+   MyCDS.lpData = buffer;           // data structure
+
+   HWND hwDispatch = FindWindow(TEXT("STENOLITE826"), NULL);
+   if (hwDispatch != NULL)
+	   SendMessage(hwDispatch, WM_COPYDATA, (WPARAM)hWnd, (LPARAM)&MyCDS);
+   delete buffer;
 
    return TRUE;
 }
@@ -302,9 +316,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			return 0;
 		}
 		GetClientRect(hWnd, &rt);
-		SetWindowPos(txtdisplay, NULL, 0, 0, rt.right - rt.left, rt.bottom - rt.top - 30, 0);
-		SetWindowPos(txtin, NULL, 0, rt.bottom - rt.top - 30, (rt.right - rt.left) / 2, 30, 0);
-		SetWindowPos(hint, NULL, (rt.right - rt.left) / 2, rt.bottom - rt.top - 30, (rt.right - rt.left) / 2, 30, 0);
+		SetWindowPos(txtdisplay, NULL, 0, 0, rt.right - rt.left, rt.bottom - rt.top - 23, 0);
+		SetWindowPos(txtin, NULL, 0, rt.bottom - rt.top - 23, (rt.right - rt.left) / 3, 23, 0);
+		SetWindowPos(hint, NULL, (rt.right - rt.left) / 3 + 20, rt.bottom - rt.top - 23, (rt.right - rt.left) * 2 / 3 - 20, 23, 0);
 		break;
 	case WM_COPYDATA:
 		{
@@ -330,12 +344,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 						else {
 							if (!first)
 								buffer += TEXT('/');
-							stroketocsteno(&(stroke[i * 3]), buffer, TEXT("#STKPWHRAO*EUFRPBLGTSDZ"));
-							
+							//stroketocsteno(&(stroke[i * 3]), buffer, TEXT("#STKPWHRAO*EUFRPBLGTSDZ"));
+							stroketocsteno(&(stroke[i * 3]), buffer, format);
 						}
 					}
-					
+					SetWindowText(hint, buffer.c_str());
 				}
+				else {
+					SetWindowText(hint, TEXT(""));
+				}
+				return TRUE;
+			}
+			else if (pMyCDS->dwData == 3) {
+				BYTE* ptr = (BYTE*)(pMyCDS->lpData);
+				HWND* ret = (HWND*)(&ptr[0]);
+				TCHAR* str = (TCHAR*)(&ptr[sizeof(HWND)]);
+
+				format = str;
 				return TRUE;
 			}
 		}

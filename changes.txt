@@ -1,3 +1,9 @@
+0.9.5
+Added inter-program look-up protocol -- now any program can look up items in the currently open dictionary via stroke or textual content by messaging an open stenolite program
+Implemented a basic tutor program
+Added stitch command
+Added abbreviation command
+
 0.9.4
 Added import from plover menu option
 Fixed bug with improperly capitalized escaped characters (such as \&)

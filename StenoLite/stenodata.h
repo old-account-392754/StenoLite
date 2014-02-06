@@ -28,6 +28,8 @@ struct dictionary {
 	unsigned __int8 sright[4];
 	unsigned __int8 sshleft[4];
 	unsigned __int8 sshright[4];
+	unsigned __int8 sstitch[4];
+	unsigned __int8 sabbrev[4];
 
 	tstring settingslocation;
 	std::string hm;

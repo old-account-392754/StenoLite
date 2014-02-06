@@ -724,7 +724,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 								unsigned int* len = (unsigned int*)(&ptr[sizeof(HWND)]);
 								unsigned __int8* stroke = (unsigned __int8*)(&ptr[sizeof(HWND)+sizeof(unsigned int)]);
 
-								if (ret != NULL) {
+								if (ret != NULL  && sharedData.currentd != NULL) {
 									COPYDATASTRUCT MyCDS;
 									MyCDS.dwData = 2;            // function identifier
 									if (sharedData.currentd != NULL) {
@@ -764,6 +764,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 								}
 								
 							}
+
+							else if (pMyCDS->dwData == 3) {
+
+								BYTE* ptr = (BYTE*)(pMyCDS->lpData);
+								HWND ret = (HWND)(wParam);
+								
+
+								if (ret != NULL && sharedData.currentd != NULL) {
+									COPYDATASTRUCT MyCDS;
+									MyCDS.dwData = 3;            // function identifier
+									
+									BYTE* buffer = new BYTE[sizeof(HWND)+(sizeof(TCHAR)*(sharedData.currentd->format.length()+1))];
+									memcpy(buffer, &hWnd, sizeof(HWND));
+									memcpy(buffer + sizeof(HWND), sharedData.currentd->format.c_str(), sizeof(TCHAR)*(sharedData.currentd->format.length() + 1));
+
+									MyCDS.cbData = sizeof(HWND)+(sizeof(TCHAR)*(sharedData.currentd->format.length() + 1)); // size of data
+									MyCDS.lpData = buffer;           // data structure
+									SendMessage(ret, WM_COPYDATA, (WPARAM)(HWND)hWnd, (LPARAM)(LPVOID)&MyCDS);
+									delete buffer;
+									return TRUE;
+								}
+
+							}
 							else if (pMyCDS->dwData == 2) {
 
 								BYTE* ptr = (BYTE*)(pMyCDS->lpData);
@@ -771,7 +794,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 								unsigned int* len = (unsigned int*)(&ptr[sizeof(HWND)]);
 								char* text = (char*)(&ptr[sizeof(HWND)+sizeof(unsigned int)]);
 
-								if (ret != NULL) {
+								if (ret != NULL  && sharedData.currentd != NULL) {
 									
 
 									COPYDATASTRUCT MyCDS;
