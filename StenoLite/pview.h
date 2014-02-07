@@ -27,8 +27,8 @@ void PViewNextFocus();
 std::list<singlestroke*>::iterator GetItem(int index);
 std::list<singlestroke*>::iterator GetItemByText(unsigned int textindex);
 void LaunchProjDlg(HINSTANCE hInst);
-void RegisterStroke(unsigned _int8* stroke, int n);
-void RegisterDelete(int n);
+void RegisterStroke(unsigned _int8* stroke, int n, const time_t &thetime);
+void RegisterDelete(int n, const time_t &thetime);
 void SetTextSel(unsigned int min, unsigned int max);
 
 extern pdata projectdata;

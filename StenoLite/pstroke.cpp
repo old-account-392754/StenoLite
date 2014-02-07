@@ -16,7 +16,7 @@
 #include <Richedit.h>
 #include "resource.h"
 
-void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target);
+void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, const time_t &thetime);
 bool spaceafter(std::list<singlestroke*>::iterator it, std::list<singlestroke*>* target, bool erase);
 bool spacebefore(std::list<singlestroke*>::iterator it, std::list<singlestroke*>* target, bool erase);
 
@@ -789,15 +789,15 @@ void deletess(singlestroke* t) {
 	delete t;
 }
 
-void deletelist(std::list<singlestroke*> temp, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target) {
+void deletelist(std::list<singlestroke*> temp, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, const time_t &thetime) {
 	std::list<singlestroke*>::iterator ti = temp.end();
 	if (temp.size() > 0) {
 		ti--;
 		for (; ti != temp.begin(); ti--) {
-			InnerProcess((*ti)->value.ival, insert, target);
+			InnerProcess((*ti)->value.ival, insert, target, thetime);
 			deletess((*ti));
 		}
-		InnerProcess((*ti)->value.ival, insert, target);
+		InnerProcess((*ti)->value.ival, insert, target, thetime);
 		deletess((*ti));
 	}
 }
@@ -904,7 +904,7 @@ tstring grabWordText(std::list<singlestroke*>::iterator &insert, std::list<singl
 }
 
 
-void transformandresend(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, tstring(*transform)(tstring&)) {
+void transformandresend(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, tstring(*transform)(tstring&), const time_t &thetime) {
 	tstring word = grabWordText(insert, target);
 	textoutput *tx = (*insert)->textout;
 
@@ -923,7 +923,7 @@ void transformandresend(unsigned __int8* stroke, std::list<singlestroke*>::itera
 
 	deleteandspace(oldlen, 0);
 
-	singlestroke* s = new singlestroke(stroke);
+	singlestroke* s = new singlestroke(stroke, thetime);
 	s->textout = tx;
 	tx->first = s;
 	auto itemp = insert;
@@ -969,7 +969,7 @@ tstring abbrev(tstring& in) {
 	return newtxt;
 }
 
-void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target) {
+void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, const time_t &thetime) {
 	int longest = 0;
 
 	std::string ilongstemp;
@@ -986,7 +986,7 @@ void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &i
 			tstroke.ival = (*it).first;
 			if (stroke[0] == tstroke.sval[0] && stroke[1] == tstroke.sval[1] && stroke[2] == tstroke.sval[2]) {
 				addsuffix::ending = (*it).second;
-				transformandresend(stroke, insert, target, addsuffix::addsuffix);
+				transformandresend(stroke, insert, target, addsuffix::addsuffix, thetime);
 				return;
 			}
 		}
@@ -994,13 +994,13 @@ void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &i
 
 	//is it stitch?
 	if (longest == 0 && compare3(stroke, sharedData.currentd->sstitch) && insert != target->cend()) {
-		transformandresend(stroke, insert, target, stitch);
+		transformandresend(stroke, insert, target, stitch, thetime);
 		return;
 	}
 
 	//is it abbrev?
 	if (longest == 0 && compare3(stroke, sharedData.currentd->sabbrev) && insert != target->cend()) {
-		transformandresend(stroke, insert, target, abbrev);
+		transformandresend(stroke, insert, target, abbrev, thetime);
 		return;
 	}
 
@@ -1066,7 +1066,7 @@ void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &i
 
 	// this is how strokes get sent and old data erased
 
-	singlestroke* s = new singlestroke(stroke);
+	singlestroke* s = new singlestroke(stroke, thetime);
 
 	s->textout = new textoutput();
 
@@ -1099,7 +1099,7 @@ void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &i
 	}
 
 	temp.splice(temp.end(), *target, insert, deli);
-	deletelist(temp, deli, target);
+	deletelist(temp, deli, target, thetime);
 
 	sendstandard(ilongs, s, deli, target);
 
@@ -1172,7 +1172,7 @@ bool spaceafter(std::list<singlestroke*>::iterator it, std::list<singlestroke*>*
 	return false;
 }
 
-void processSingleStroke(unsigned __int8* stroke) {
+void processSingleStroke(unsigned __int8* stroke, const time_t& thetime) {
 
 	if (newwordwin.running) {
 		if (compare3(stroke, sharedData.currentd->stab)) {
@@ -1279,7 +1279,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 			}
 			else {
 				if (!multidelete && compare3(stroke, sharedData.currentd->sdelete)) {
-					RegisterDelete(line - 1);
+					RegisterDelete(line - 1, thetime);
 
 					if (line != 0)
 						crngb.cpMin = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_LINEINDEX, line - 1, 0) + 23;
@@ -1289,15 +1289,15 @@ void processSingleStroke(unsigned __int8* stroke) {
 				}
 				else {
 					for (int i = lineb - 1; i >= line; i--)
-						RegisterDelete(i);
+						RegisterDelete(i, thetime);
 				}
 				SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)TEXT(""));
 			}
 		}
 		else {
 			for (int i = lineb-1; i >= line; i--)
-				RegisterDelete(i);
-			RegisterStroke(stroke, line);
+				RegisterDelete(i, thetime);
+			RegisterStroke(stroke, line, thetime);
 
 			TCHAR buffer[32] = TEXT("\r\n");
 			stroketosteno(stroke, &buffer[2], sharedData.currentd->format);
@@ -1347,14 +1347,14 @@ void processSingleStroke(unsigned __int8* stroke) {
 		CHARRANGE crngb;
 
 		for (auto i = projectdata.clipboard.cbegin(); i != projectdata.clipboard.cend(); i++) {
-			InnerProcess((*i)->value.ival, insert, target);
+			InnerProcess((*i)->value.ival, insert, target, thetime);
 			if (!compare3(stroke, sharedData.currentd->sreprocess)) {
 				TCHAR buffer[32] = TEXT("\r\n");
 				stroketosteno((*i)->value.ival, &buffer[2], sharedData.currentd->format);
 
 				SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
 				int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMin);
-				RegisterStroke((*i)->value.ival, line);
+				RegisterStroke((*i)->value.ival, line, thetime);
 
 				SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)buffer);
 				
@@ -1506,7 +1506,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 
 			temp.splice(temp.end(), *target, insert, deli);
 
-			deletelist(temp, deli, target);
+			deletelist(temp, deli, target, thetime);
 		}
 
 	
@@ -1531,7 +1531,7 @@ void processSingleStroke(unsigned __int8* stroke) {
 		return;
 	}
 
-	InnerProcess(stroke, insert, target);
+	InnerProcess(stroke, insert, target, thetime);
 }
 
 
@@ -1568,7 +1568,9 @@ DWORD WINAPI processStrokes(LPVOID lpParam)
 
 			if (sharedData->currentd != NULL) {
 				WaitForSingleObject(sharedData->lockprocessing, INFINITE);
-				processSingleStroke(cstroke.ival);
+				time_t thetime;
+				time(&thetime);
+				processSingleStroke(cstroke.ival, thetime);
 				ReleaseMutex(sharedData->lockprocessing);
 
 				sharedData->addedtext = TRUE;

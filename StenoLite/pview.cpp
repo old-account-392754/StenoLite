@@ -12,6 +12,8 @@
 #include "fileops.h"
 #include <vector>
 #include "pstroke.h"
+#include <time.h>
+#include <DShow.h>
 
 pdata projectdata;
 #define STROKES  "#####STROKES#####"
@@ -56,7 +58,6 @@ void saveProject(const tstring &file) {
 				acc += tmp;
 			}
 			writestr(hfile, ttostr(acc));
-			writestr(hfile, " 0 ");
 			writestr(hfile, (char*)(strin.data));
 			writestr(hfile, "\r\n");
 
@@ -78,6 +79,8 @@ void saveProject(const tstring &file) {
 				writestr(hfile, " ");
 				writestr(hfile, std::to_string((*it)->textout->flags));
 				writestr(hfile, " ");
+				writestr(hfile, std::to_string((*it)->timestamp));
+				writestr(hfile, " ");
 				writestr(hfile, ttostr(escapestr((*it)->textout->text)));
 				writestr(hfile, "\r\n");
 			}
@@ -85,6 +88,8 @@ void saveProject(const tstring &file) {
 				sbuffer.clear();
 				stroketocsteno((*it)->value.ival, sbuffer, sharedData.currentd->format);
 				writestr(hfile, ttostr(sbuffer));
+				writestr(hfile, " ");
+				writestr(hfile, std::to_string((*it)->timestamp));
 				writestr(hfile, "\r\n");
 			}
 		}
@@ -138,12 +143,366 @@ void SaveText(HWND hWnd)
 
 }
 
-void RegisterDelete(int n) {
+template <class T> void SafeRelease(T **ppT)
+{
+	if (*ppT)
+	{
+		(*ppT)->Release();
+		*ppT = NULL;
+	}
+}
+
+HRESULT IsPinConnected(IPin *pPin, BOOL *pResult)
+{
+	IPin *pTmp = NULL;
+	HRESULT hr = pPin->ConnectedTo(&pTmp);
+	if (SUCCEEDED(hr))
+	{
+		*pResult = TRUE;
+	}
+	else if (hr == VFW_E_NOT_CONNECTED)
+	{
+		// The pin is not connected. This is not an error for our purposes.
+		*pResult = FALSE;
+		hr = S_OK;
+	}
+
+	SafeRelease(&pTmp);
+	return hr;
+}
+
+HRESULT IsPinDirection(IPin *pPin, PIN_DIRECTION dir, BOOL *pResult)
+{
+	PIN_DIRECTION pinDir;
+	HRESULT hr = pPin->QueryDirection(&pinDir);
+	if (SUCCEEDED(hr))
+	{
+		*pResult = (pinDir == dir);
+	}
+	return hr;
+}
+
+// DeleteMediaType calls FreeMediaType, although FreeMediaType can
+// be used to only delete the pbFormat structure for an AM_MEDIA_TYPE
+void WINAPI FreeMediaType(AM_MEDIA_TYPE& mt)
+{
+	if (mt.cbFormat != 0)
+	{
+		CoTaskMemFree((PVOID)mt.pbFormat);
+
+		// Strictly unnecessary but tidier
+		mt.cbFormat = 0;
+		mt.pbFormat = NULL;
+	}
+
+	if (mt.pUnk != NULL)
+	{
+		mt.pUnk->Release();
+		mt.pUnk = NULL;
+	}
+}
+
+
+void WINAPI DeleteMediaType(AM_MEDIA_TYPE *pmt)
+{
+	// allow NULL pointers for coding simplicity
+
+	if (pmt == NULL)
+	{
+		return;
+	}
+
+	FreeMediaType(*pmt);
+	CoTaskMemFree((PVOID)pmt);
+}
+
+
+
+HRESULT MatchPin(IPin *pPin, PIN_DIRECTION direction, BOOL bShouldBeConnected, BOOL *pResult, const GUID* type)
+{
+
+	BOOL bMatch = FALSE;
+	BOOL bIsConnected = FALSE;
+
+	AM_MEDIA_TYPE* media;
+
+	HRESULT hr = IsPinConnected(pPin, &bIsConnected);
+	if (SUCCEEDED(hr))
+	{
+		if (bIsConnected == bShouldBeConnected)
+		{
+			hr = IsPinDirection(pPin, direction, &bMatch);
+		}
+
+		if (SUCCEEDED(hr))
+		{
+			if (bMatch) {
+				if (type != NULL) {
+					IEnumMediaTypes* pEnum = NULL;
+					hr = pPin->EnumMediaTypes(&pEnum);
+					if (SUCCEEDED(hr))
+					{
+						while (S_OK == pEnum->Next(1, &media, NULL))
+						{
+							if (IsEqualGUID(media->majortype, *type)) {
+								*pResult = TRUE;
+							}
+							DeleteMediaType(media);
+						}
+						pEnum->Release();
+					}
+					else {
+						MessageBox(NULL, TEXT("EnumMediaTypes failed"), TEXT("FAIL"), MB_OK);
+					}
+				}
+				else {
+					*pResult = TRUE;
+				}
+				//hr = pPin->ConnectionMediaType(&media);
+				//if (SUCCEEDED(hr))
+				//{
+
+				//}
+				//else {
+				//	MessageBox(NULL, TEXT("ConnectionMediaType failed"), TEXT("FAIL"), MB_OK);
+				//}
+			}
+		}
+		else {
+			MessageBox(NULL, TEXT("IsPinDirection failed"), TEXT("FAIL"), MB_OK);
+		}
+	}
+	else {
+		MessageBox(NULL, TEXT("IsPinConnected failed"), TEXT("FAIL"), MB_OK);
+	}
+
+	return hr;
+}
+
+
+HRESULT FindUnconnectedPin(IBaseFilter *pFilter, PIN_DIRECTION PinDir, IPin **ppPin, const GUID *type)
+{
+	IEnumPins *pEnum = NULL;
+	IPin *pPin = NULL;
+	BOOL bFound = FALSE;
+
+	HRESULT hr = pFilter->EnumPins(&pEnum);
+	if (FAILED(hr))
+	{
+		MessageBox(NULL, TEXT("Enum Pins failed"), TEXT("FAIL"), MB_OK);
+		goto done;
+	}
+
+	while (S_OK == pEnum->Next(1, &pPin, NULL))
+	{
+		hr = MatchPin(pPin, PinDir, FALSE, &bFound, type);
+		if (FAILED(hr))
+		{
+			MessageBox(NULL, TEXT("MATCH pins failed"), TEXT("FAIL"), MB_OK);
+			goto done;
+		}
+		if (bFound)
+		{
+			*ppPin = pPin;
+			(*ppPin)->AddRef();
+			break;
+		}
+		SafeRelease(&pPin);
+	}
+
+	if (!bFound)
+	{
+		hr = VFW_E_NOT_FOUND;
+		//MessageBox(NULL, TEXT("No PINS to match"), TEXT("FAIL"), MB_OK);
+	}
+
+done:
+	SafeRelease(&pPin);
+	SafeRelease(&pEnum);
+	return hr;
+}
+
+HRESULT ConnectFilters(
+	IGraphBuilder *pGraph, // Filter Graph Manager.
+	IBaseFilter *pSource,            // Output pin on the upstream filter.
+	IBaseFilter *pDest,  // Downstream filter.
+	const GUID *type)   
+{
+	IPin *pIn = NULL;
+	IPin *pOut = NULL;
+
+	// Find an input pin on the downstream filter.
+	HRESULT hr = FindUnconnectedPin(pDest, PINDIR_INPUT, &pIn, type);
+	if (SUCCEEDED(hr))
+	{
+		HRESULT hr = FindUnconnectedPin(pSource, PINDIR_OUTPUT, &pOut, type);
+		if (SUCCEEDED(hr))
+		{
+			// Try to connect them.
+			//hr = pGraph->ConnectDirect(pOut, pIn, NULL);
+			hr = pGraph->Connect(pOut, pIn);
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("Connect FAILED"), TEXT("FAIL"), MB_OK);
+			}
+			pOut->Release();
+		}
+		else {
+			MessageBox(NULL, TEXT("FindUnconnectedPin -- output"), TEXT("FAIL"), MB_OK);
+		}
+		pIn->Release();
+	}
+	else {
+		MessageBox(NULL, TEXT("FindUnconnectedPin -- input"), TEXT("FAIL"), MB_OK);
+	}
+	return hr;
+}
+
+
+
+HRESULT AddFilterByCLSID(
+	IGraphBuilder *pGraph,      // Pointer to the Filter Graph Manager.
+	REFGUID clsid,              // CLSID of the filter to create.
+	IBaseFilter **ppF,          // Receives a pointer to the filter.
+	LPCWSTR wszName             // A name for the filter (can be NULL).
+	)
+{
+	*ppF = 0;
+
+	IBaseFilter *pFilter = NULL;
+
+	HRESULT hr = CoCreateInstance(clsid, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pFilter));
+
+	if (FAILED(hr))
+	{
+		goto done;
+	}
+
+	hr = pGraph->AddFilter(pFilter, wszName);
+	if (FAILED(hr))
+	{
+		goto done;
+	}
+
+	*ppF = pFilter;
+	(*ppF)->AddRef();
+
+done:
+	SafeRelease(&pFilter);
+	return hr;
+}
+
+
+void InitPlayback()
+{
+
+	OPENFILENAME file;
+	TCHAR buffer[MAX_PATH] = TEXT("\0");
+	memset(&file, 0, sizeof(OPENFILENAME));
+	file.lStructSize = sizeof(OPENFILENAME);
+	file.hwndOwner = NULL;
+	file.lpstrFilter = TEXT("AVI files\0*.avi\0\0");
+	file.nFilterIndex = 1;
+	file.lpstrFile = buffer;
+	file.nMaxFile = MAX_PATH;
+	file.Flags = OFN_DONTADDTORECENT | OFN_NOCHANGEDIR | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+	if (GetOpenFileName(&file)) {
+		tstring filename = buffer;
+		if (filename.find(TEXT(".avi")) == std::string::npos) {
+			filename += TEXT(".avi");
+		}
+
+
+			IBaseFilter *file = NULL, *decoder = NULL, *dsound = NULL;
+			IFileSourceFilter *filesource = NULL;
+			IGraphBuilder *pGraph;
+			HRESULT hr;
+			// Create the Filter Graph Manager.
+			hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER,
+				IID_IGraphBuilder, (void**)&pGraph);
+			if (FAILED(hr))
+				MessageBox(NULL, TEXT("FAILED creating filer graph"), TEXT("FAIL"), MB_OK);
+
+
+			hr = AddFilterByCLSID(pGraph, CLSID_AsyncReader, &file, L"FileIn");
+			if (FAILED(hr))
+				MessageBox(NULL, TEXT("FAILED adding FileIn"), TEXT("FAIL"), MB_OK);
+			hr = AddFilterByCLSID(pGraph, CLSID_AviSplitter, &decoder, L"DecodeAVI");
+			if (FAILED(hr))
+				MessageBox(NULL, TEXT("FAILED adding DecodeAVI"), TEXT("FAIL"), MB_OK);
+			hr = AddFilterByCLSID(pGraph, CLSID_DSoundRender, &dsound, L"DSound");
+			if (FAILED(hr))
+				MessageBox(NULL, TEXT("FAILED adding DSound"), TEXT("FAIL"), MB_OK);
+
+			// Set the file name.
+			hr = file->QueryInterface(IID_IFileSourceFilter, (void**)&filesource);
+			if (FAILED(hr))
+				MessageBox(NULL, TEXT("FAILED IID_IFileSourceFilter"), TEXT("FAIL"), MB_OK);
+			hr = filesource->Load(filename.c_str(), NULL);
+			if (FAILED(hr))
+				MessageBox(NULL, TEXT("FAILED loading file"), filename.c_str(), MB_OK);
+			
+
+			// Connect the filters.
+			//MessageBox(NULL, TEXT("connecting 1 ..."), TEXT("FAIL"), MB_OK);
+			hr = ConnectFilters(pGraph, file, decoder, NULL);
+			if (FAILED(hr))
+				MessageBox(NULL, TEXT("FAILED Connect filters1"), TEXT("FAIL"), MB_OK);
+			//MessageBox(NULL, TEXT("connecting 2 ..."), TEXT("FAIL"), MB_OK);
+			hr = ConnectFilters(pGraph, decoder, dsound, &MEDIATYPE_Audio);
+			if (FAILED(hr))
+				MessageBox(NULL, TEXT("FAILED Connect filters2"), TEXT("FAIL"), MB_OK);
+
+
+			IMediaControl *pControl = NULL;
+			IMediaEvent   *pEvent = NULL;
+			hr = pGraph->QueryInterface(IID_IMediaControl, (void **)&pControl);
+			if (FAILED(hr))
+				MessageBox(NULL, TEXT("FAILED IID_IMediaControl"), TEXT("FAIL"), MB_OK);
+			hr = pGraph->QueryInterface(IID_IMediaEvent, (void **)&pEvent);
+			if (FAILED(hr))
+				MessageBox(NULL, TEXT("FAILED IID_IMediaEvent"), TEXT("FAIL"), MB_OK);
+			
+
+			//hr = pGraph->RenderFile(filename.c_str(), NULL);
+			//if (FAILED(hr))
+			//	MessageBox(NULL, TEXT("FAILED RenderFile"), TEXT("FAIL"), MB_OK);
+
+			hr = pControl->Run();
+			if (SUCCEEDED(hr))
+			{
+				// Wait for completion.
+				long evCode;
+				pEvent->WaitForCompletion(INFINITE, &evCode);
+
+				// Note: Do not use INFINITE in a real application, because it
+				// can block indefinitely.
+			}
+			//MessageBox(NULL, TEXT("Audio complete"), TEXT("Done"), MB_OK);
+
+			SafeRelease(&filesource);
+
+			SafeRelease(&pControl);
+			SafeRelease(&pEvent);
+
+			SafeRelease(&file);
+			SafeRelease(&decoder);
+			SafeRelease(&dsound);
+
+			SafeRelease(&pGraph);
+		
+	}
+
+
+}
+
+void RegisterDelete(int n, const time_t &thetime) {
 	if (n < 0)
 		return;
 
 	if (projectdata.realtime != NULL) {
 		writestr(projectdata.realtime, "\r\nD ");
+		writestr(projectdata.realtime, std::to_string(thetime));
+		writestr(projectdata.realtime, " ");
 		writestr(projectdata.realtime, std::to_string(n));
 	}
 }
@@ -157,7 +516,7 @@ void RegisterDef(tstring stroke, tstring val) {
 	}
 }
 
-void RegisterStroke(unsigned _int8* stroke, int n) {
+void RegisterStroke(unsigned _int8* stroke, int n, const time_t &thetime) {
 	if (n < 0)
 		return;
 
@@ -167,12 +526,15 @@ void RegisterStroke(unsigned _int8* stroke, int n) {
 		writestr(projectdata.realtime, "\r\n");
 		writestr(projectdata.realtime, std::to_string(n));
 		writestr(projectdata.realtime, " ");
+		writestr(projectdata.realtime, std::to_string(thetime));
+		writestr(projectdata.realtime, " ");
 		writestr(projectdata.realtime, ttostr(buffer));
 	}
 }
 
 struct stroke {
 	unsigned __int8 sval[4];
+	time_t timestamp;
 };
 
 void delat(std::vector<stroke> &slist, int n) {
@@ -184,18 +546,13 @@ void delat(std::vector<stroke> &slist, int n) {
 	slist.erase(it);
 }
 
-void addat(std::vector<stroke> &slist, int n, unsigned __int8* str) {
+void addat(std::vector<stroke> &slist, int n, stroke in) {
 	if (n < 0 || n > slist.size())
 		return;
 
-	stroke toadd;
-	toadd.sval[0] = str[0];
-	toadd.sval[1] = str[1];
-	toadd.sval[2] = str[2];
-
 	auto it = slist.begin();
 	it += n;
-	slist.insert(it, toadd);
+	slist.insert(it, in);
 }
 
 void reRealtime() {
@@ -256,7 +613,7 @@ void reRealtime() {
 		trans->commit(trans, 0);
 
 		for (auto i = projectdata.strokes.cbegin(); i != projectdata.strokes.cend(); i++) {
-			RegisterStroke((*i)->value.ival, 0);
+			RegisterStroke((*i)->value.ival, 0, (*i)->timestamp);
 		}
 	}
 
@@ -264,10 +621,8 @@ void reRealtime() {
 }
 
 void LoadRealtime() {
-	const static std::regex parsefile("^(\\S+?)\\s(.*)$");
-	const static std::regex parseX("^(\\S+?)\\s(.*)$");
+	const static std::regex parsefile("^(\\S+?)\\s(\\S+?)\\s(.*)$");
 	std::cmatch m;
-	std::cmatch n;
 	
 	WaitForSingleObject(sharedData.lockprocessing, INFINITE);
 
@@ -288,28 +643,26 @@ void LoadRealtime() {
 			cline.erase(r, 1);
 			if (std::regex_match(cline.c_str(), m, parsefile)) {
 				if (m[1].str().compare("X") == 0) {
-					std::string temp = m[2].str();
-					if (std::regex_match(temp.c_str(), n, parseX)) {
-						int numstrokes = 0;
-						unsigned __int8* sdata = texttomultistroke(strtotstr(n[1].str()), numstrokes, sharedData.currentd->format);
+					int numstrokes = 0;
+					unsigned __int8* sdata = texttomultistroke(strtotstr(m[2].str()), numstrokes, sharedData.currentd->format);
 
-						DB_TXN* trans;
-						projectdata.d->env->txn_begin(projectdata.d->env, NULL, &trans, 0);
-						projectdata.d->addDItem(sdata, numstrokes * 3, n[2].str(), trans);
-						trans->commit(trans, 0);
+					DB_TXN* trans;
+					projectdata.d->env->txn_begin(projectdata.d->env, NULL, &trans, 0);
+					projectdata.d->addDItem(sdata, numstrokes * 3, m[3].str(), trans);
+					trans->commit(trans, 0);
 
-						MessageBoxA(NULL, n[2].str().c_str(), n[1].str().c_str(), MB_OK);
 
-						delete sdata;
-					}
+					delete sdata;
 				}
 				else if (m[1].str().compare("D") == 0) {
-					delat(slist, atoi(m[2].str().c_str()));
+					delat(slist, atoi(m[3].str().c_str()));
 				}
 				else {
-					unsigned __int8 sbuf[4];
-					textToStroke(strtotstr(m[2].str()), sbuf, sharedData.currentd->format);
-					addat(slist, atoi(m[1].str().c_str()), sbuf);
+					//unsigned __int8 sbuf[4];
+					stroke ns;
+					textToStroke(strtotstr(m[3].str()), ns.sval, sharedData.currentd->format);
+					ns.timestamp = _atoi64(m[2].str().c_str());
+					addat(slist, atoi(m[1].str().c_str()), ns);
 
 					//MessageBox(NULL, TEXT("ADD"), TEXT("ADD"), MB_OK);
 				}
@@ -323,28 +676,31 @@ void LoadRealtime() {
 
 	if (std::regex_match(cline.c_str(), m, parsefile)) {
 		if (m[1].str().compare("X") == 0) {
-			std::string temp = m[2].str();
-			if (std::regex_match(temp.c_str(), m, parseX)) {
-				int numstrokes = 0;
-				unsigned __int8* sdata = texttomultistroke(strtotstr(m[1].str()), numstrokes, sharedData.currentd->format);
+			int numstrokes = 0;
+			unsigned __int8* sdata = texttomultistroke(strtotstr(m[2].str()), numstrokes, sharedData.currentd->format);
 
-				DB_TXN* trans;
-				projectdata.d->env->txn_begin(projectdata.d->env, NULL, &trans, 0);
-				projectdata.d->addDItem(sdata, numstrokes * 3, m[2].str(), trans);
-				trans->commit(trans, 0);
+			DB_TXN* trans;
+			projectdata.d->env->txn_begin(projectdata.d->env, NULL, &trans, 0);
+			projectdata.d->addDItem(sdata, numstrokes * 3, m[3].str(), trans);
+			trans->commit(trans, 0);
 
-				delete sdata;
-			}
+
+			delete sdata;
 		}
 		else if (m[1].str().compare("D") == 0) {
-			delat(slist, atoi(m[2].str().c_str()));
+			delat(slist, atoi(m[3].str().c_str()));
 		}
 		else {
-			unsigned __int8 sbuf[4];
-			textToStroke(strtotstr(m[2].str()), sbuf, sharedData.currentd->format);
-			addat(slist, atoi(m[1].str().c_str()), sbuf);
+			//unsigned __int8 sbuf[4];
+			stroke ns;
+			textToStroke(strtotstr(m[3].str()), ns.sval, sharedData.currentd->format);
+			ns.timestamp = _atoi64(m[2].str().c_str());
+			addat(slist, atoi(m[1].str().c_str()), ns);
+
+			//MessageBox(NULL, TEXT("ADD"), TEXT("ADD"), MB_OK);
 		}
 	}
+
 	HANDLE rtback = projectdata.realtime;
 	projectdata.realtime = NULL;
 	for (auto i = slist.cbegin(); i != slist.cend(); i++) {
@@ -352,7 +708,7 @@ void LoadRealtime() {
 		temp[0] = (*i).sval[0];
 		temp[1] = (*i).sval[1];
 		temp[2] = (*i).sval[2];
-		processSingleStroke(&(temp[0]));
+		processSingleStroke(&(temp[0]), (*i).timestamp);
 	}
 	projectdata.realtime = rtback;
 
@@ -360,49 +716,51 @@ void LoadRealtime() {
 }
 
 void ProcessItem(std::string &cline, textoutput* &last, bool &matchdict, DB_TXN* trans) {
-	const static std::regex parsefile("^(\\S+?)\\s(\\S+?)\\s(.*)$");
+	const static std::regex parsedict("^(\\S+?)\\s(.*)$");
+	const static std::regex parsefull("^(\\S+?)\\s(\\S+?)\\s(\\S+?)\\s(.*)$");
+	const static std::regex parsestroke("^(\\S+?)\\s(\\S+?)$");
 	std::cmatch m;
 
-	if (std::regex_match(cline.c_str(), m, parsefile)) {
-		if (matchdict) {
+	if (cline.compare(STROKES) == 0) {
+		matchdict = false;
+	}
+	else if (matchdict) {
+		if (std::regex_match(cline.c_str(), m, parsedict)) {
 			int len = 0;
 			unsigned __int8* strokes = texttomultistroke(strtotstr(m[1].str()), len, sharedData.currentd->format);
-			projectdata.d->addDItem(strokes, len*3, m[3].str(), trans);
+			projectdata.d->addDItem(strokes, len * 3, m[2].str(), trans);
 			delete strokes;
 		}
-		else {
+	}
+	else {
+		if (std::regex_match(cline.c_str(), m, parsefull)) {
 			unsigned __int8 stroke[4];
 			textToStroke(strtotstr(m[1].str()), stroke, sharedData.currentd->format);
-			singlestroke* s = new singlestroke(stroke);
+			singlestroke* s = new singlestroke(stroke, _atoi64(m[3].str().c_str()));
 			s->textout = new textoutput();
 			s->textout->flags = atoi(m[2].str().c_str());
-			s->textout->text = unescapestr(strtotstr(m[3].str()));
+			s->textout->text = unescapestr(strtotstr(m[4].str()));
 			s->textout->first = s;
 			projectdata.strokes.push_back(s);
 			last = s->textout;
 
 			TCHAR buffer[32] = TEXT("\r\n");
 			stroketosteno(s->value.ival, &buffer[2], sharedData.currentd->format);
-			
+
 			CHARRANGE crngb;
 			crngb.cpMin = crngb.cpMax = 23;
 			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXSETSEL, NULL, (LPARAM)&crngb);
 			SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_REPLACESEL, FALSE, (LPARAM)buffer);
-			
-			
+
+
 			crngb.cpMin = crngb.cpMax = 0;
 			SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crngb);
 			SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)(s->textout->text.c_str()));
 		}
-	}
-	else {
-		if (cline.compare(STROKES) == 0) {
-			matchdict = false;
-		}
-		else if (cline.length() > 0) {
+		else if (std::regex_match(cline.c_str(), m, parsestroke)) {
 			unsigned __int8 stroke[4];
-			textToStroke(strtotstr(cline), stroke, sharedData.currentd->format);
-			singlestroke* s = new singlestroke(stroke);
+			textToStroke(strtotstr(m[1].str()), stroke, sharedData.currentd->format);
+			singlestroke* s = new singlestroke(stroke, _atoi64(m[2].str().c_str()));
 			s->textout = last;
 			projectdata.strokes.push_back(s);
 
@@ -959,6 +1317,9 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
+		case IDM_PLAY:
+			InitPlayback();
+			break;
 		case IDC_PSTROKE:
 			if (HIWORD(wParam) == EN_SETFOCUS) {
 				projectdata.focusedcontrol = 0;

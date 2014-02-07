@@ -11,6 +11,7 @@
 #include <tuple>
 #include <WinUser.h>
 #include "texthelpers.h"
+#include <time.h>
 
 #define WM_NEWITEMDLG WM_USER+4
 #define WM_LOAD_PROGRESS WM_USER+5
@@ -114,9 +115,10 @@ struct singlestroke {
 		unsigned __int32 sval;
 	} value;
 	textoutput* textout;
-	singlestroke();
-	singlestroke(__int32 s);
-	singlestroke(unsigned __int8* i);
+	time_t timestamp;
+	singlestroke(time_t time);
+	singlestroke(__int32 s, time_t time);
+	singlestroke(unsigned __int8* i, time_t time);
 };
 
 #define TF_INOSPACE 0x02
