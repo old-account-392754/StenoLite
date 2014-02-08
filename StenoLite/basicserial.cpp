@@ -133,7 +133,7 @@ StenturaRequest* CreateRequest(BYTE seq, WORD action, BYTE* data, unsigned int d
 bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* response, BYTE* &rdata) {
 	HANDLE harray[2] = { readevent, shutoff };
 	OVERLAPPED overlap;
-	DWORD read;
+	DWORD read = 0;
 
 	memset(&overlap, 0, sizeof(overlap));
 	overlap.hEvent = readevent;
@@ -142,15 +142,27 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 
 	WriteFile(com, request, request->length, NULL, &overlap);
 	WaitForMultipleObjects(2, harray, FALSE, INFINITE);
+	GetOverlappedResult(com, &overlap, &read, FALSE);
+
+	if (read < request->length) {
+		MessageBox(NULL, (std::to_wstring(read) + tstring(TEXT(": ")) + TEXT("Unable to send full request")).c_str(), TEXT("Error"), MB_OK);
+		return false;
+	}
 
 	if (!running) {
 		return false;
 	}
 
-	memset(&overlap, 0, sizeof(overlap));
-	overlap.hEvent = readevent;
-	ReadFile(com, response, sizeof(StenturaResponse), NULL, &overlap);
-	WaitForMultipleObjects(2, harray, FALSE, INFINITE);
+	read = 0;
+	do{
+		memset(&overlap, 0, sizeof(overlap));
+		overlap.hEvent = readevent;
+		ReadFile(com, (BYTE*)(response) + read, sizeof(StenturaResponse)-read, NULL, &overlap);
+		WaitForMultipleObjects(2, harray, FALSE, INFINITE);
+		DWORD oldread = read;
+		GetOverlappedResult(com, &overlap, &read, FALSE);
+		read += oldread;
+	} while (running && read > 0 && read < sizeof(StenturaResponse));
 
 	if (!running) {
 		return false;
@@ -158,7 +170,6 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 
 	rdata = NULL;
 
-	GetOverlappedResult(com, &overlap, &read, FALSE);
 
 	// timed out -- stentura protocal is to re-send request
 	int retries = 0;
@@ -167,18 +178,35 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 		overlap.hEvent = readevent;
 		WriteFile(com, request, request->length, NULL, &overlap);
 		WaitForMultipleObjects(2, harray, FALSE, INFINITE);
+		GetOverlappedResult(com, &overlap, &read, FALSE);
+		
+		if (read < request->length) {
+			MessageBox(NULL, TEXT("Unable to send full request"), TEXT("Error"), MB_OK);
+			return false;
+		}
 
 		if (!running) {
 			return false;
 		}
 
-		memset(&overlap, 0, sizeof(overlap));
-		overlap.hEvent = readevent;
-		ReadFile(com, response, sizeof(StenturaResponse), NULL, &overlap);
-		WaitForMultipleObjects(2, harray, FALSE, INFINITE);
+		read = 0;
 
-		GetOverlappedResult(com, &overlap, &read, FALSE);
-		retries++;
+		do{
+			memset(&overlap, 0, sizeof(overlap));
+			overlap.hEvent = readevent;
+			ReadFile(com, (BYTE*)(response)+read, sizeof(StenturaResponse)-read, NULL, &overlap);
+			WaitForMultipleObjects(2, harray, FALSE, INFINITE);
+			DWORD oldread = read;
+			GetOverlappedResult(com, &overlap, &read, FALSE);
+			read += oldread;
+		} while (running && read > 0 && read < sizeof(StenturaResponse));
+
+		if (read == 0)
+			retries++;
+	}
+
+	if (!running) {
+		return false;
 	}
 
 	if (retries == 3) {
@@ -192,10 +220,16 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 	if (response->length > sizeof(StenturaResponse)) {
 		rdata = (BYTE*)malloc(response->length - sizeof(StenturaResponse));
 
-		memset(&overlap, 0, sizeof(overlap));
-		overlap.hEvent = readevent;
-		ReadFile(com, rdata, response->length - sizeof(StenturaResponse), NULL, &overlap);
-		WaitForMultipleObjects(2, harray, FALSE, INFINITE);
+		read = 0;
+		do{
+			memset(&overlap, 0, sizeof(overlap));
+			overlap.hEvent = readevent;
+			ReadFile(com, rdata + read, response->length - sizeof(StenturaResponse) - read, NULL, &overlap);
+			WaitForMultipleObjects(2, harray, FALSE, INFINITE);
+			DWORD oldread = read;
+			GetOverlappedResult(com, &overlap, &read, FALSE);
+			read += oldread;
+		} while (running && read > 0 && read < response->length - sizeof(StenturaResponse));
 	}
 	
 
@@ -316,7 +350,7 @@ DWORD WINAPI Stentura(LPVOID lpParam)
 	BYTE seq = 0;
 
 
-	StenturaRequest* open = CreateRequest(seq, 0xA, (BYTE*)REAL_FILE, strnlen_s(REAL_FILE, 100), 'A'); // note - not sending terminating null -- is this correct?
+	StenturaRequest* open = CreateRequest(seq, 0xA, (BYTE*)REAL_FILE, strnlen_s(REAL_FILE, 100)+1, 'A'); // note - not sending terminating null -- is this correct?
 	StenturaResponse response;
 	BYTE* rdata = NULL;
 

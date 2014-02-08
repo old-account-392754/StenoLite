@@ -6,6 +6,7 @@
 #include "globals.h"
 #include "texthelpers.h"
 
+
 struct pdata {
 	bool open;
 	bool addingnew;

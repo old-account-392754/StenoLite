@@ -95,6 +95,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 
 	LoadLibrary(TEXT("Riched20.dll"));
 	LoadLibrary(TEXT("Riched32.dll"));
+	//LoadLibrary(TEXT("dsfVorbisDecoder.dll"));
 
 	sharedData.running = TRUE;
 	sharedData.currentd = NULL;

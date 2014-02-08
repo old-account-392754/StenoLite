@@ -14,6 +14,10 @@
 #include "pstroke.h"
 #include <time.h>
 #include <DShow.h>
+#include "VorbisDecodeFilter.h"
+#include <InitGuid.h>
+#include "VorbisTypes.h"
+#include "OggTypes.h"
 
 pdata projectdata;
 #define STROKES  "#####STROKES#####"
@@ -217,76 +221,68 @@ void WINAPI DeleteMediaType(AM_MEDIA_TYPE *pmt)
 }
 
 
-
-HRESULT MatchPin(IPin *pPin, PIN_DIRECTION direction, BOOL bShouldBeConnected, BOOL *pResult, const GUID* type)
-{
-
-	BOOL bMatch = FALSE;
-	BOOL bIsConnected = FALSE;
-
-	AM_MEDIA_TYPE* media;
-
-	HRESULT hr = IsPinConnected(pPin, &bIsConnected);
+HRESULT suitablePin(IPin *pPin, PIN_DIRECTION PinDir, BOOL *pResult){
+	BOOL bresult = FALSE;
+	HRESULT hr = IsPinConnected(pPin, &bresult);
 	if (SUCCEEDED(hr))
 	{
-		if (bIsConnected == bShouldBeConnected)
+		if (bresult == FALSE)
 		{
-			hr = IsPinDirection(pPin, direction, &bMatch);
-		}
-
-		if (SUCCEEDED(hr))
-		{
-			if (bMatch) {
-				if (type != NULL) {
-					IEnumMediaTypes* pEnum = NULL;
-					hr = pPin->EnumMediaTypes(&pEnum);
-					if (SUCCEEDED(hr))
-					{
-						while (S_OK == pEnum->Next(1, &media, NULL))
-						{
-							if (IsEqualGUID(media->majortype, *type)) {
-								*pResult = TRUE;
-							}
-							DeleteMediaType(media);
-						}
-						pEnum->Release();
-					}
-					else {
-						MessageBox(NULL, TEXT("EnumMediaTypes failed"), TEXT("FAIL"), MB_OK);
-					}
-				}
-				else {
+			hr = IsPinDirection(pPin, PinDir, &bresult);
+			if (SUCCEEDED(hr)) {
+				if (bresult == TRUE) {
 					*pResult = TRUE;
+					return hr;
 				}
-				//hr = pPin->ConnectionMediaType(&media);
-				//if (SUCCEEDED(hr))
-				//{
-
-				//}
-				//else {
-				//	MessageBox(NULL, TEXT("ConnectionMediaType failed"), TEXT("FAIL"), MB_OK);
-				//}
 			}
 		}
-		else {
-			MessageBox(NULL, TEXT("IsPinDirection failed"), TEXT("FAIL"), MB_OK);
-		}
 	}
-	else {
-		MessageBox(NULL, TEXT("IsPinConnected failed"), TEXT("FAIL"), MB_OK);
-	}
-
+	*pResult = FALSE;
 	return hr;
 }
 
 
-HRESULT FindUnconnectedPin(IBaseFilter *pFilter, PIN_DIRECTION PinDir, IPin **ppPin, const GUID *type)
+HRESULT EnumPins(IBaseFilter *inputfilter)
 {
 	IEnumPins *pEnum = NULL;
 	IPin *pPin = NULL;
-	BOOL bFound = FALSE;
+	//PINDIR_INPUT
 
-	HRESULT hr = pFilter->EnumPins(&pEnum);
+	HRESULT hr = inputfilter->EnumPins(&pEnum);
+	if (FAILED(hr))
+	{
+		MessageBox(NULL, TEXT("Enum Pins failed"), TEXT("FAIL"), MB_OK);
+	}
+	else {
+		while (S_OK == pEnum->Next(1, &pPin, NULL))
+		{
+			LPTSTR str;
+			if (SUCCEEDED(pPin->QueryId(&str))) {
+				MessageBox(NULL, str, TEXT("PINID"), MB_OK);
+				CoTaskMemFree(str);
+			}
+			SafeRelease(&pPin);
+		}
+	}
+
+	SafeRelease(&pEnum);
+	SafeRelease(&pPin);
+
+	return hr;
+}
+
+HRESULT FindCompatablePinsOut(IBaseFilter *inputfilter, IBaseFilter *outputfilter, IPin **ppPin, IPin **ppPout)
+{
+	IEnumPins *pEnum = NULL;
+	IEnumPins *pEnumIn = NULL;
+	IEnumMediaTypes* pEnum2 = NULL;
+	IPin *pPin = NULL;
+	IPin *pPout = NULL;
+	BOOL bFound = FALSE;
+	AM_MEDIA_TYPE* media;
+	//PINDIR_INPUT
+
+	HRESULT hr = outputfilter->EnumPins(&pEnum);
 	if (FAILED(hr))
 	{
 		MessageBox(NULL, TEXT("Enum Pins failed"), TEXT("FAIL"), MB_OK);
@@ -295,64 +291,287 @@ HRESULT FindUnconnectedPin(IBaseFilter *pFilter, PIN_DIRECTION PinDir, IPin **pp
 
 	while (S_OK == pEnum->Next(1, &pPin, NULL))
 	{
-		hr = MatchPin(pPin, PinDir, FALSE, &bFound, type);
+
+		HRESULT hr = suitablePin(pPin, PINDIR_INPUT, &bFound);
 		if (FAILED(hr))
 		{
-			MessageBox(NULL, TEXT("MATCH pins failed"), TEXT("FAIL"), MB_OK);
+			MessageBox(NULL, TEXT("Suitable pin failed"), TEXT("FAIL"), MB_OK);
 			goto done;
 		}
 		if (bFound)
 		{
-			*ppPin = pPin;
-			(*ppPin)->AddRef();
-			break;
+			HRESULT hr = inputfilter->EnumPins(&pEnumIn);
+			if (FAILED(hr))
+			{
+				MessageBox(NULL, TEXT("Enum Pins failed (input)"), TEXT("FAIL"), MB_OK);
+				goto done;
+			}
+
+			while (S_OK == pEnumIn->Next(1, &pPout, NULL))
+			{
+				bFound = FALSE;
+				HRESULT hr = suitablePin(pPout, PINDIR_OUTPUT, &bFound);
+				if (FAILED(hr))
+				{
+					MessageBox(NULL, TEXT("Suitable pin (input) failed"), TEXT("FAIL"), MB_OK);
+					goto done;
+				}
+				if (bFound) {
+					//pin and pout are both free pins in the correct direction
+
+					hr = pPin->EnumMediaTypes(&pEnum2);
+					if (SUCCEEDED(hr))
+					{
+						while (S_OK == pEnum2->Next(1, &media, NULL))
+						{
+							if (pPout->QueryAccept(media) == S_OK) {
+								bFound = TRUE;
+								hr = S_OK;
+								DeleteMediaType(media);
+
+								*ppPin = pPout;
+								*ppPout = pPin;
+								(*ppPin)->AddRef();
+								(*ppPout)->AddRef();
+								goto done;
+							}
+							DeleteMediaType(media);
+						}
+						SafeRelease(&pEnum2);
+					}
+					else {
+						MessageBox(NULL, TEXT("EnumMediaTypes failed"), TEXT("FAIL"), MB_OK);
+					}
+
+
+					hr = pPout->EnumMediaTypes(&pEnum2);
+					if (SUCCEEDED(hr))
+					{
+						while (S_OK == pEnum2->Next(1, &media, NULL))
+						{
+							if (pPin->QueryAccept(media) == S_OK) {
+								bFound = TRUE;
+								hr = S_OK;
+								DeleteMediaType(media);
+
+								*ppPin = pPout;
+								*ppPout = pPin;
+								(*ppPin)->AddRef();
+								(*ppPout)->AddRef();
+								goto done;
+							}
+							DeleteMediaType(media);
+						}
+						SafeRelease(&pEnum2);
+					}
+					else {
+						MessageBox(NULL, TEXT("EnumMediaTypes failed"), TEXT("FAIL"), MB_OK);
+					}
+				}
+
+				SafeRelease(&pPout);
+			}
+			SafeRelease(&pEnumIn);
+
 		}
 		SafeRelease(&pPin);
 	}
 
-	if (!bFound)
-	{
-		hr = VFW_E_NOT_FOUND;
-		//MessageBox(NULL, TEXT("No PINS to match"), TEXT("FAIL"), MB_OK);
-	}
+
+	hr = VFW_E_NOT_FOUND;
+
 
 done:
 	SafeRelease(&pPin);
+	SafeRelease(&pPout);
 	SafeRelease(&pEnum);
+	SafeRelease(&pEnumIn);
+	SafeRelease(&pEnum2);
+	return hr;
+}
+
+
+HRESULT FindCompatablePinsDumb(IBaseFilter *inputfilter, IBaseFilter *outputfilter, IPin **ppPin, IPin **ppPout)
+{
+	IEnumPins *pEnum = NULL;
+	IEnumPins *pEnumIn = NULL;
+	IPin *pPin = NULL;
+	IPin *pPout = NULL;
+	BOOL bFound = FALSE;
+	//PINDIR_INPUT
+
+	HRESULT hr = outputfilter->EnumPins(&pEnum);
+	if (FAILED(hr))
+	{
+		MessageBox(NULL, TEXT("Enum Pins failed"), TEXT("FAIL"), MB_OK);
+		goto done2;
+	}
+
+	while (S_OK == pEnum->Next(1, &pPin, NULL))
+	{
+
+		HRESULT hr = suitablePin(pPin, PINDIR_INPUT, &bFound);
+		if (FAILED(hr))
+		{
+			MessageBox(NULL, TEXT("Suitable pin failed"), TEXT("FAIL"), MB_OK);
+			goto done2;
+		}
+		if (bFound)
+		{
+			HRESULT hr = inputfilter->EnumPins(&pEnumIn);
+			if (FAILED(hr))
+			{
+				MessageBox(NULL, TEXT("Enum Pins failed (input)"), TEXT("FAIL"), MB_OK);
+				goto done2;
+			}
+
+			while (S_OK == pEnumIn->Next(1, &pPout, NULL))
+			{
+				bFound = FALSE;
+				HRESULT hr = suitablePin(pPout, PINDIR_OUTPUT, &bFound);
+				if (FAILED(hr))
+				{
+					MessageBox(NULL, TEXT("Suitable pin (input) failed"), TEXT("FAIL"), MB_OK);
+					goto done2;
+				}
+				if (bFound) {
+
+					*ppPin = pPout;
+					*ppPout = pPin;
+					(*ppPin)->AddRef();
+					(*ppPout)->AddRef();
+					goto done2;
+				}
+						
+
+				SafeRelease(&pPout);
+			}
+			SafeRelease(&pEnumIn);
+
+		}
+		SafeRelease(&pPin);
+	}
+
+
+	hr = VFW_E_NOT_FOUND;
+
+
+done2:
+	SafeRelease(&pPin);
+	SafeRelease(&pPout);
+	SafeRelease(&pEnum);
+	SafeRelease(&pEnumIn);
 	return hr;
 }
 
 HRESULT ConnectFilters(
 	IGraphBuilder *pGraph, // Filter Graph Manager.
 	IBaseFilter *pSource,            // Output pin on the upstream filter.
-	IBaseFilter *pDest,  // Downstream filter.
-	const GUID *type)   
+	IBaseFilter *pDest  // Downstream filter.
+	)   
 {
 	IPin *pIn = NULL;
 	IPin *pOut = NULL;
 
 	// Find an input pin on the downstream filter.
-	HRESULT hr = FindUnconnectedPin(pDest, PINDIR_INPUT, &pIn, type);
+	HRESULT hr = FindCompatablePinsOut(pSource, pDest, &pIn, &pOut);
+	//HRESULT hr = FindUnconnectedPin(pDest, PINDIR_INPUT, &pIn, type);
 	if (SUCCEEDED(hr))
 	{
-		HRESULT hr = FindUnconnectedPin(pSource, PINDIR_OUTPUT, &pOut, type);
-		if (SUCCEEDED(hr))
-		{
+		//HRESULT hr = FindUnconnectedPin(pSource, PINDIR_OUTPUT, &pOut, type);
+		//if (SUCCEEDED(hr))
+		//{
 			// Try to connect them.
-			//hr = pGraph->ConnectDirect(pOut, pIn, NULL);
-			hr = pGraph->Connect(pOut, pIn);
+			hr = pGraph->ConnectDirect(pIn, pOut, NULL);
+			//hr = pGraph->Connect(pIn, pOut);
 			if (FAILED(hr)) {
-				MessageBox(NULL, TEXT("Connect FAILED"), TEXT("FAIL"), MB_OK);
+				if (VFW_E_NOT_IN_GRAPH == hr)
+					MessageBox(NULL, TEXT("Connect FAILED VFW_E_NOT_IN_GRAPH"), TEXT("FAIL"), MB_OK);
+				else if (VFW_E_CIRCULAR_GRAPH == hr)
+					MessageBox(NULL, TEXT("Connect FAILED VFW_E_CIRCULAR_GRAPH"), TEXT("FAIL"), MB_OK);
+				else if (E_POINTER == hr)
+					MessageBox(NULL, TEXT("Connect FAILED E_POINTER"), TEXT("FAIL"), MB_OK);
+				else {
+					TCHAR buff[100];
+					swprintf_s(buff, 100, TEXT("Connect FAILED OTHER : %X"), hr);
+					MessageBox(NULL, buff, TEXT("FAIL"), MB_OK);
+				}
 			}
-			pOut->Release();
-		}
-		else {
-			MessageBox(NULL, TEXT("FindUnconnectedPin -- output"), TEXT("FAIL"), MB_OK);
-		}
-		pIn->Release();
+			
+		//}
+		//else {
+		//	MessageBox(NULL, TEXT("FindUnconnectedPin -- output"), TEXT("FAIL"), MB_OK);
+		//}
+		SafeRelease(&pOut);
+		SafeRelease(&pIn);
 	}
 	else {
-		MessageBox(NULL, TEXT("FindUnconnectedPin -- input"), TEXT("FAIL"), MB_OK);
+		MessageBox(NULL, TEXT("FindCompatablePinsOut -- no matches"), TEXT("FAIL"), MB_OK);
+	}
+	return hr;
+}
+
+HRESULT DumbConnect(
+	IGraphBuilder *pGraph, // Filter Graph Manager.
+	IBaseFilter *pSource,            // Output pin on the upstream filter.
+	IBaseFilter *pDest  // Downstream filter.
+	)
+{
+	IPin *pIn = NULL;
+	IPin *pOut = NULL;
+
+	IEnumMediaTypes* pEnum2 = NULL;
+	AM_MEDIA_TYPE* media;
+
+	// Find an input pin on the downstream filter.
+	HRESULT hr = FindCompatablePinsDumb(pSource, pDest, &pIn, &pOut);
+	//HRESULT hr = FindUnconnectedPin(pDest, PINDIR_INPUT, &pIn, type);
+	if (SUCCEEDED(hr))
+	{
+		//HRESULT hr = FindUnconnectedPin(pSource, PINDIR_OUTPUT, &pOut, type);
+		//if (SUCCEEDED(hr))
+		//{
+		// Try to connect them.
+		hr = pOut->EnumMediaTypes(&pEnum2);
+		if (SUCCEEDED(hr))
+		{
+			if (S_OK == pEnum2->Next(1, &media, NULL))
+			{
+				hr = pGraph->Connect(pIn, pOut);
+				//hr = pGraph->ConnectDirect(pIn, pOut, media);
+				DeleteMediaType(media);
+			}
+			SafeRelease(&pEnum2);
+		}
+		else {
+			MessageBox(NULL, TEXT("EnumMediaTypes failed"), TEXT("FAIL"), MB_OK);
+		}
+
+		
+		//hr = pGraph->Connect(pIn, pOut);
+		if (FAILED(hr)) {
+			if (VFW_E_NOT_IN_GRAPH == hr)
+				MessageBox(NULL, TEXT("Connect FAILED VFW_E_NOT_IN_GRAPH"), TEXT("FAIL"), MB_OK);
+			else if (VFW_E_CIRCULAR_GRAPH == hr)
+				MessageBox(NULL, TEXT("Connect FAILED VFW_E_CIRCULAR_GRAPH"), TEXT("FAIL"), MB_OK);
+			else if (E_POINTER == hr)
+				MessageBox(NULL, TEXT("Connect FAILED E_POINTER"), TEXT("FAIL"), MB_OK);
+			else {
+				TCHAR buff[100];
+				swprintf_s(buff, 100, TEXT("Connect FAILED OTHER : %X"), hr);
+				MessageBox(NULL, buff, TEXT("FAIL"), MB_OK);
+			}
+		}
+
+		//}
+		//else {
+		//	MessageBox(NULL, TEXT("FindUnconnectedPin -- output"), TEXT("FAIL"), MB_OK);
+		//}
+		SafeRelease(&pOut);
+		SafeRelease(&pIn);
+	}
+	else {
+		MessageBox(NULL, TEXT("FindCompatablePinsOut -- no matches"), TEXT("FAIL"), MB_OK);
 	}
 	return hr;
 }
@@ -374,12 +593,17 @@ HRESULT AddFilterByCLSID(
 
 	if (FAILED(hr))
 	{
+		if (hr == REGDB_E_CLASSNOTREG)
+			MessageBox(NULL, TEXT("FAILED CoCreateInstance -- REGDB_E_CLASSNOTREG"), TEXT("FAIL"), MB_OK);
+		else
+			MessageBox(NULL, TEXT("FAILED CoCreateInstance -- other"), TEXT("FAIL"), MB_OK);
 		goto done;
 	}
 
 	hr = pGraph->AddFilter(pFilter, wszName);
 	if (FAILED(hr))
 	{
+		MessageBox(NULL, TEXT("FAILED Add FIlter"), TEXT("FAIL"), MB_OK);
 		goto done;
 	}
 
@@ -400,35 +624,44 @@ void InitPlayback()
 	memset(&file, 0, sizeof(OPENFILENAME));
 	file.lStructSize = sizeof(OPENFILENAME);
 	file.hwndOwner = NULL;
-	file.lpstrFilter = TEXT("AVI files\0*.avi\0\0");
+	file.lpstrFilter = TEXT("OGG files\0*.ogg\0\0");
 	file.nFilterIndex = 1;
 	file.lpstrFile = buffer;
 	file.nMaxFile = MAX_PATH;
 	file.Flags = OFN_DONTADDTORECENT | OFN_NOCHANGEDIR | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
 	if (GetOpenFileName(&file)) {
 		tstring filename = buffer;
-		if (filename.find(TEXT(".avi")) == std::string::npos) {
-			filename += TEXT(".avi");
+		if (filename.find(TEXT(".ogg")) == std::string::npos) {
+			filename += TEXT(".ogg");
 		}
 
 
-			IBaseFilter *file = NULL, *decoder = NULL, *dsound = NULL;
+		IBaseFilter *file = NULL, *demux = NULL, *decoder = NULL, *dsound = NULL;
 			IFileSourceFilter *filesource = NULL;
 			IGraphBuilder *pGraph;
 			HRESULT hr;
 			// Create the Filter Graph Manager.
 			hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER,
 				IID_IGraphBuilder, (void**)&pGraph);
-			if (FAILED(hr))
-				MessageBox(NULL, TEXT("FAILED creating filer graph"), TEXT("FAIL"), MB_OK);
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED creating filer graph"), TEXT("FAIL"), MB_OK); return;
+			}
 
 
 			hr = AddFilterByCLSID(pGraph, CLSID_AsyncReader, &file, L"FileIn");
 			if (FAILED(hr))
 				MessageBox(NULL, TEXT("FAILED adding FileIn"), TEXT("FAIL"), MB_OK);
-			hr = AddFilterByCLSID(pGraph, CLSID_AviSplitter, &decoder, L"DecodeAVI");
-			if (FAILED(hr))
-				MessageBox(NULL, TEXT("FAILED adding DecodeAVI"), TEXT("FAIL"), MB_OK);
+
+			hr = AddFilterByCLSID(pGraph, CLSID_OggDemuxFilter, &demux, L"DecodeOGG");
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED adding OggDemux"), TEXT("FAIL"), MB_OK); return;
+			}
+
+			hr = AddFilterByCLSID(pGraph, CLSID_VorbisDecodeFilter, &decoder, L"DecodeVORB");
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED adding DecodeVorbis"), TEXT("FAIL"), MB_OK); return;
+			}
+			
 			hr = AddFilterByCLSID(pGraph, CLSID_DSoundRender, &dsound, L"DSound");
 			if (FAILED(hr))
 				MessageBox(NULL, TEXT("FAILED adding DSound"), TEXT("FAIL"), MB_OK);
@@ -442,16 +675,22 @@ void InitPlayback()
 				MessageBox(NULL, TEXT("FAILED loading file"), filename.c_str(), MB_OK);
 			
 
-			// Connect the filters.
-			//MessageBox(NULL, TEXT("connecting 1 ..."), TEXT("FAIL"), MB_OK);
-			hr = ConnectFilters(pGraph, file, decoder, NULL);
+			hr = ConnectFilters(pGraph, file, demux);
 			if (FAILED(hr))
 				MessageBox(NULL, TEXT("FAILED Connect filters1"), TEXT("FAIL"), MB_OK);
-			//MessageBox(NULL, TEXT("connecting 2 ..."), TEXT("FAIL"), MB_OK);
-			hr = ConnectFilters(pGraph, decoder, dsound, &MEDIATYPE_Audio);
+
+
+			hr = ConnectFilters(pGraph, demux, decoder);
 			if (FAILED(hr))
 				MessageBox(NULL, TEXT("FAILED Connect filters2"), TEXT("FAIL"), MB_OK);
 
+			hr = ConnectFilters(pGraph, decoder, dsound);
+			//hr = DumbConnect(pGraph, decoder, dsound);
+			if (FAILED(hr))
+				MessageBox(NULL, TEXT("FAILED Connect filters3"), TEXT("FAIL"), MB_OK);
+			
+
+			
 
 			IMediaControl *pControl = NULL;
 			IMediaEvent   *pEvent = NULL;
@@ -479,12 +718,15 @@ void InitPlayback()
 			}
 			//MessageBox(NULL, TEXT("Audio complete"), TEXT("Done"), MB_OK);
 
+			//delete vb;
+
 			SafeRelease(&filesource);
 
 			SafeRelease(&pControl);
 			SafeRelease(&pEvent);
 
 			SafeRelease(&file);
+			SafeRelease(&demux);
 			SafeRelease(&decoder);
 			SafeRelease(&dsound);
 
