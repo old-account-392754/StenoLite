@@ -631,11 +631,13 @@ std::vector<std::pair<tstring, LONG>> devices;
 
 
 
-HRESULT BindDevice(IEnumMoniker *pEnum, IBaseFilter* &pCap, LONG index)
+HRESULT BindDevice(IEnumMoniker *pEnum, IBaseFilter* &pCap, ULONG index)
 {
 	pCap = NULL;
-
 	IMoniker *pMoniker = NULL;
+
+	if (devices.size() < index + 1)
+		return S_OK;
 
 	while (pEnum->Next(1, &pMoniker, NULL) == S_OK)
 	{
@@ -726,6 +728,8 @@ INT_PTR CALLBACK ChooseAudio(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM w
 		for (auto i = devices.cbegin(); i != devices.cend(); i++) {
 			SendMessage(GetDlgItem(hwndDlg, IDC_AUDIOCOMBO), (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)((*i).first.c_str()));
 		}
+
+		ComboBox_SetCurSel(GetDlgItem(hwndDlg, IDC_AUDIOCOMBO), 0);
 		
 		return TRUE;
 	}
@@ -771,12 +775,9 @@ void InitRecording()
 
 				IBaseFilter* pCap = NULL;
 				if (SUCCEEDED(BindDevice(pEnum, pCap, chosenindex))) {
-					IMediaControl *recControl = NULL;
-					IMediaEvent   *recEvent = NULL;
-					IGraphBuilder *recgraph = NULL;
 						
 					IBaseFilter *mux = NULL, *encode = NULL;
-					IFileSourceFilter *filesource = NULL;
+					//IFileSourceFilter *filesource = NULL;
 
 					bool success = true;
 
@@ -1071,6 +1072,7 @@ void LoadPlayback(const tstring& prjfile) {
 		SafeRelease(&demux);
 		SafeRelease(&decoder);
 		SafeRelease(&dsound);
+		SafeRelease(&filesource);
 
 		if (!success) {
 			SafeRelease(&playgraph);
@@ -1636,15 +1638,22 @@ void PlaySelected() {
 		start = 0;
 	}
 	else {
-		min++;
-		while (min != projectdata.strokes.cend()) {
-			if ((*min)->textout->first == (*min))
-				break;
+		if (min == max) {
 			min++;
+			while (min != projectdata.strokes.cend()) {
+				if ((*min)->textout->first == (*min))
+					break;
+				min++;
+			}
 		}
 
 		if (min != projectdata.strokes.cend()) {
-			start = ((*min)->timestamp - projectdata.lead) * (LONGLONG)10000;
+			if ((*min)->timestamp >= projectdata.lead){
+				start = ((*min)->timestamp - projectdata.lead) * (LONGLONG)10000;
+			}
+			else {
+				start = 0;
+			}
 		}
 	}
 
@@ -1653,20 +1662,23 @@ void PlaySelected() {
 	}
 
 	if (end > start) {
-		//MessageBox(NULL, (std::to_wstring(start / 10000) + TEXT(" : ") + std::to_wstring(end / 10000)).c_str(), TEXT("TIMES"), MB_OK);
-		//end = end - start;
 		playControl->Pause();
 		playControl->Stop();
 		if (FAILED(playSeeking->SetPositions(&start, AM_SEEKING_AbsolutePositioning, &end, AM_SEEKING_AbsolutePositioning))) {
-			MessageBox(NULL, TEXT("CAN'T SEEK!!"), TEXT("TIMES"), MB_OK);
+			//MessageBox(NULL, TEXT("Seeking Failed"), TEXT("Error"), MB_OK);
+			//this is really dumb, but it is the only way we can seek backwards -- break down and rebuild the graph
+			SafeRelease(&playgraph);
+			SafeRelease(&playControl);
+			SafeRelease(&playEvent);
+			SafeRelease(&playSeeking);
+			LoadPlayback(projectdata.file);
 		}
-		UINT_PTR id = 0;
-		SetTimer(projectdata.dlg, id, (end - start) / 10000, NULL);
-		playControl->Run();
-		playSeeking->GetPositions(&start, &end);
-		start = start / 10000;
-		end = end / 10000;
-		//MessageBox(NULL, (std::to_wstring(start) + TEXT(" : ") + std::to_wstring(end)).c_str(), TEXT("TIMES"), MB_OK);
+		else {
+			UINT_PTR id = 0;
+			// because setting the stop position ... doesn't actually work -- a common problem with the ogg libraries for some reason
+			SetTimer(projectdata.dlg, id, (end - start) / 10000, NULL);
+			playControl->Run();
+		}
 	}
 }
 
@@ -1832,7 +1844,6 @@ INT_PTR CALLBACK PlaybackSettings(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPA
 	case WM_INITDIALOG:
 	{
 		SetWindowText(GetDlgItem(hwndDlg, IDC_LEAD), std::to_wstring(projectdata.lead).c_str());
-		SetWindowText(GetDlgItem(hwndDlg, IDC_SPEED), std::to_wstring(projectdata.speed).c_str());
 
 		return TRUE;
 	}
@@ -1847,7 +1858,6 @@ INT_PTR CALLBACK PlaybackSettings(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPA
 			case IDOK:
 			{
 				projectdata.lead = _wtoi(getWinStr(GetDlgItem(hwndDlg, IDC_LEAD)).c_str());
-				projectdata.speed = _wtof(getWinStr(GetDlgItem(hwndDlg, IDC_SPEED)).c_str());
 				EndDialog(hwndDlg, IDOK);
 				return TRUE;
 			}
@@ -1921,9 +1931,10 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 		}
 
 		if (recControl != NULL) {
+			recControl->Pause();
 			recControl->Stop();
 		}
-
+		
 		SafeRelease(&recControl);
 		SafeRelease(&recEvent);
 		SafeRelease(&recgraph);
@@ -2024,6 +2035,8 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 							  if (projectdata.realtime != INVALID_HANDLE_VALUE) {
 									SetFilePointer(projectdata.realtime, 0, NULL, FILE_END);
 							  }
+
+							  //CopyDelTemp(projectdata.file);
 						  }
 
 						  LoadPlayback(projectdata.file);
@@ -2061,11 +2074,7 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 			PlaySelected();
 			break;
 		case IDM_POPTIONS:
-			if (playSeeking != NULL) {
-				if (DialogBox(instance, MAKEINTRESOURCE(IDD_POPTIONS), projectdata.dlg, PlaybackSettings) == IDOK) {
-					playSeeking->SetRate(projectdata.speed);
-				}
-			}
+			DialogBox(instance, MAKEINTRESOURCE(IDD_POPTIONS), projectdata.dlg, PlaybackSettings);
 			break;
 		case IDM_REC:
 			InitRecording();

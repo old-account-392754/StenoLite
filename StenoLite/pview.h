@@ -27,8 +27,7 @@ struct pdata {
 	int textwidth;
 	tstring file;
 	HANDLE realtime;
-	double speed = 1.0;
-	int lead = 1000;
+	int lead = 500;
 	std::list<singlestroke*> clipboard;
 };
 
