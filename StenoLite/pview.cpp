@@ -12,15 +12,16 @@
 #include "fileops.h"
 #include <vector>
 #include "pstroke.h"
-#include <time.h>
 #include <DShow.h>
 #include "VorbisDecodeFilter.h"
 #include <InitGuid.h>
 #include "VorbisTypes.h"
 #include "OggTypes.h"
+#include <tuple>
 
 pdata projectdata;
 #define STROKES  "#####STROKES#####"
+HINSTANCE instance;
 
 void saveProject(const tstring &file) {
 	static tstring sbuffer;
@@ -391,79 +392,6 @@ done:
 }
 
 
-HRESULT FindCompatablePinsDumb(IBaseFilter *inputfilter, IBaseFilter *outputfilter, IPin **ppPin, IPin **ppPout)
-{
-	IEnumPins *pEnum = NULL;
-	IEnumPins *pEnumIn = NULL;
-	IPin *pPin = NULL;
-	IPin *pPout = NULL;
-	BOOL bFound = FALSE;
-	//PINDIR_INPUT
-
-	HRESULT hr = outputfilter->EnumPins(&pEnum);
-	if (FAILED(hr))
-	{
-		MessageBox(NULL, TEXT("Enum Pins failed"), TEXT("FAIL"), MB_OK);
-		goto done2;
-	}
-
-	while (S_OK == pEnum->Next(1, &pPin, NULL))
-	{
-
-		HRESULT hr = suitablePin(pPin, PINDIR_INPUT, &bFound);
-		if (FAILED(hr))
-		{
-			MessageBox(NULL, TEXT("Suitable pin failed"), TEXT("FAIL"), MB_OK);
-			goto done2;
-		}
-		if (bFound)
-		{
-			HRESULT hr = inputfilter->EnumPins(&pEnumIn);
-			if (FAILED(hr))
-			{
-				MessageBox(NULL, TEXT("Enum Pins failed (input)"), TEXT("FAIL"), MB_OK);
-				goto done2;
-			}
-
-			while (S_OK == pEnumIn->Next(1, &pPout, NULL))
-			{
-				bFound = FALSE;
-				HRESULT hr = suitablePin(pPout, PINDIR_OUTPUT, &bFound);
-				if (FAILED(hr))
-				{
-					MessageBox(NULL, TEXT("Suitable pin (input) failed"), TEXT("FAIL"), MB_OK);
-					goto done2;
-				}
-				if (bFound) {
-
-					*ppPin = pPout;
-					*ppPout = pPin;
-					(*ppPin)->AddRef();
-					(*ppPout)->AddRef();
-					goto done2;
-				}
-						
-
-				SafeRelease(&pPout);
-			}
-			SafeRelease(&pEnumIn);
-
-		}
-		SafeRelease(&pPin);
-	}
-
-
-	hr = VFW_E_NOT_FOUND;
-
-
-done2:
-	SafeRelease(&pPin);
-	SafeRelease(&pPout);
-	SafeRelease(&pEnum);
-	SafeRelease(&pEnumIn);
-	return hr;
-}
-
 HRESULT ConnectFilters(
 	IGraphBuilder *pGraph, // Filter Graph Manager.
 	IBaseFilter *pSource,            // Output pin on the upstream filter.
@@ -498,71 +426,6 @@ HRESULT ConnectFilters(
 				}
 			}
 			
-		//}
-		//else {
-		//	MessageBox(NULL, TEXT("FindUnconnectedPin -- output"), TEXT("FAIL"), MB_OK);
-		//}
-		SafeRelease(&pOut);
-		SafeRelease(&pIn);
-	}
-	else {
-		MessageBox(NULL, TEXT("FindCompatablePinsOut -- no matches"), TEXT("FAIL"), MB_OK);
-	}
-	return hr;
-}
-
-HRESULT DumbConnect(
-	IGraphBuilder *pGraph, // Filter Graph Manager.
-	IBaseFilter *pSource,            // Output pin on the upstream filter.
-	IBaseFilter *pDest  // Downstream filter.
-	)
-{
-	IPin *pIn = NULL;
-	IPin *pOut = NULL;
-
-	IEnumMediaTypes* pEnum2 = NULL;
-	AM_MEDIA_TYPE* media;
-
-	// Find an input pin on the downstream filter.
-	HRESULT hr = FindCompatablePinsDumb(pSource, pDest, &pIn, &pOut);
-	//HRESULT hr = FindUnconnectedPin(pDest, PINDIR_INPUT, &pIn, type);
-	if (SUCCEEDED(hr))
-	{
-		//HRESULT hr = FindUnconnectedPin(pSource, PINDIR_OUTPUT, &pOut, type);
-		//if (SUCCEEDED(hr))
-		//{
-		// Try to connect them.
-		hr = pOut->EnumMediaTypes(&pEnum2);
-		if (SUCCEEDED(hr))
-		{
-			if (S_OK == pEnum2->Next(1, &media, NULL))
-			{
-				hr = pGraph->Connect(pIn, pOut);
-				//hr = pGraph->ConnectDirect(pIn, pOut, media);
-				DeleteMediaType(media);
-			}
-			SafeRelease(&pEnum2);
-		}
-		else {
-			MessageBox(NULL, TEXT("EnumMediaTypes failed"), TEXT("FAIL"), MB_OK);
-		}
-
-		
-		//hr = pGraph->Connect(pIn, pOut);
-		if (FAILED(hr)) {
-			if (VFW_E_NOT_IN_GRAPH == hr)
-				MessageBox(NULL, TEXT("Connect FAILED VFW_E_NOT_IN_GRAPH"), TEXT("FAIL"), MB_OK);
-			else if (VFW_E_CIRCULAR_GRAPH == hr)
-				MessageBox(NULL, TEXT("Connect FAILED VFW_E_CIRCULAR_GRAPH"), TEXT("FAIL"), MB_OK);
-			else if (E_POINTER == hr)
-				MessageBox(NULL, TEXT("Connect FAILED E_POINTER"), TEXT("FAIL"), MB_OK);
-			else {
-				TCHAR buff[100];
-				swprintf_s(buff, 100, TEXT("Connect FAILED OTHER : %X"), hr);
-				MessageBox(NULL, buff, TEXT("FAIL"), MB_OK);
-			}
-		}
-
 		//}
 		//else {
 		//	MessageBox(NULL, TEXT("FindUnconnectedPin -- output"), TEXT("FAIL"), MB_OK);
@@ -615,6 +478,10 @@ done:
 	return hr;
 }
 
+
+IMediaControl *recControl = NULL;
+IMediaEvent   *recEvent = NULL;
+IGraphBuilder *recgraph = NULL;
 
 void InitPlayback()
 {
@@ -737,6 +604,476 @@ void InitPlayback()
 
 }
 
+#pragma comment(lib, "strmiids")
+
+HRESULT EnumerateDevices(REFGUID category, IEnumMoniker **ppEnum)
+{
+	// Create the System Device Enumerator.
+	ICreateDevEnum *pDevEnum;
+	HRESULT hr = CoCreateInstance(CLSID_SystemDeviceEnum, NULL,
+		CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pDevEnum));
+
+	if (SUCCEEDED(hr))
+	{
+		// Create an enumerator for the category.
+		hr = pDevEnum->CreateClassEnumerator(category, ppEnum, 0);
+		if (hr == S_FALSE)
+		{
+			hr = VFW_E_NOT_FOUND;  // The category is empty. Treat as an error.
+		}
+		pDevEnum->Release();
+	}
+	return hr;
+}
+
+std::vector<std::pair<tstring, LONG>> devices;
+
+
+
+HRESULT BindDevice(IEnumMoniker *pEnum, IBaseFilter* &pCap, LONG index)
+{
+	pCap = NULL;
+
+	IMoniker *pMoniker = NULL;
+
+	while (pEnum->Next(1, &pMoniker, NULL) == S_OK)
+	{
+		IPropertyBag *pPropBag;
+		HRESULT hr = pMoniker->BindToStorage(0, 0, IID_PPV_ARGS(&pPropBag));
+		if (FAILED(hr))
+		{
+			pMoniker->Release();
+			continue;
+		}
+
+		VARIANT var;
+		VariantInit(&var);
+
+		hr = pPropBag->Read(L"WaveInID", &var, 0);
+		if (SUCCEEDED(hr))
+		{
+			if (devices[index].second == var.lVal) {
+				//bind
+				return pMoniker->BindToObject(0, 0, IID_IBaseFilter, (void**)&pCap);
+			}
+			VariantClear(&var);
+		}
+
+		pPropBag->Release();
+		pMoniker->Release();
+	}
+
+	return E_FAIL;
+}
+
+void BuildDeviceList(IEnumMoniker *pEnum)
+{
+	devices.clear();
+	IMoniker *pMoniker = NULL;
+
+	while (pEnum->Next(1, &pMoniker, NULL) == S_OK)
+	{
+		IPropertyBag *pPropBag;
+		HRESULT hr = pMoniker->BindToStorage(0, 0, IID_PPV_ARGS(&pPropBag));
+		if (FAILED(hr))
+		{
+			pMoniker->Release();
+			continue;
+		}
+
+		VARIANT var;
+		VariantInit(&var);
+
+		tstring str;
+		LONG id;
+
+		// Get description or friendly name.
+		hr = pPropBag->Read(L"Description", &var, 0);
+		if (FAILED(hr))
+		{
+			hr = pPropBag->Read(L"FriendlyName", &var, 0);
+		}
+		if (SUCCEEDED(hr))
+		{
+			
+			str = var.bstrVal;
+			VariantClear(&var);
+		}
+
+
+		// WaveInID applies only to audio capture devices.
+		hr = pPropBag->Read(L"WaveInID", &var, 0);
+		if (SUCCEEDED(hr))
+		{
+			id = var.lVal;
+			VariantClear(&var);
+		}
+
+		devices.push_back(make_pair(str, id));
+		pPropBag->Release();
+		pMoniker->Release();
+	}
+}
+
+LONG chosenindex;
+
+INT_PTR CALLBACK ChooseAudio(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wParam, _In_  LPARAM lParam) {
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+	{
+		for (auto i = devices.cbegin(); i != devices.cend(); i++) {
+			SendMessage(GetDlgItem(hwndDlg, IDC_AUDIOCOMBO), (UINT)CB_ADDSTRING, (WPARAM)0, (LPARAM)((*i).first.c_str()));
+		}
+		
+		return TRUE;
+	}
+	case WM_CLOSE:
+		EndDialog(hwndDlg, IDCANCEL);
+
+		return TRUE;
+	case WM_COMMAND:
+		if (HIWORD(wParam) == CBN_SELCHANGE) {
+			chosenindex = SendMessage(GetDlgItem(hwndDlg, IDC_AUDIOCOMBO), (UINT)CB_GETCURSEL, (WPARAM)0, (LPARAM)0);
+			break;
+		}
+		else if (HIWORD(wParam) == BN_CLICKED) {
+			switch (LOWORD(wParam))
+			{
+			case IDOK:
+			{
+				
+				EndDialog(hwndDlg, IDOK);
+				return TRUE;
+			}
+			case IDCANCEL:
+
+
+				EndDialog(hwndDlg, IDCANCEL);
+				return TRUE;
+			}
+		}
+	}
+	return FALSE;
+}
+
+void InitRecording()
+{
+	IEnumMoniker *pEnum;
+	HRESULT hr = EnumerateDevices(CLSID_AudioInputDeviceCategory, &pEnum);
+	if (SUCCEEDED(hr))
+	{
+		BuildDeviceList(pEnum);
+		if (SUCCEEDED(pEnum->Reset())) {
+			//pop up choice
+			if (DialogBox(instance, MAKEINTRESOURCE(IDD_CHOOSEAUDIO), projectdata.dlg, ChooseAudio) == IDOK) {
+
+				IBaseFilter* pCap = NULL;
+				if (SUCCEEDED(BindDevice(pEnum, pCap, chosenindex))) {
+					IMediaControl *recControl = NULL;
+					IMediaEvent   *recEvent = NULL;
+					IGraphBuilder *recgraph = NULL;
+						
+					IBaseFilter *mux = NULL, *encode = NULL;
+					IFileSourceFilter *filesource = NULL;
+
+					bool success = true;
+
+					// Create the Filter Graph Manager.
+					if (FAILED(CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void**)&recgraph))) {
+						MessageBox(NULL, TEXT("FAILED creating recording graph"), TEXT("FAIL"), MB_OK);
+						success = false;
+					}
+
+					if (success) {
+						if (FAILED(AddFilterByCLSID(recgraph, CLSID_VorbisEncodeFilter, &encode, L"Vorbis Encoder"))) {
+							MessageBox(NULL, TEXT("FAILED adding vorbis encoder"), TEXT("FAIL"), MB_OK);
+							success = false;
+						}
+					}
+
+					if (success) {
+						if (FAILED(AddFilterByCLSID(recgraph, CLSID_OggMuxFilter, &mux, L"Ogg Mux"))) {
+							MessageBox(NULL, TEXT("FAILED adding ogg file mux"), TEXT("FAIL"), MB_OK);
+							success = false;
+						}
+						else {
+							IFileSinkFilter* sink = NULL;
+							if (FAILED(mux->QueryInterface(IID_IFileSinkFilter, (void **)&sink))) {
+								MessageBox(NULL, TEXT("FAILED setting output file"), TEXT("FAIL"), MB_OK);
+								success = false;
+							}
+							else {
+								tstring temp = projectdata.file;
+								temp = temp.replace(temp.find(TEXT(".prj")), 4, TEXT(".ogg"));
+								temp += TEXT(".tmp");
+								sink->SetFileName(temp.c_str(), NULL);
+							}
+							SafeRelease(&sink);
+						}
+					}
+
+					if (success) {
+						if (FAILED(ConnectFilters(recgraph, pCap, encode))) {
+							MessageBox(NULL, TEXT("FAILED to connect to encoder"), TEXT("FAIL"), MB_OK);
+							success = false;
+						}
+					}
+
+					if (success) {
+						if (FAILED(ConnectFilters(recgraph, encode, mux))) {
+							MessageBox(NULL, TEXT("FAILED to connect to encoder"), TEXT("FAIL"), MB_OK);
+							success = false;
+						}
+					}
+
+					if (success) {
+						recgraph->QueryInterface(IID_IMediaControl, (void **)&recControl);
+						recgraph->QueryInterface(IID_IMediaEvent, (void **)&recEvent);
+					}
+
+
+					SafeRelease(&pCap);
+					SafeRelease(&encode);
+					SafeRelease(&mux);
+
+					if (!success) {
+						SafeRelease(&recControl);
+						SafeRelease(&recEvent);
+						SafeRelease(&recgraph);
+					}
+					else {
+						if (FAILED(recControl->Run())) {
+							MessageBox(NULL, TEXT("Error starting audio capture"), TEXT("FAIL"), MB_OK);
+						}
+						else {
+							projectdata.starttick = GetTickCount64()-projectdata.exisistingtime;
+							projectdata.paused = false;
+
+							HANDLE ico = LoadImage(instance, MAKEINTRESOURCE(IDI_RUN), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
+							SendMessage(projectdata.dlg, WM_SETICON, FALSE, (LPARAM)ico);
+							SendMessage(projectdata.dlg, WM_SETICON, TRUE, (LPARAM)ico);
+						}
+					}
+				}
+				else {
+					MessageBox(NULL, TEXT("Could not bind audio recording device"), TEXT("Error"), MB_OK);
+				}
+			}
+
+
+			
+			return;
+		}
+		pEnum->Release();
+	}
+
+	MessageBox(NULL, TEXT("Could not find audio recording devices"), TEXT("Error"), MB_OK);
+}
+
+#define FILE_BUFFER_SIZE 512
+
+void CopyDelTemp(const tstring &prjfile) {
+	tstring ogg = prjfile;
+	ogg = ogg.replace(ogg.find(TEXT(".prj")), 4, TEXT(".ogg"));
+
+	tstring temp = prjfile;
+	temp = temp.replace(temp.find(TEXT(".prj")), 4, TEXT(".ogg"));
+	temp += TEXT(".tmp");
+
+
+
+	HANDLE tempfile = CreateFile(temp.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
+	if (tempfile != INVALID_HANDLE_VALUE) {
+
+		HANDLE oggfile = CreateFile(ogg.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, 0, NULL);
+		if (oggfile != INVALID_HANDLE_VALUE) {
+			SetFilePointer(oggfile, 0, NULL, FILE_END);
+
+			BYTE buffer[FILE_BUFFER_SIZE];
+			DWORD read;
+			ReadFile(tempfile, buffer, FILE_BUFFER_SIZE, &read, NULL);
+			while (read > 0) {
+				DWORD temp;
+				WriteFile(oggfile, buffer, read, &temp, NULL);
+				ReadFile(tempfile, buffer, FILE_BUFFER_SIZE, &read, NULL);
+			}
+
+			CloseHandle(oggfile);
+		}
+
+		CloseHandle(tempfile);
+		DeleteFile(temp.c_str());
+	}
+	
+}
+
+void PauseRecording() {
+	if (!projectdata.paused) {
+		if (recControl != NULL) {
+			if (recControl != NULL) {
+				if (FAILED(recControl->Pause())) {
+					MessageBox(NULL, TEXT("Error pausing audio capture"), TEXT("FAIL"), MB_OK);
+				}
+				else {
+					projectdata.pausetick = GetTickCount64();
+					projectdata.paused = true;
+
+					MENUITEMINFO menuinfo;
+					memset(&menuinfo, 0, sizeof(MENUITEMINFO));
+					menuinfo.cbSize = sizeof(MENUITEMINFO);
+					menuinfo.fMask = MIIM_STRING;
+					menuinfo.dwTypeData = TEXT("Resume Audio Recording");
+					SetMenuItemInfo(GetMenu(projectdata.dlg), IDM_PREC, FALSE, &menuinfo);
+
+					HANDLE ico = LoadImage(instance, MAKEINTRESOURCE(IDI_PAUSE), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
+					SendMessage(projectdata.dlg, WM_SETICON, FALSE, (LPARAM)ico);
+					SendMessage(projectdata.dlg, WM_SETICON, TRUE, (LPARAM)ico);
+				}
+			}
+		}
+	}
+	else {
+		if (recControl != NULL) {
+			if (FAILED(recControl->Run())) {
+				MessageBox(NULL, TEXT("Error starting audio capture"), TEXT("FAIL"), MB_OK);
+			}
+			else {
+				projectdata.starttick += GetTickCount64() - projectdata.pausetick;
+				projectdata.paused = false;
+
+				MENUITEMINFO menuinfo;
+				memset(&menuinfo, 0, sizeof(MENUITEMINFO));
+				menuinfo.cbSize = sizeof(MENUITEMINFO);
+				menuinfo.fMask = MIIM_STRING;
+				menuinfo.dwTypeData = TEXT("Pause Audio Recording");
+				SetMenuItemInfo(GetMenu(projectdata.dlg), IDM_PREC, FALSE, &menuinfo);
+
+				HANDLE ico = LoadImage(instance, MAKEINTRESOURCE(IDI_RUN), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
+				SendMessage(projectdata.dlg, WM_SETICON, FALSE, (LPARAM)ico);
+				SendMessage(projectdata.dlg, WM_SETICON, TRUE, (LPARAM)ico);
+			}
+		}
+	}
+}
+
+IMediaControl *playControl = NULL;
+IMediaEvent   *playEvent = NULL;
+IMediaSeeking *playSeeking = NULL;
+IGraphBuilder *playgraph = NULL;
+
+void LoadPlayback(const tstring& prjfile) {
+	tstring ogg = prjfile;
+	ogg = ogg.replace(ogg.find(TEXT(".prj")), 4, TEXT(".ogg"));
+
+	if (GetFileAttributes(ogg.c_str()) != INVALID_FILE_ATTRIBUTES) {
+		IBaseFilter *file = NULL, *demux = NULL, *decoder = NULL, *dsound = NULL;
+		IFileSourceFilter *filesource = NULL;
+
+
+		bool success = true;
+
+		// Create the Filter Graph Manager.
+		if (FAILED(CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void**)&playgraph))) {
+			MessageBox(NULL, TEXT("FAILED creating playback graph"), TEXT("FAIL"), MB_OK);
+			success = false;
+		}
+
+		if (success) {
+			if (FAILED(AddFilterByCLSID(playgraph, CLSID_AsyncReader, &file, L"FileIn"))) {
+				MessageBox(NULL, TEXT("FAILED adding FileIn filter"), TEXT("FAIL"), MB_OK);
+				success = false;
+			}
+			else {
+				if (FAILED(file->QueryInterface(IID_IFileSourceFilter, (void**)&filesource))) {
+					MessageBox(NULL, TEXT("FAILED loading file source filter"), TEXT("FAIL"), MB_OK);
+					success = false;
+				}
+				else {
+					if (FAILED(filesource->Load(ogg.c_str(), NULL))) {
+						MessageBox(NULL, TEXT("FAILED loading file"), ogg.c_str(), MB_OK);
+						success = false;
+					}
+					SafeRelease(&filesource);
+				}
+			}
+		}
+
+		if (success) {
+			if (FAILED(AddFilterByCLSID(playgraph, CLSID_OggDemuxFilter, &demux, L"DecodeOGG"))) {
+				MessageBox(NULL, TEXT("FAILED adding Demux filter"), TEXT("FAIL"), MB_OK);
+				success = false;
+			}
+		}
+
+		if (success) {
+			if (FAILED(AddFilterByCLSID(playgraph, CLSID_VorbisDecodeFilter, &demux, L"DecodeVORB"))) {
+				MessageBox(NULL, TEXT("FAILED adding vorbis decoder filter"), TEXT("FAIL"), MB_OK);
+				success = false;
+			}
+		}
+
+		if (success) {
+			if (FAILED(AddFilterByCLSID(playgraph, CLSID_DSoundRender, &demux, L"DSound"))) {
+				MessageBox(NULL, TEXT("FAILED adding direct sound renderer"), TEXT("FAIL"), MB_OK);
+				success = false;
+			}
+		}
+
+		if (success) {
+			if (FAILED(ConnectFilters(playgraph, file, demux))) {
+				MessageBox(NULL, TEXT("FAILED connecting file to demux"), TEXT("FAIL"), MB_OK);
+				success = false;
+			}
+		}
+
+		if (success) {
+			if (FAILED(ConnectFilters(playgraph, demux, decoder))) {
+				MessageBox(NULL, TEXT("FAILED connecting demux to decoder"), TEXT("FAIL"), MB_OK);
+				success = false;
+			}
+		}
+
+		if (success) {
+			if (FAILED(ConnectFilters(playgraph, decoder, dsound))) {
+				MessageBox(NULL, TEXT("FAILED connecting decoder to sound device"), TEXT("FAIL"), MB_OK);
+				success = false;
+			}
+		}
+
+
+		if (success) {
+			playgraph->QueryInterface(IID_IMediaControl, (void **)&playControl);
+			playgraph->QueryInterface(IID_IMediaEvent, (void **)&playEvent);
+			playgraph->QueryInterface(IID_IMediaSeeking, (void **)&playSeeking);
+		}
+
+		SafeRelease(&file);
+		SafeRelease(&demux);
+		SafeRelease(&decoder);
+		SafeRelease(&dsound);
+
+		if (!success) {
+			SafeRelease(&playgraph);
+			SafeRelease(&playControl);
+			SafeRelease(&playEvent);
+			SafeRelease(&playSeeking);
+		}
+		else {
+			playSeeking->SetTimeFormat(&TIME_FORMAT_MEDIA_TIME);
+			LONGLONG duration;
+			if (FAILED(playSeeking->GetDuration(&duration))) {
+				MessageBox(NULL, TEXT("Could not get duration of existing media file"), TEXT("Error"), MB_OK);
+			}
+			else {
+				projectdata.exisistingtime = duration / (ULONGLONG)10000;
+				projectdata.pausetick = GetTickCount64();
+				projectdata.starttick = projectdata.pausetick - projectdata.exisistingtime;
+			}
+		}
+	}
+}
+
 void RegisterDelete(int n, const time_t &thetime) {
 	if (n < 0)
 		return;
@@ -776,7 +1113,7 @@ void RegisterStroke(unsigned _int8* stroke, int n, const time_t &thetime) {
 
 struct stroke {
 	unsigned __int8 sval[4];
-	time_t timestamp;
+	ULONGLONG timestamp;
 };
 
 void delat(std::vector<stroke> &slist, int n) {
@@ -943,6 +1280,12 @@ void LoadRealtime() {
 		}
 	}
 
+	tstring prj = projectdata.file;
+	prj = prj.replace(prj.find(TEXT(".srf")), 4, TEXT(".prj"));
+	CopyDelTemp(prj);
+
+	projectdata.reloading = true;
+
 	HANDLE rtback = projectdata.realtime;
 	projectdata.realtime = NULL;
 	for (auto i = slist.cbegin(); i != slist.cend(); i++) {
@@ -950,9 +1293,12 @@ void LoadRealtime() {
 		temp[0] = (*i).sval[0];
 		temp[1] = (*i).sval[1];
 		temp[2] = (*i).sval[2];
-		processSingleStroke(&(temp[0]), (*i).timestamp);
+		ULONGLONG time = (*i).timestamp;
+		processSingleStroke(&(temp[0]), time);
 	}
 	projectdata.realtime = rtback;
+
+	projectdata.reloading = false;
 
 	ReleaseMutex(sharedData.lockprocessing);
 }
@@ -1253,6 +1599,45 @@ int StrokeFromTextIndx(unsigned int txtindex) {
 }
 
 
+void PlaySelected() {
+	if (playSeeking == NULL || playControl == NULL)
+		return;
+
+	CHARRANGE crng;
+
+	SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXGETSEL, NULL, (LPARAM)&crng);
+
+	auto max = GetItemByText(crng.cpMax);
+	auto min = GetItemByText(crng.cpMin);
+
+	LONGLONG start = 0;
+	LONGLONG end = 0;
+
+	if (min == projectdata.strokes.cend()) {
+		start = 0;
+	}
+	else {
+		min++;
+		while (min != projectdata.strokes.cend()) {
+			if ((*min)->textout->first == (*min))
+				break;
+			min++;
+		}
+
+		if (min != projectdata.strokes.cend()) {
+			start = ((*min)->timestamp - projectdata.lead) * (LONGLONG)10000;
+		}
+	}
+
+	if (max != projectdata.strokes.cend()) {
+		end = ((*max)->timestamp) * (LONGLONG)10000;
+	}
+
+	playControl->Stop();
+	playSeeking->SetPositions(&start, AM_SEEKING_AbsolutePositioning, &end, AM_SEEKING_AbsolutePositioning);
+	playControl->Run();
+}
+
 
 LRESULT CALLBACK StrokeList(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
@@ -1330,6 +1715,8 @@ LRESULT CALLBACK StrokeList(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, 
 	case WM_LBUTTONUP:
 		capturing = false;
 		ReleaseCapture();
+		if (projectdata.autoplayback)
+			PlaySelected();
 		return 0;
 	}
 	return DefSubclassProc(hWnd, uMsg, wParam, lParam);
@@ -1390,6 +1777,8 @@ LRESULT CALLBACK MainText(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UI
 	case WM_LBUTTONUP:
 		capturing = false;
 		ReleaseCapture();
+		if (projectdata.autoplayback)
+			PlaySelected();
 		return 0;
 	}
 	return DefSubclassProc(hWnd, uMsg, wParam, lParam);
@@ -1401,6 +1790,44 @@ void ShowBatch(int show) {
 	ShowWindow(GetDlgItem(projectdata.dlg, IDC_POK), show);
 	ShowWindow(GetDlgItem(projectdata.dlg, IDC_PCANCEL), show);
 	ShowWindow(GetDlgItem(projectdata.dlg, IDC_PNEW), show);
+}
+
+
+
+INT_PTR CALLBACK PlaybackSettings(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wParam, _In_  LPARAM lParam) {
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+	{
+		SetWindowText(GetDlgItem(hwndDlg, IDC_LEAD), std::to_wstring(projectdata.lead).c_str());
+		SetWindowText(GetDlgItem(hwndDlg, IDC_SPEED), std::to_wstring(projectdata.speed).c_str());
+
+		return TRUE;
+	}
+	case WM_CLOSE:
+		EndDialog(hwndDlg, IDCANCEL);
+
+		return TRUE;
+	case WM_COMMAND:
+		if (HIWORD(wParam) == BN_CLICKED) {
+			switch (LOWORD(wParam))
+			{
+			case IDOK:
+			{
+				projectdata.lead = _wtoi(getWinStr(GetDlgItem(hwndDlg, IDC_LEAD)).c_str());
+				projectdata.speed = _wtof(getWinStr(GetDlgItem(hwndDlg, IDC_SPEED)).c_str());
+				EndDialog(hwndDlg, IDOK);
+				return TRUE;
+			}
+			case IDCANCEL:
+
+
+				EndDialog(hwndDlg, IDCANCEL);
+				return TRUE;
+			}
+		}
+	}
+	return FALSE;
 }
 
 INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wParam, _In_  LPARAM lParam) {
@@ -1449,7 +1876,29 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 		inputstate.redirect = NULL;
 		saveProject(projectdata.file);
 		projectdata.d->close();
+
+		if (playControl != NULL) {
+			playControl->Stop();
+		}
+
+		if (recControl != NULL) {
+			recControl->Stop();
+		}
+
+		SafeRelease(&recControl);
+		SafeRelease(&recEvent);
+		SafeRelease(&recgraph);
+
+		SafeRelease(&playgraph);
+		SafeRelease(&playControl);
+		SafeRelease(&playEvent);
+		SafeRelease(&playSeeking);
+
+		Sleep(20);
+		CopyDelTemp(projectdata.file);
+
 		CloseHandle(projectdata.realtime);
+		
 		return FALSE;
 	case WM_INITDIALOG:
 	{
@@ -1510,6 +1959,7 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 
 						  projectdata.strokes.clear();
 
+						  projectdata.starttick = projectdata.pausetick = GetTickCount64();
 
 						  projectdata.addingnew = false;
 						  projectdata.open = true;
@@ -1537,6 +1987,8 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 							  }
 						  }
 
+						  LoadPlayback(projectdata.file);
+
 						  POINTL pt;
 						  SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_POSFROMCHAR, (WPARAM)&pt, 1);
 						  projectdata.textwidth = pt.x * 23;
@@ -1560,7 +2012,27 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 		switch (LOWORD(wParam))
 		{
 		case IDM_PLAY:
-			InitPlayback();
+			projectdata.autoplayback = !projectdata.autoplayback;
+			if (projectdata.autoplayback)
+				CheckMenuItem(GetMenu(projectdata.dlg), IDM_PLAY, MF_CHECKED);
+			else
+				CheckMenuItem(GetMenu(projectdata.dlg), IDM_PLAY, MF_UNCHECKED);
+			break;
+		case IDM_PPLAY:
+			PlaySelected();
+			break;
+		case IDM_POPTIONS:
+			if (playSeeking != NULL) {
+				if (DialogBox(instance, MAKEINTRESOURCE(IDD_POPTIONS), projectdata.dlg, PlaybackSettings) == IDOK) {
+					playSeeking->SetRate(projectdata.speed);
+				}
+			}
+			break;
+		case IDM_REC:
+			InitRecording();
+			break;
+		case IDM_PREC:
+			PauseRecording();
 			break;
 		case IDC_PSTROKE:
 			if (HIWORD(wParam) == EN_SETFOCUS) {
@@ -1692,6 +2164,7 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 
 
 void LaunchProjDlg(HINSTANCE hInst) {
+	instance = hInst;
 	if (sharedData.currentd == NULL) {
 		MessageBox(NULL, TEXT("No dictionary selected"), TEXT(""), MB_OK);
 		return;

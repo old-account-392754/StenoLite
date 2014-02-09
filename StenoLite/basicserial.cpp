@@ -96,7 +96,7 @@ WORD StenturaChecksum(BYTE* data, unsigned int length){
 		0x8201, 0x42c0, 0x4380, 0x8341, 0x4100, 0x81c1, 0x8081, 0x4040 };
 	WORD checksum = 0;
 	for (unsigned int i = 0; i < length; i++) {
-		checksum = cktable[(checksum ^ *(data + i)) & 0xff] ^ ((checksum >> 8) & 0xff);
+		checksum = cktable[(checksum ^ data[i]) & 0xff] ^ ((checksum >> 8) & 0xff);
 	}
 	return checksum;
 }
@@ -111,6 +111,9 @@ StenturaRequest* CreateRequest(BYTE seq, WORD action, BYTE* data, unsigned int d
 		result = (StenturaRequest*)malloc(sizeof(StenturaRequest)+datalen + sizeof(WORD));
 		result->length = sizeof(StenturaRequest)+datalen + sizeof(WORD);
 	}
+
+	//MessageBox(NULL, (std::to_wstring(sizeof(StenturaRequest)) + TEXT(":") + std::to_wstring(((LONGLONG)result - (LONGLONG)&(result->checksum)))).c_str(), TEXT("SIZE"), MB_OK);
+
 	result->lead = 0x01;
 	result->seq = seq;
 	result->action = action;
@@ -130,7 +133,7 @@ StenturaRequest* CreateRequest(BYTE seq, WORD action, BYTE* data, unsigned int d
 	return result;
 }
 
-bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* response, BYTE* &rdata) {
+bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* response, BYTE* &rdata, bool first = false) {
 	HANDLE harray[2] = { readevent, shutoff };
 	OVERLAPPED overlap;
 	DWORD read = 0;
@@ -138,6 +141,9 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 	memset(&overlap, 0, sizeof(overlap));
 	overlap.hEvent = readevent;
 
+	response->seq = 0;
+	response->action = 0;
+	response->length = 0;
 	request->seq = seq;
 
 	WriteFile(com, request, request->length, NULL, &overlap);
@@ -173,7 +179,7 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 
 	// timed out -- stentura protocal is to re-send request
 	int retries = 0;
-	while (read == 0 && running && retries < 3) {
+	while (read == 0 && running && retries < 3 && !first) {
 		memset(&overlap, 0, sizeof(overlap));
 		overlap.hEvent = readevent;
 		WriteFile(com, request, request->length, NULL, &overlap);
@@ -209,8 +215,9 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 		return false;
 	}
 
-	if (retries == 3) {
+	if (retries == 3 && !first) {
 		//refused to respond
+		// like plover, we now ignore a failure to respond to an open request
 		MessageBox(NULL, TEXT("Stentura refused to respond to request"), TEXT("Error"), MB_OK);
 		running = false;
 		return false;
@@ -354,7 +361,7 @@ DWORD WINAPI Stentura(LPVOID lpParam)
 	StenturaResponse response;
 	BYTE* rdata = NULL;
 
-	if (!ReadResponseCyle(seq, open, &response, rdata)) {
+	if (!ReadResponseCyle(seq, open, &response, rdata, true)) {
 		MessageBox(NULL, TEXT("Failed to open realtime file on Stentura"), TEXT("Error"), MB_OK);
 		free(open);
 		SetEvent(handoff);

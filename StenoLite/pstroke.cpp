@@ -16,7 +16,7 @@
 #include <Richedit.h>
 #include "resource.h"
 
-void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, const time_t &thetime);
+void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, const ULONGLONG &thetime);
 bool spaceafter(std::list<singlestroke*>::iterator it, std::list<singlestroke*>* target, bool erase);
 bool spacebefore(std::list<singlestroke*>::iterator it, std::list<singlestroke*>* target, bool erase);
 
@@ -789,7 +789,7 @@ void deletess(singlestroke* t) {
 	delete t;
 }
 
-void deletelist(std::list<singlestroke*> temp, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, const time_t &thetime) {
+void deletelist(std::list<singlestroke*> temp, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, const ULONGLONG &thetime) {
 	std::list<singlestroke*>::iterator ti = temp.end();
 	if (temp.size() > 0) {
 		ti--;
@@ -904,7 +904,7 @@ tstring grabWordText(std::list<singlestroke*>::iterator &insert, std::list<singl
 }
 
 
-void transformandresend(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, tstring(*transform)(tstring&), const time_t &thetime) {
+void transformandresend(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, tstring(*transform)(tstring&), const ULONGLONG &thetime) {
 	tstring word = grabWordText(insert, target);
 	textoutput *tx = (*insert)->textout;
 
@@ -969,7 +969,7 @@ tstring abbrev(tstring& in) {
 	return newtxt;
 }
 
-void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, const time_t &thetime) {
+void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, const ULONGLONG &thetime) {
 	int longest = 0;
 
 	std::string ilongstemp;
@@ -1172,7 +1172,7 @@ bool spaceafter(std::list<singlestroke*>::iterator it, std::list<singlestroke*>*
 	return false;
 }
 
-void processSingleStroke(unsigned __int8* stroke, const time_t& thetime) {
+void processSingleStroke(unsigned __int8* stroke, ULONGLONG& thetime) {
 
 	if (newwordwin.running) {
 		if (compare3(stroke, sharedData.currentd->stab)) {
@@ -1246,6 +1246,15 @@ void processSingleStroke(unsigned __int8* stroke, const time_t& thetime) {
 	if (inputstate.redirect == NULL && projectdata.open) {
 		target = &projectdata.strokes;
 		projectdata.settingsel = true;
+
+		if (projectdata.reloading) {
+
+		} else if (projectdata.paused) {
+			thetime = projectdata.pausetick - projectdata.starttick;
+		}
+		else {
+			thetime = GetTickCount64() - projectdata.starttick;
+		}
 
 		CHARRANGE crng;
 
@@ -1568,8 +1577,7 @@ DWORD WINAPI processStrokes(LPVOID lpParam)
 
 			if (sharedData->currentd != NULL) {
 				WaitForSingleObject(sharedData->lockprocessing, INFINITE);
-				time_t thetime;
-				time(&thetime);
+				ULONGLONG thetime = GetTickCount64();
 				processSingleStroke(cstroke.ival, thetime);
 				ReleaseMutex(sharedData->lockprocessing);
 

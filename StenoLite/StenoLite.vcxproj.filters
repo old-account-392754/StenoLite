@@ -126,6 +126,12 @@
     <Image Include="up1.ico">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="ico00001.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="pause1.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="StenoLite.manifest">

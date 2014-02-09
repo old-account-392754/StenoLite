@@ -115,7 +115,7 @@ struct singlestroke {
 		unsigned __int32 sval;
 	} value;
 	textoutput* textout;
-	time_t timestamp;
+	ULONGLONG timestamp;
 	singlestroke(time_t time);
 	singlestroke(__int32 s, time_t time);
 	singlestroke(unsigned __int8* i, time_t time);

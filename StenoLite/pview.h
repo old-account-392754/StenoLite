@@ -18,9 +18,17 @@ struct pdata {
 	int selectionmax;
 	dictionary *d;
 	bool settingsel = false;
+	bool paused = true;
+	bool reloading = false;
+	bool autoplayback = false;
+	ULONGLONG starttick;
+	ULONGLONG pausetick;
+	ULONGLONG exisistingtime = 0;
 	int textwidth;
 	tstring file;
 	HANDLE realtime;
+	double speed = 1.0;
+	int lead = 1000;
 	std::list<singlestroke*> clipboard;
 };
 

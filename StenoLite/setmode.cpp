@@ -131,8 +131,8 @@ void setMode(int mode) {
 		}
 	}
 	else if (cmode == 6) {
-		// open with a 1 second time out
-		if (openCom(settings.port, CBR_9600, 1000) != INVALID_HANDLE_VALUE) {
+		// open with a 1.5 second time out
+		if (openCom(settings.port, CBR_9600, 1500) != INVALID_HANDLE_VALUE) {
 			CreateThread(NULL, 0, Stentura, NULL, 0, NULL);
 		}
 		else {
