@@ -18,6 +18,7 @@
 #include "VorbisTypes.h"
 #include "OggTypes.h"
 #include <tuple>
+#include "SpeexTypes.h"
 
 pdata projectdata;
 #define STROKES  "#####STROKES#####"
@@ -786,7 +787,14 @@ void InitRecording()
 					}
 
 					if (success) {
-						if (FAILED(AddFilterByCLSID(recgraph, CLSID_VorbisEncodeFilter, &encode, L"Vorbis Encoder"))) {
+						if (FAILED(recgraph->AddFilter(pCap, TEXT("Audio Capture")))) {
+							MessageBox(NULL, TEXT("FAILED adding capture device"), TEXT("FAIL"), MB_OK);
+							success = false;
+						}
+					}
+
+					if (success) {
+						if (FAILED(AddFilterByCLSID(recgraph, CLSID_SpeexEncodeFilter, &encode, L"Vorbis Encoder"))) {
 							MessageBox(NULL, TEXT("FAILED adding vorbis encoder"), TEXT("FAIL"), MB_OK);
 							success = false;
 						}
@@ -871,7 +879,7 @@ void InitRecording()
 	MessageBox(NULL, TEXT("Could not find audio recording devices"), TEXT("Error"), MB_OK);
 }
 
-#define FILE_BUFFER_SIZE 512
+#define FILE_BUFFER_SIZE 1024
 
 void CopyDelTemp(const tstring &prjfile) {
 	tstring ogg = prjfile;
@@ -970,77 +978,88 @@ void LoadPlayback(const tstring& prjfile) {
 		IBaseFilter *file = NULL, *demux = NULL, *decoder = NULL, *dsound = NULL;
 		IFileSourceFilter *filesource = NULL;
 
+		
+		HRESULT hr;
 
 		bool success = true;
 
-		// Create the Filter Graph Manager.
-		if (FAILED(CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void**)&playgraph))) {
-			MessageBox(NULL, TEXT("FAILED creating playback graph"), TEXT("FAIL"), MB_OK);
+		hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void**)&playgraph);
+		if (FAILED(hr)) {
+			MessageBox(NULL, TEXT("FAILED creating filer graph"), TEXT("FAIL"), MB_OK);
 			success = false;
 		}
 
 		if (success) {
-			if (FAILED(AddFilterByCLSID(playgraph, CLSID_AsyncReader, &file, L"FileIn"))) {
-				MessageBox(NULL, TEXT("FAILED adding FileIn filter"), TEXT("FAIL"), MB_OK);
-				success = false;
-			}
-			else {
-				if (FAILED(file->QueryInterface(IID_IFileSourceFilter, (void**)&filesource))) {
-					MessageBox(NULL, TEXT("FAILED loading file source filter"), TEXT("FAIL"), MB_OK);
-					success = false;
-				}
-				else {
-					if (FAILED(filesource->Load(ogg.c_str(), NULL))) {
-						MessageBox(NULL, TEXT("FAILED loading file"), ogg.c_str(), MB_OK);
-						success = false;
-					}
-					SafeRelease(&filesource);
-				}
-			}
-		}
-
-		if (success) {
-			if (FAILED(AddFilterByCLSID(playgraph, CLSID_OggDemuxFilter, &demux, L"DecodeOGG"))) {
-				MessageBox(NULL, TEXT("FAILED adding Demux filter"), TEXT("FAIL"), MB_OK);
+			hr = AddFilterByCLSID(playgraph, CLSID_AsyncReader, &file, L"FileIn");
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED adding FileIn"), TEXT("FAIL"), MB_OK);
 				success = false;
 			}
 		}
 
 		if (success) {
-			if (FAILED(AddFilterByCLSID(playgraph, CLSID_VorbisDecodeFilter, &demux, L"DecodeVORB"))) {
-				MessageBox(NULL, TEXT("FAILED adding vorbis decoder filter"), TEXT("FAIL"), MB_OK);
+			hr = AddFilterByCLSID(playgraph, CLSID_OggDemuxFilter, &demux, L"DecodeOGG");
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED adding OggDemux"), TEXT("FAIL"), MB_OK);
 				success = false;
 			}
 		}
 
 		if (success) {
-			if (FAILED(AddFilterByCLSID(playgraph, CLSID_DSoundRender, &demux, L"DSound"))) {
-				MessageBox(NULL, TEXT("FAILED adding direct sound renderer"), TEXT("FAIL"), MB_OK);
+			hr = AddFilterByCLSID(playgraph, CLSID_SpeexDecodeFilter, &decoder, L"DecodeVORB");
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED adding DecodeVorbis"), TEXT("FAIL"), MB_OK);
 				success = false;
 			}
 		}
 
 		if (success) {
-			if (FAILED(ConnectFilters(playgraph, file, demux))) {
-				MessageBox(NULL, TEXT("FAILED connecting file to demux"), TEXT("FAIL"), MB_OK);
+			hr = AddFilterByCLSID(playgraph, CLSID_DSoundRender, &dsound, L"DSound");
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED adding DSound"), TEXT("FAIL"), MB_OK);
 				success = false;
 			}
 		}
 
 		if (success) {
-			if (FAILED(ConnectFilters(playgraph, demux, decoder))) {
-				MessageBox(NULL, TEXT("FAILED connecting demux to decoder"), TEXT("FAIL"), MB_OK);
+			hr = file->QueryInterface(IID_IFileSourceFilter, (void**)&filesource);
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED IID_IFileSourceFilter"), TEXT("FAIL"), MB_OK);
 				success = false;
 			}
 		}
 
 		if (success) {
-			if (FAILED(ConnectFilters(playgraph, decoder, dsound))) {
-				MessageBox(NULL, TEXT("FAILED connecting decoder to sound device"), TEXT("FAIL"), MB_OK);
+			hr = filesource->Load(ogg.c_str(), NULL);
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED loading file"), ogg.c_str(), MB_OK);
 				success = false;
 			}
 		}
 
+		if (success) {
+			hr = ConnectFilters(playgraph, file, demux);
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED Connect filters1"), TEXT("FAIL"), MB_OK);
+				success = false;
+			}
+		}
+
+		if (success) {
+			hr = ConnectFilters(playgraph, demux, decoder);
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED Connect filters2"), TEXT("FAIL"), MB_OK);
+				success = false;
+			}
+		}
+
+		if (success) {
+			hr = ConnectFilters(playgraph, decoder, dsound);
+			if (FAILED(hr)) {
+				MessageBox(NULL, TEXT("FAILED Connect filters3"), TEXT("FAIL"), MB_OK);
+				success = false;
+			}
+		}
 
 		if (success) {
 			playgraph->QueryInterface(IID_IMediaControl, (void **)&playControl);
@@ -1633,9 +1652,22 @@ void PlaySelected() {
 		end = ((*max)->timestamp) * (LONGLONG)10000;
 	}
 
-	playControl->Stop();
-	playSeeking->SetPositions(&start, AM_SEEKING_AbsolutePositioning, &end, AM_SEEKING_AbsolutePositioning);
-	playControl->Run();
+	if (end > start) {
+		//MessageBox(NULL, (std::to_wstring(start / 10000) + TEXT(" : ") + std::to_wstring(end / 10000)).c_str(), TEXT("TIMES"), MB_OK);
+		//end = end - start;
+		playControl->Pause();
+		playControl->Stop();
+		if (FAILED(playSeeking->SetPositions(&start, AM_SEEKING_AbsolutePositioning, &end, AM_SEEKING_AbsolutePositioning))) {
+			MessageBox(NULL, TEXT("CAN'T SEEK!!"), TEXT("TIMES"), MB_OK);
+		}
+		UINT_PTR id = 0;
+		SetTimer(projectdata.dlg, id, (end - start) / 10000, NULL);
+		playControl->Run();
+		playSeeking->GetPositions(&start, &end);
+		start = start / 10000;
+		end = end / 10000;
+		//MessageBox(NULL, (std::to_wstring(start) + TEXT(" : ") + std::to_wstring(end)).c_str(), TEXT("TIMES"), MB_OK);
+	}
 }
 
 
@@ -1834,6 +1866,13 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 	NMHDR* hdr;
 
 	switch (uMsg) {
+	case WM_TIMER:
+	{
+		if (playControl != NULL) {
+			playControl->Pause();
+			playControl->Stop();
+		}
+	}
 	case WM_ACTIVATE:
 		if (wParam == 0) {
 			modelesswnd = NULL;

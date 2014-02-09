@@ -13,6 +13,7 @@ Currently the Gemini, Passport, and Stentura serial modes are untested
 #### But it does have the following features:
 
 Built-in dictionary look up as you type, with two search modes<br>
+Integrated audio recording and playback synchronized with your writing -- audio files saved as a reasonably sized .ogg<br>
 Built-in project viewer/editor--create and edit text in a more natural way<br>
 Built-in dictionary viewer/editor<br>
 Comes with a simple steno tutor program<br>
