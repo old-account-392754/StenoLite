@@ -54,6 +54,7 @@ void EndThreads() {
 		running = false;
 		SetEvent(shutoff);
 		WaitForSingleObject(handoff, INFINITE);
+		WaitForSingleObject(shutoff, 1); // to ensure that the shutoff event is reset
 		CloseHandle(com);
 	}
 }
@@ -146,18 +147,36 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 	response->length = 0;
 	request->seq = seq;
 
-	WriteFile(com, request, request->length, NULL, &overlap);
-	WaitForMultipleObjects(2, harray, FALSE, INFINITE);
-	GetOverlappedResult(com, &overlap, &read, FALSE);
-
-	if (read < request->length) {
-		MessageBox(NULL, (std::to_wstring(read) + tstring(TEXT(": ")) + TEXT("Unable to send full request")).c_str(), TEXT("Error"), MB_OK);
-		return false;
+	if (!WriteFile(com, request, request->length, NULL, &overlap)) {
+		DWORD err = GetLastError();
+		if (err != ERROR_IO_PENDING) {
+			TCHAR lpMsgBuf[500] = TEXT("\0");
+			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), lpMsgBuf, 500, NULL);
+			MessageBox(NULL, (tstring(TEXT("WriteFile Error: ")) + lpMsgBuf).c_str(), (TEXT("Error ") + std::to_wstring(err)).c_str(), MB_OK);
+			return false;
+		}
 	}
+
+	WaitForMultipleObjects(2, harray, FALSE, INFINITE);
 
 	if (!running) {
 		return false;
 	}
+
+	if (GetOverlappedResult(com, &overlap, &read, FALSE)) {
+		if (read < request->length) {
+			MessageBox(NULL, (std::to_wstring(read) + tstring(TEXT(": ")) + TEXT("Unable to send full request")).c_str(), TEXT("Error"), MB_OK);
+			return false;
+		}
+	}
+	else {
+		DWORD err = GetLastError();
+		TCHAR lpMsgBuf[500] = TEXT("\0");
+		FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), lpMsgBuf, 500, NULL);
+		MessageBox(NULL, (tstring(TEXT("Error: ")) + lpMsgBuf).c_str(), (TEXT("Error ") + std::to_wstring(err)).c_str(), MB_OK);
+		return false;
+	}
+
 
 	read = 0;
 	do{
@@ -215,9 +234,11 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 		return false;
 	}
 
-	if (retries == 3 && !first) {
+	if (retries == 3) {
 		//refused to respond
 		// like plover, we now ignore a failure to respond to an open request
+		if (first)
+			return true;
 		MessageBox(NULL, TEXT("Stentura refused to respond to request"), TEXT("Error"), MB_OK);
 		running = false;
 		return false;
@@ -644,6 +665,7 @@ HANDLE openCom(tstring port, int baud, int timeoutms) {
 			COMMTIMEOUTS timeouts;
 			memset(&timeouts, 0, sizeof(timeouts));
 			timeouts.ReadTotalTimeoutConstant = timeoutms;
+			timeouts.WriteTotalTimeoutConstant = timeoutms;
 			SetCommTimeouts(com, &timeouts);
 
 			running = true;

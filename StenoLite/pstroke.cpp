@@ -869,6 +869,9 @@ void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>:
 	}
 }
 
+bool iswhitespace(TCHAR c) {
+	return c == TEXT(' ') || c == TEXT('\t') || c == TEXT('\r') || c == TEXT('\n');
+}
 
 tstring grabWordText(std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target) {
 	auto temp = insert;
@@ -876,7 +879,7 @@ tstring grabWordText(std::list<singlestroke*>::iterator &insert, std::list<singl
 	textoutput* prev = NULL;
 	while (temp != target->cend()) {
 		if ((*temp)->textout != (*insert)->textout && (*temp)->textout->text.length() > 0) {
-			if ((*temp)->textout->text[(*temp)->textout->text.length() - 1] == TEXT(' ')) {
+			if (iswhitespace((*temp)->textout->text[(*temp)->textout->text.length() - 1])) {
 				break;
 			}
 		}
@@ -890,7 +893,7 @@ tstring grabWordText(std::list<singlestroke*>::iterator &insert, std::list<singl
 		}
 
 		if (result.length() > 0) {
-			if (result[0] == TEXT(' ')) {
+			if (iswhitespace(result[0])) {
 				break;
 			}
 		}
@@ -1261,12 +1264,8 @@ void processSingleStroke(unsigned __int8* stroke, ULONGLONG& thetime) {
 
 		if (projectdata.reloading) {
 
-		} else if (projectdata.paused) {
-			//thetime = projectdata.pausetick - projectdata.starttick;
-			thetime = ExposePosition();
-		}
+		} 
 		else {
-			//thetime = GetTickCount64() - projectdata.starttick;
 			thetime = ExposePosition();
 		}
 
@@ -1593,7 +1592,7 @@ DWORD WINAPI processStrokes(LPVOID lpParam)
 
 			if (sharedData->currentd != NULL) {
 				WaitForSingleObject(sharedData->lockprocessing, INFINITE);
-				ULONGLONG thetime = GetTickCount64();
+				ULONGLONG thetime = 0;
 				processSingleStroke(cstroke.ival, thetime);
 				ReleaseMutex(sharedData->lockprocessing);
 

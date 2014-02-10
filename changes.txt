@@ -1,3 +1,7 @@
+0.9.7
+fixed XP compatibility problem
+added more informative error messages
+
 0.9.6
 Added audio sync, recording and playback
 tweaks to the Stentura protocol
