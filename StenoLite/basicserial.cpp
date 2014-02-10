@@ -142,11 +142,6 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 	memset(&overlap, 0, sizeof(overlap));
 	overlap.hEvent = readevent;
 
-	response->seq = 0;
-	response->action = 0;
-	response->length = 0;
-	request->seq = seq;
-
 	if (!WriteFile(com, request, request->length, NULL, &overlap)) {
 		DWORD err = GetLastError();
 		if (err != ERROR_IO_PENDING) {
@@ -665,7 +660,7 @@ HANDLE openCom(tstring port, int baud, int timeoutms) {
 			COMMTIMEOUTS timeouts;
 			memset(&timeouts, 0, sizeof(timeouts));
 			timeouts.ReadTotalTimeoutConstant = timeoutms;
-			timeouts.WriteTotalTimeoutConstant = timeoutms;
+			//timeouts.WriteTotalTimeoutConstant = timeoutms;
 			SetCommTimeouts(com, &timeouts);
 
 			running = true;

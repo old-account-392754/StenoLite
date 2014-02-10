@@ -1,3 +1,6 @@
+0.9.8
+Fixed a really stupid bug with the Stentura
+
 0.9.7
 fixed XP compatibility problem
 added more informative error messages

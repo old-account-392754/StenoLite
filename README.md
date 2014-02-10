@@ -1,7 +1,7 @@
 # StenoLite
 
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.7-beta/StenoLiteSetup.msi">Latest installer</a><br>
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.7-beta/StenoLite097.zip">Mobile version</a><br>
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.8-beta/StenoLiteSetup.msi">Latest installer</a><br>
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.8-beta/StenoLite097.zip">Mobile version</a><br>
 <br>
 Originally a <a href="http://github.com/plover/plover">plover</a> clone; you can import/convert your plover dictionary.
 
