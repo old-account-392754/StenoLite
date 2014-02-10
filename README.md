@@ -1,7 +1,7 @@
 # StenoLite
 
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.5-beta/StenoLiteSetup.msi">Latest installer</a><br>
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.5-beta/StenoLite095.zip">Mobile version</a><br>
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.6-beta/StenoLiteSetup.msi">Latest installer</a><br>
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.6-beta/StenoLite096.zip">Mobile version</a><br>
 <br>
 Originally a <a href="http://github.com/plover/plover">plover</a> clone; you can import/convert your plover dictionary.
 
@@ -27,8 +27,7 @@ Push and pop commands: use a single stroke for closing quotations, parenthesis, 
 ### Upcoming Features
 
 More bug fixes (as bugs are found)<br>
-Audio recording, synchronization, and playback<br>
-Live broadcast of text
+Live broadcast of text over http
 
 ### Desired Features (but not currently under development)
 

@@ -446,8 +446,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 		SendMessage(controls.rdfront, BM_SETCHECK, BST_CHECKED, 0);
 	}
 
-	controls.inited = TRUE;
 	setMode(settings.mode);
+	controls.inited = TRUE;
+	
 	//SetWindowsHookEx(WH_KEYBOARD_LL, ,0);
 	/* A P-K- A A A A P- it 3-#-#-2-ST-P-S-
 	UINT nDevices;

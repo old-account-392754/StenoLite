@@ -6,6 +6,7 @@
 #include <string>
 #include "texthelpers.h"
 #include "basicserial.h"
+#include "resource.h"
 
 void setDictionary(dictionary* d) {
 	bool send = false;
@@ -35,6 +36,32 @@ void setDictionary(dictionary* d) {
 	}
 	
 	sharedData.currentd = d;
+}
+
+INT_PTR CALLBACK ComSettings(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wParam, _In_  LPARAM lParam) {
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+		SetWindowText(GetDlgItem(hwndDlg, IDC_COMPORT), settings.port.c_str());
+		return TRUE;
+	case WM_CLOSE:
+		EndDialog(hwndDlg, IDCANCEL);
+		return TRUE;
+	case WM_COMMAND:
+		if (HIWORD(wParam) == BN_CLICKED) {
+			switch (LOWORD(wParam))
+			{
+			case IDOK:
+				settings.port = getWinStr(GetDlgItem(hwndDlg, IDC_COMPORT));
+				EndDialog(hwndDlg, IDOK);
+				return TRUE;
+			case IDCANCEL:
+				EndDialog(hwndDlg, IDCANCEL);
+				return TRUE;
+			}
+		}
+	}
+	return FALSE;
 }
 
 void setMode(int mode) {
@@ -103,41 +130,65 @@ void setMode(int mode) {
 		}
 	}
 	else if (cmode == 3) {
-		//open with a .5 sec read timeout
-		if (openCom(settings.port, CBR_9600, 500) != INVALID_HANDLE_VALUE) {
-			CreateThread(NULL, 0, TXBolt, NULL, 0, NULL);
+		int result = IDOK;
+		if (controls.inited) {
+			result = DialogBox((HINSTANCE)GetWindowLong(controls.main, GWL_HINSTANCE), MAKEINTRESOURCE(IDD_COM), controls.main, ComSettings);
 		}
-		else {
-			cmode = 0;
-			SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+		if (result == IDOK) {
+			//open with a .5 sec read timeout
+			if (openCom(settings.port, CBR_9600, 500) != INVALID_HANDLE_VALUE) {
+				CreateThread(NULL, 0, TXBolt, NULL, 0, NULL);
+			}
+			else {
+				cmode = 0;
+				SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+			}
 		}
 	}
 	else if (cmode == 4) {
-		if (openCom(settings.port, CBR_38400) != INVALID_HANDLE_VALUE) {
-			CreateThread(NULL, 0, Passport, NULL, 0, NULL);
+		int result = IDOK;
+		if (controls.inited) {
+			result = DialogBox((HINSTANCE)GetWindowLong(controls.main, GWL_HINSTANCE), MAKEINTRESOURCE(IDD_COM), controls.main, ComSettings);
 		}
-		else {
-			cmode = 0;
-			SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+		if (result == IDOK) {
+			if (openCom(settings.port, CBR_38400) != INVALID_HANDLE_VALUE) {
+				CreateThread(NULL, 0, Passport, NULL, 0, NULL);
+			}
+			else {
+				cmode = 0;
+				SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+			}
 		}
 	}
 	else if (cmode == 5) {
-		if (openCom(settings.port, CBR_9600) != INVALID_HANDLE_VALUE) {
-			CreateThread(NULL, 0, Gemini, NULL, 0, NULL);
+		int result = IDOK;
+		if (controls.inited) {
+			result = DialogBox((HINSTANCE)GetWindowLong(controls.main, GWL_HINSTANCE), MAKEINTRESOURCE(IDD_COM), controls.main, ComSettings);
 		}
-		else {
-			cmode = 0;
-			SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+		if (result == IDOK) {
+			if (openCom(settings.port, CBR_9600) != INVALID_HANDLE_VALUE) {
+				CreateThread(NULL, 0, Gemini, NULL, 0, NULL);
+			}
+			else {
+				cmode = 0;
+				SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+			}
 		}
 	}
 	else if (cmode == 6) {
-		// open with a 1.5 second time out
-		if (openCom(settings.port, CBR_9600, 1500) != INVALID_HANDLE_VALUE) {
-			CreateThread(NULL, 0, Stentura, NULL, 0, NULL);
+		int result = IDOK;
+		if (controls.inited) {
+			result = DialogBox((HINSTANCE)GetWindowLong(controls.main, GWL_HINSTANCE), MAKEINTRESOURCE(IDD_COM), controls.main, ComSettings);
 		}
-		else {
-			cmode = 0;
-			SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+		if (result == IDOK) {
+			// open with a 1.5 second time out
+			if (openCom(settings.port, CBR_9600, 1500) != INVALID_HANDLE_VALUE) {
+				CreateThread(NULL, 0, Stentura, NULL, 0, NULL);
+			}
+			else {
+				cmode = 0;
+				SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
+			}
 		}
 	}
 }

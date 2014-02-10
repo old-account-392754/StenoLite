@@ -1,4 +1,8 @@
 0.9.6
+Added audio sync, recording and playback
+tweaks to the Stentura protocol
+added pop-up to choose com port
+fixed carriage return bug in project viewer
 minor bug fixes
 
 0.9.5

@@ -22,6 +22,7 @@
 
 pdata projectdata;
 #define STROKES  "#####STROKES#####"
+#define FILES  "#####FILES#####"
 HINSTANCE instance;
 
 void saveProject(const tstring &file) {
@@ -68,6 +69,13 @@ void saveProject(const tstring &file) {
 			writestr(hfile, "\r\n");
 
 			result = startcursor->get(startcursor, &keyin, &strin, DB_NEXT);
+		}
+
+		writestr(hfile, FILES);
+		writestr(hfile, "\r\n");
+		for (auto i = projectdata.filetimes.cbegin(); i != projectdata.filetimes.cend(); i++) {
+			writestr(hfile, std::to_string(*i));
+			writestr(hfile, "\r\n");
 		}
 
 		writestr(hfile, STROKES);
@@ -481,6 +489,7 @@ done:
 
 
 IMediaControl *recControl = NULL;
+IMediaSeeking *recSeeking = NULL;
 IMediaEvent   *recEvent = NULL;
 IGraphBuilder *recgraph = NULL;
 
@@ -762,8 +771,11 @@ INT_PTR CALLBACK ChooseAudio(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM w
 	return FALSE;
 }
 
-void InitRecording()
+void InitRecording(int filenumber)
 {
+	if (filenumber < 1)
+		return;
+
 	IEnumMoniker *pEnum;
 	HRESULT hr = EnumerateDevices(CLSID_AudioInputDeviceCategory, &pEnum);
 	if (SUCCEEDED(hr))
@@ -783,7 +795,7 @@ void InitRecording()
 
 					// Create the Filter Graph Manager.
 					if (FAILED(CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void**)&recgraph))) {
-						MessageBox(NULL, TEXT("FAILED creating recording graph"), TEXT("FAIL"), MB_OK);
+						MessageBox(NULL, TEXT("Unexpected failure -- Direct Show may not be installed or configured correctly"), TEXT("FAIL"), MB_OK);
 						success = false;
 					}
 
@@ -813,10 +825,15 @@ void InitRecording()
 								success = false;
 							}
 							else {
-								tstring temp = projectdata.file;
-								temp = temp.replace(temp.find(TEXT(".prj")), 4, TEXT(".ogg"));
-								temp += TEXT(".tmp");
-								sink->SetFileName(temp.c_str(), NULL);
+								tstring ogg = projectdata.file;
+								ogg.pop_back();
+								ogg.pop_back();
+								ogg.pop_back();
+								ogg.pop_back();
+								ogg += TEXT("_pt");
+								ogg += std::to_wstring(filenumber);
+								ogg += TEXT(".ogg");
+								sink->SetFileName(ogg.c_str(), NULL);
 							}
 							SafeRelease(&sink);
 						}
@@ -839,6 +856,7 @@ void InitRecording()
 					if (success) {
 						recgraph->QueryInterface(IID_IMediaControl, (void **)&recControl);
 						recgraph->QueryInterface(IID_IMediaEvent, (void **)&recEvent);
+						recgraph->QueryInterface(IID_IMediaSeeking, (void **)&recSeeking);
 					}
 
 
@@ -849,6 +867,7 @@ void InitRecording()
 					if (!success) {
 						SafeRelease(&recControl);
 						SafeRelease(&recEvent);
+						SafeRelease(&recSeeking);
 						SafeRelease(&recgraph);
 					}
 					else {
@@ -856,8 +875,10 @@ void InitRecording()
 							MessageBox(NULL, TEXT("Error starting audio capture"), TEXT("FAIL"), MB_OK);
 						}
 						else {
-							projectdata.starttick = GetTickCount64()-projectdata.exisistingtime;
+							//projectdata.starttick = GetTickCount64() - projectdata.filetimes[filenumber - 1];
 							projectdata.paused = false;
+
+							//projectdata.filetimes.push_back(projectdata.starttick);
 
 							HANDLE ico = LoadImage(instance, MAKEINTRESOURCE(IDI_RUN), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
 							SendMessage(projectdata.dlg, WM_SETICON, FALSE, (LPARAM)ico);
@@ -880,42 +901,6 @@ void InitRecording()
 	MessageBox(NULL, TEXT("Could not find audio recording devices"), TEXT("Error"), MB_OK);
 }
 
-#define FILE_BUFFER_SIZE 1024
-
-void CopyDelTemp(const tstring &prjfile) {
-	tstring ogg = prjfile;
-	ogg = ogg.replace(ogg.find(TEXT(".prj")), 4, TEXT(".ogg"));
-
-	tstring temp = prjfile;
-	temp = temp.replace(temp.find(TEXT(".prj")), 4, TEXT(".ogg"));
-	temp += TEXT(".tmp");
-
-
-
-	HANDLE tempfile = CreateFile(temp.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
-	if (tempfile != INVALID_HANDLE_VALUE) {
-
-		HANDLE oggfile = CreateFile(ogg.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, 0, NULL);
-		if (oggfile != INVALID_HANDLE_VALUE) {
-			SetFilePointer(oggfile, 0, NULL, FILE_END);
-
-			BYTE buffer[FILE_BUFFER_SIZE];
-			DWORD read;
-			ReadFile(tempfile, buffer, FILE_BUFFER_SIZE, &read, NULL);
-			while (read > 0) {
-				DWORD temp;
-				WriteFile(oggfile, buffer, read, &temp, NULL);
-				ReadFile(tempfile, buffer, FILE_BUFFER_SIZE, &read, NULL);
-			}
-
-			CloseHandle(oggfile);
-		}
-
-		CloseHandle(tempfile);
-		DeleteFile(temp.c_str());
-	}
-	
-}
 
 void PauseRecording() {
 	if (!projectdata.paused) {
@@ -925,7 +910,7 @@ void PauseRecording() {
 					MessageBox(NULL, TEXT("Error pausing audio capture"), TEXT("FAIL"), MB_OK);
 				}
 				else {
-					projectdata.pausetick = GetTickCount64();
+					//projectdata.pausetick = GetTickCount64();
 					projectdata.paused = true;
 
 					MENUITEMINFO menuinfo;
@@ -948,7 +933,7 @@ void PauseRecording() {
 				MessageBox(NULL, TEXT("Error starting audio capture"), TEXT("FAIL"), MB_OK);
 			}
 			else {
-				projectdata.starttick += GetTickCount64() - projectdata.pausetick;
+				//projectdata.starttick += GetTickCount64() - projectdata.pausetick;
 				projectdata.paused = false;
 
 				MENUITEMINFO menuinfo;
@@ -971,9 +956,29 @@ IMediaEvent   *playEvent = NULL;
 IMediaSeeking *playSeeking = NULL;
 IGraphBuilder *playgraph = NULL;
 
-void LoadPlayback(const tstring& prjfile) {
+unsigned int getfilenumber(const ULONGLONG &time) {
+	for (unsigned int i = 1; i < projectdata.filetimes.size(); i++) {
+		if (time < projectdata.filetimes[i]) {
+			return i;
+		}
+	}
+ 
+	return 0;
+}
+
+void LoadPlayback(const tstring& prjfile, int filenumber) {
+	
+	if (filenumber < 1)
+		return;
+
 	tstring ogg = prjfile;
-	ogg = ogg.replace(ogg.find(TEXT(".prj")), 4, TEXT(".ogg"));
+	ogg.pop_back();
+	ogg.pop_back();
+	ogg.pop_back();
+	ogg.pop_back();
+	ogg += TEXT("_pt");
+	ogg += std::to_wstring(filenumber);
+	ogg += TEXT(".ogg");
 
 	if (GetFileAttributes(ogg.c_str()) != INVALID_FILE_ATTRIBUTES) {
 		IBaseFilter *file = NULL, *demux = NULL, *decoder = NULL, *dsound = NULL;
@@ -986,7 +991,7 @@ void LoadPlayback(const tstring& prjfile) {
 
 		hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void**)&playgraph);
 		if (FAILED(hr)) {
-			MessageBox(NULL, TEXT("FAILED creating filer graph"), TEXT("FAIL"), MB_OK);
+			MessageBox(NULL, TEXT("Unexpected failure -- Direct Show may not be installed or configured correctly"), TEXT("FAIL"), MB_OK);
 			success = false;
 		}
 
@@ -1081,21 +1086,12 @@ void LoadPlayback(const tstring& prjfile) {
 			SafeRelease(&playSeeking);
 		}
 		else {
-			playSeeking->SetTimeFormat(&TIME_FORMAT_MEDIA_TIME);
-			LONGLONG duration;
-			if (FAILED(playSeeking->GetDuration(&duration))) {
-				MessageBox(NULL, TEXT("Could not get duration of existing media file"), TEXT("Error"), MB_OK);
-			}
-			else {
-				projectdata.exisistingtime = duration / (ULONGLONG)10000;
-				projectdata.pausetick = GetTickCount64();
-				projectdata.starttick = projectdata.pausetick - projectdata.exisistingtime;
-			}
+			//anything to do on loading?
 		}
 	}
 }
 
-void RegisterDelete(int n, const time_t &thetime) {
+void RegisterDelete(int n, const ULONGLONG &thetime) {
 	if (n < 0)
 		return;
 
@@ -1116,7 +1112,15 @@ void RegisterDef(tstring stroke, tstring val) {
 	}
 }
 
-void RegisterStroke(unsigned _int8* stroke, int n, const time_t &thetime) {
+void RegisterFile(const ULONGLONG &time) {
+	if (projectdata.realtime != NULL) {
+		writestr(projectdata.realtime, "\r\nF ");
+		writestr(projectdata.realtime, std::to_string(time));
+		writestr(projectdata.realtime, " F");
+	}
+}
+
+void RegisterStroke(unsigned _int8* stroke, int n, const ULONGLONG &thetime) {
 	if (n < 0)
 		return;
 
@@ -1165,6 +1169,9 @@ void reRealtime() {
 
 	projectdata.realtime = CreateFile(realtime.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
+	for (auto i = projectdata.filetimes.cbegin(); i != projectdata.filetimes.cend(); i++) {
+		RegisterFile(*i);
+	}
 
 	if (projectdata.realtime != INVALID_HANDLE_VALUE) {
 
@@ -1232,6 +1239,9 @@ void LoadRealtime() {
 	DWORD bytes;
 	std::string cline("");
 
+	ULONGLONG latest = 0;
+	projectdata.filetimes.push_back(0);
+
 	int totalb = 0;
 	ReadFile(projectdata.realtime, &c, 1, &bytes, NULL);
 	while (bytes > 0) {
@@ -1257,11 +1267,16 @@ void LoadRealtime() {
 				else if (m[1].str().compare("D") == 0) {
 					delat(slist, atoi(m[3].str().c_str()));
 				}
+				else if (m[1].str().compare("F") == 0) {
+					projectdata.filetimes.push_back(_atoi64(m[2].str().c_str()));
+				}
 				else {
-					//unsigned __int8 sbuf[4];
 					stroke ns;
 					textToStroke(strtotstr(m[3].str()), ns.sval, sharedData.currentd->format);
 					ns.timestamp = _atoi64(m[2].str().c_str());
+					if (ns.timestamp > latest) {
+						latest = ns.timestamp;
+					}
 					addat(slist, atoi(m[1].str().c_str()), ns);
 
 					//MessageBox(NULL, TEXT("ADD"), TEXT("ADD"), MB_OK);
@@ -1290,21 +1305,25 @@ void LoadRealtime() {
 		else if (m[1].str().compare("D") == 0) {
 			delat(slist, atoi(m[3].str().c_str()));
 		}
+		else if (m[1].str().compare("F") == 0) {
+			projectdata.filetimes.push_back(_atoi64(m[2].str().c_str()));
+		}
 		else {
-			//unsigned __int8 sbuf[4];
 			stroke ns;
 			textToStroke(strtotstr(m[3].str()), ns.sval, sharedData.currentd->format);
 			ns.timestamp = _atoi64(m[2].str().c_str());
+			if (ns.timestamp > latest) {
+				latest = ns.timestamp;
+			}
 			addat(slist, atoi(m[1].str().c_str()), ns);
-
-			//MessageBox(NULL, TEXT("ADD"), TEXT("ADD"), MB_OK);
 		}
 	}
 
-	tstring prj = projectdata.file;
-	prj = prj.replace(prj.find(TEXT(".srf")), 4, TEXT(".prj"));
-	CopyDelTemp(prj);
-
+	
+	if (latest > projectdata.filetimes[projectdata.filetimes.size() - 1]) {
+		projectdata.filetimes.push_back(latest);
+	}
+	
 	projectdata.reloading = true;
 
 	HANDLE rtback = projectdata.realtime;
@@ -1324,7 +1343,7 @@ void LoadRealtime() {
 	ReleaseMutex(sharedData.lockprocessing);
 }
 
-void ProcessItem(std::string &cline, textoutput* &last, bool &matchdict, DB_TXN* trans) {
+void ProcessItem(std::string &cline, textoutput* &last, bool &matchdict, bool &matchfile,  DB_TXN* trans) {
 	const static std::regex parsedict("^(\\S+?)\\s(.*)$");
 	const static std::regex parsefull("^(\\S+?)\\s(\\S+?)\\s(\\S+?)\\s(.*)$");
 	const static std::regex parsestroke("^(\\S+?)\\s(\\S+?)$");
@@ -1332,6 +1351,14 @@ void ProcessItem(std::string &cline, textoutput* &last, bool &matchdict, DB_TXN*
 
 	if (cline.compare(STROKES) == 0) {
 		matchdict = false;
+		matchfile = false;
+	}
+	else if (cline.compare(FILES) == 0) {
+		matchdict = false;
+		matchfile = true;
+	}
+	else if (matchfile) {
+		projectdata.filetimes.push_back(_atoi64(cline.c_str()));
 	}
 	else if (matchdict) {
 		if (std::regex_match(cline.c_str(), m, parsedict)) {
@@ -1411,6 +1438,8 @@ bool loadProject(const tstring &file) {
 	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
 	
 	bool matchdict = true;
+	bool files = false;
+	projectdata.filetimes.clear();
 
 	if (hfile != INVALID_HANDLE_VALUE) {
 
@@ -1442,14 +1471,14 @@ bool loadProject(const tstring &file) {
 			std::string::size_type r = cline.find("\n");
 			if (r != std::string::npos) {
 				cline.erase(r, 1);
-				ProcessItem(cline, last, matchdict, trans);
+				ProcessItem(cline, last, matchdict, files, trans);
 				cline.clear();
 
 			}
 			ReadFile(hfile, &c, 1, &bytes, NULL);
 		}
 
-		ProcessItem(cline, last, matchdict, trans);
+		ProcessItem(cline, last, matchdict, files, trans);
 
 		trans->commit(trans, 0);
 		CloseHandle(hfile);
@@ -1621,15 +1650,14 @@ int StrokeFromTextIndx(unsigned int txtindex) {
 
 
 void PlaySelected() {
-	if (playSeeking == NULL || playControl == NULL)
-		return;
+	
+	CHARRANGE crngb;
+	SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
+	int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMin);
+	int lineb = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMax);
 
-	CHARRANGE crng;
-
-	SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXGETSEL, NULL, (LPARAM)&crng);
-
-	auto max = GetItemByText(crng.cpMax);
-	auto min = GetItemByText(crng.cpMin);
+	auto max = GetItem(lineb);
+	auto min = GetItem(line);
 
 	LONGLONG start = 0;
 	LONGLONG end = 0;
@@ -1662,22 +1690,67 @@ void PlaySelected() {
 	}
 
 	if (end > start) {
-		playControl->Pause();
-		playControl->Stop();
-		if (FAILED(playSeeking->SetPositions(&start, AM_SEEKING_AbsolutePositioning, &end, AM_SEEKING_AbsolutePositioning))) {
-			//MessageBox(NULL, TEXT("Seeking Failed"), TEXT("Error"), MB_OK);
-			//this is really dumb, but it is the only way we can seek backwards -- break down and rebuild the graph
+		if (playSeeking != NULL && playControl != NULL) {
+			playControl->Pause();
+			playControl->Stop();
+		}
+		int filenum = getfilenumber(start / 10000);
+		if (filenum == 0)
+			return;
+
+		if (filenum != projectdata.currentfile) {
 			SafeRelease(&playgraph);
 			SafeRelease(&playControl);
 			SafeRelease(&playEvent);
 			SafeRelease(&playSeeking);
-			LoadPlayback(projectdata.file);
-		}
-		else {
+			LoadPlayback(projectdata.file, filenum);
+
+			projectdata.currentfile = filenum;
+
+			if (playSeeking == NULL || playControl == NULL) {
+				projectdata.currentfile = 0;
+				return;
+			}
+
+			start -= projectdata.filetimes[filenum - 1] * 10000;
+			end -= projectdata.filetimes[filenum - 1] * 10000;
+
+			playSeeking->SetPositions(&start, AM_SEEKING_AbsolutePositioning, &end, AM_SEEKING_AbsolutePositioning);
+
 			UINT_PTR id = 0;
-			// because setting the stop position ... doesn't actually work -- a common problem with the ogg libraries for some reason
 			SetTimer(projectdata.dlg, id, (end - start) / 10000, NULL);
 			playControl->Run();
+		}
+		else {
+			start -= projectdata.filetimes[filenum-1] * 10000;
+			end -= projectdata.filetimes[filenum-1] * 10000;
+
+			if (FAILED(playSeeking->SetPositions(&start, AM_SEEKING_AbsolutePositioning, &end, AM_SEEKING_AbsolutePositioning))) {
+				//MessageBox(NULL, TEXT("Seeking Failed"), TEXT("Error"), MB_OK);
+				//this is really dumb, but it is the only way we can seek backwards -- break down and rebuild the graph
+				SafeRelease(&playgraph);
+				SafeRelease(&playControl);
+				SafeRelease(&playEvent);
+				SafeRelease(&playSeeking);
+				LoadPlayback(projectdata.file, filenum);
+
+				if (playSeeking == NULL || playControl == NULL) {
+					projectdata.currentfile = 0;
+					return;
+				}
+
+				playSeeking->SetPositions(&start, AM_SEEKING_AbsolutePositioning, &end, AM_SEEKING_AbsolutePositioning);
+
+				UINT_PTR id = 0;
+				SetTimer(projectdata.dlg, id, (end - start) / 10000, NULL);
+				playControl->Run();
+			}
+			else {
+				UINT_PTR id = 0;
+				// because setting the stop position ... doesn't actually work -- a common problem with the ogg libraries for some reason
+				SetTimer(projectdata.dlg, id, (end - start) / 10000, NULL);
+				playControl->Run();
+			}
 		}
 	}
 }
@@ -1692,6 +1765,7 @@ LRESULT CALLBACK StrokeList(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, 
 	case WM_KEYDOWN:
 	case WM_KEYUP:
 	case WM_CHAR:
+	case WM_LBUTTONDBLCLK:
 		return 0;
 	case WM_LBUTTONDOWN:
 		SetCapture(hWnd);
@@ -1776,6 +1850,7 @@ LRESULT CALLBACK MainText(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UI
 	case WM_KEYDOWN:
 	case WM_KEYUP:
 	case WM_CHAR:
+	case WM_LBUTTONDBLCLK:
 		return 0;
 	case WM_LBUTTONDOWN:
 		SetCapture(hWnd);
@@ -1923,20 +1998,26 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 		projectdata.open = false;
 		projectdata.dlg = NULL;
 		inputstate.redirect = NULL;
-		saveProject(projectdata.file);
-		projectdata.d->close();
 
 		if (playControl != NULL) {
+			playControl->Pause();
 			playControl->Stop();
 		}
 
 		if (recControl != NULL) {
+			ULONGLONG thetime = ExposePosition();
+
 			recControl->Pause();
 			recControl->Stop();
+
+			projectdata.filetimes.push_back(thetime);
+			
+			RegisterFile(thetime);
 		}
-		
+
 		SafeRelease(&recControl);
 		SafeRelease(&recEvent);
+		SafeRelease(&recSeeking);
 		SafeRelease(&recgraph);
 
 		SafeRelease(&playgraph);
@@ -1944,8 +2025,12 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 		SafeRelease(&playEvent);
 		SafeRelease(&playSeeking);
 
+
+		saveProject(projectdata.file);
+		projectdata.d->close();
+
+		
 		Sleep(20);
-		CopyDelTemp(projectdata.file);
 
 		CloseHandle(projectdata.realtime);
 		
@@ -1965,6 +2050,12 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 							  MessageBox(NULL, TEXT("Unable to open project's dictionary"), TEXT("Error"), MB_OK);
 
 						 ShowBatch(SW_HIDE);
+
+						 projectdata.settingsel = false;
+						 projectdata.paused = true;
+						 projectdata.reloading = false;
+						 projectdata.autoplayback = false;
+						 projectdata.filetimes.clear();
 						 
 						  PARAFORMAT2 pf;
 						  memset(&pf, 0, sizeof(pf));
@@ -2001,15 +2092,13 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 						  crnew.cpMax = 23;
 						  crnew.cpMin = 23;
 						  SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_EXSETSEL, 0, (LPARAM)&crnew);
-						  //SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_SETEVENTMASK, 0, ENM_SELCHANGE);
-						  //SendMessage(GetDlgItem(hwndDlg, IDC_MAINTEXT), EM_SETEVENTMASK, 0, ENM_SELCHANGE);
 
 						  SetWindowSubclass(GetDlgItem(hwndDlg, IDC_PSTROKELIST), &StrokeList, 1245, NULL);
 						  SetWindowSubclass(GetDlgItem(hwndDlg, IDC_MAINTEXT), &MainText, 1246, NULL);
 
 						  projectdata.strokes.clear();
 
-						  projectdata.starttick = projectdata.pausetick = GetTickCount64();
+						  //projectdata.starttick = projectdata.pausetick = GetTickCount64();
 
 						  projectdata.addingnew = false;
 						  projectdata.open = true;
@@ -2036,10 +2125,13 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 									SetFilePointer(projectdata.realtime, 0, NULL, FILE_END);
 							  }
 
-							  //CopyDelTemp(projectdata.file);
 						  }
 
-						  LoadPlayback(projectdata.file);
+						  if (projectdata.filetimes.size() == 0) {
+							  projectdata.filetimes.push_back(0);
+						  }
+
+						  projectdata.currentfile = 0;
 
 						  POINTL pt;
 						  SendMessage(GetDlgItem(hwndDlg, IDC_PSTROKELIST), EM_POSFROMCHAR, (WPARAM)&pt, 1);
@@ -2077,7 +2169,7 @@ INT_PTR CALLBACK PViewProc(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wPa
 			DialogBox(instance, MAKEINTRESOURCE(IDD_POPTIONS), projectdata.dlg, PlaybackSettings);
 			break;
 		case IDM_REC:
-			InitRecording();
+			InitRecording(projectdata.filetimes.size());
 			break;
 		case IDM_PREC:
 			PauseRecording();
@@ -2247,5 +2339,21 @@ void LaunchProjDlg(HINSTANCE hInst) {
 			ShowWindow(projectdata.dlg, SW_SHOW);
 			SetForegroundWindow(projectdata.dlg);
 		}
+	}
+}
+
+ULONGLONG ExposePosition() {
+	if (projectdata.filetimes.size() == 0) {
+		return 0;
+	}
+	else if (recSeeking == NULL) {
+		return projectdata.filetimes[projectdata.filetimes.size() - 1];
+	}
+	else {
+		LONGLONG position = 0;
+		if (recSeeking->GetCurrentPosition(&position) != S_OK)
+			MessageBox(NULL, TEXT("GetCurrentPosition"), TEXT("ERR"), MB_OK);
+		position /= 10000;
+		return position + projectdata.filetimes[projectdata.filetimes.size() - 1];
 	}
 }

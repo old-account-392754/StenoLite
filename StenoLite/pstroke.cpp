@@ -249,9 +249,9 @@ tstring sendText(tstring fulltext, unsigned __int8 &flags, unsigned __int8 prevf
 
 				index += 2;
 				inescape = false;
-				if (projectdata.open)
-					finaltext += TEXT("\r\n");
-				else
+				//if (projectdata.open)
+				//	finaltext += TEXT("\r\n");
+				//else
 					finaltext += TEXT('\n');
 			}
 			else if (*i == TEXT('b')) {
@@ -1239,6 +1239,18 @@ void processSingleStroke(unsigned __int8* stroke, ULONGLONG& thetime) {
 		return;
 	}
 
+	//command strokes for project viewer only
+	if (inputstate.redirect == NULL && projectdata.open) {
+		if (compare3(stroke, sharedData.currentd->splay)) {
+			PostMessage(projectdata.dlg, WM_COMMAND, IDM_PPLAY, 0);
+			return;
+		}
+		else if (compare3(stroke, sharedData.currentd->srec)) {
+			PostMessage(projectdata.dlg, WM_COMMAND, IDM_PREC, 0);
+			return;
+		}
+	}
+
 	std::list<singlestroke*>* target = &sharedData.strokes;
 	std::list<singlestroke*>::iterator insert = sharedData.strokes.begin();
 	bool multidelete = false;
@@ -1250,18 +1262,25 @@ void processSingleStroke(unsigned __int8* stroke, ULONGLONG& thetime) {
 		if (projectdata.reloading) {
 
 		} else if (projectdata.paused) {
-			thetime = projectdata.pausetick - projectdata.starttick;
+			//thetime = projectdata.pausetick - projectdata.starttick;
+			thetime = ExposePosition();
 		}
 		else {
-			thetime = GetTickCount64() - projectdata.starttick;
+			//thetime = GetTickCount64() - projectdata.starttick;
+			thetime = ExposePosition();
 		}
 
 		CHARRANGE crng;
 
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXGETSEL, NULL, (LPARAM)&crng);
 
-		auto max = GetItemByText(crng.cpMax);
-		auto min = GetItemByText(crng.cpMin);
+		CHARRANGE crngb;
+		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
+		int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMin);
+		int lineb = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMax);
+
+		auto max = GetItem(lineb);
+		auto min = GetItem(line);
 		multidelete = max != min;
 
 		bool nostroke = compare3(stroke, sharedData.currentd->spaste) || compare3(stroke, sharedData.currentd->scut) || compare3(stroke, sharedData.currentd->scopy) || compare3(stroke, sharedData.currentd->sdelete)
@@ -1270,10 +1289,7 @@ void processSingleStroke(unsigned __int8* stroke, ULONGLONG& thetime) {
 		bool nodelete = compare3(stroke, sharedData.currentd->scopy) || compare3(stroke, sharedData.currentd->sleft) || compare3(stroke, sharedData.currentd->sright) || compare3(stroke, sharedData.currentd->sshleft) || compare3(stroke, sharedData.currentd->sshright);
 
 
-		CHARRANGE crngb;
-		SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXGETSEL, NULL, (LPARAM)&crngb);
-		int line = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMin);
-		int lineb = SendMessage(GetDlgItem(projectdata.dlg, IDC_PSTROKELIST), EM_EXLINEFROMCHAR, 0, crngb.cpMax);
+		
 
 		if (compare3(stroke, sharedData.currentd->scut) || compare3(stroke, sharedData.currentd->scopy) || compare3(stroke, sharedData.currentd->sreprocess)) {
 			freeRange(projectdata.clipboard.begin(), projectdata.clipboard.end());

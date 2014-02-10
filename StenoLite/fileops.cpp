@@ -327,9 +327,22 @@ void saveDictSettings(dictionary* d) {
 		writestr(hfile, ttostr(sbuffer));
 		writestr(hfile, "\r\n");
 
+		writestr(hfile, "RECORD = ");
+		sbuffer.clear();
+		stroketocsteno(d->srec, sbuffer, d->format);
+		writestr(hfile, ttostr(sbuffer));
+		writestr(hfile, "\r\n");
+
+		writestr(hfile, "PLAY = ");
+		sbuffer.clear();
+		stroketocsteno(d->splay, sbuffer, d->format);
+		writestr(hfile, ttostr(sbuffer));
+		writestr(hfile, "\r\n");
+
 		writestr(hfile, "ITEMS = ");
 		writestr(hfile, std::to_string(d->items));
 		writestr(hfile, "\r\n");
+
 
 		for (auto it = d->suffix.cbegin(); it != d->suffix.cend(); it++) {
 			writestr(hfile, "SUFFIX = ");
@@ -411,6 +424,12 @@ void strtodsetting(dictionary* d, const std::string& setting, const std::string&
 	else if (setting.compare("ABBREV") == 0) {
 		textToStroke(strtotstr(value), d->sabbrev, d->format);
 	}
+	else if (setting.compare("RECORD") == 0) {
+		textToStroke(strtotstr(value), d->srec, d->format);
+	}
+	else if (setting.compare("PLAY") == 0) {
+		textToStroke(strtotstr(value), d->splay, d->format);
+	}
 	else if (setting.compare("EXTRAS") == 0) {
 		if (std::atoi(value.c_str()) == 1) {
 			d->extras = TRUE;
@@ -447,6 +466,8 @@ void loadDictSettings(dictionary* d, const tstring& file) {
 	textToStroke(tstring(TEXT("-")), d->sshright, d->format);
 	textToStroke(tstring(TEXT("-")), d->sstitch, d->format);
 	textToStroke(tstring(TEXT("-")), d->sabbrev, d->format);
+	textToStroke(tstring(TEXT("-")), d->splay, d->format);
+	textToStroke(tstring(TEXT("-")), d->srec, d->format);
 
 	d->longest = 1;
 	d->lchars = 1;
