@@ -134,7 +134,7 @@ StenturaRequest* CreateRequest(BYTE seq, WORD action, BYTE* data, unsigned int d
 	return result;
 }
 
-bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* response, BYTE* &rdata, bool first = false) {
+bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* response, BYTE* &rdata, bool first = false, bool showerror = false) {
 	HANDLE harray[2] = { readevent, shutoff };
 	OVERLAPPED overlap;
 	DWORD read = 0;
@@ -265,6 +265,7 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 	}
 
 	if (response->seq == seq && response->action == request->action) {
+		
 		//valid response recieved for the request
 		seq++;
 		return true;
@@ -275,6 +276,13 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 			rdata = NULL;
 		}
 		seq++;
+
+		if (showerror) {
+			if (response->seq != (seq-1))
+				MessageBox(NULL, (TEXT("Incorrect packet #: ") + std::to_wstring(seq-1) + TEXT("!=") + std::to_wstring(response->seq)).c_str(), TEXT("Error"), MB_OK);
+			else
+				MessageBox(NULL, (TEXT("Incorrect action: ") + std::to_wstring(request->action) + TEXT("!=") + std::to_wstring(response->action)).c_str(), TEXT("Error"), MB_OK);
+		}
 		return false;
 	}
 }
@@ -307,7 +315,7 @@ bool ReadSFile(BYTE& seq, WORD &block, WORD &bt, std::vector<DWORD>* results) {
 			bt -= 512;
 		}
 		read = CreateRequest(seq, 0xB, NULL, 0, 1, 0, 512, block, bt);
-		result = ReadResponseCyle(seq, read, &response, rdata);
+		result = ReadResponseCyle(seq, read, &response, rdata, false, true);
 	}
 
 
@@ -373,15 +381,15 @@ DWORD WINAPI Stentura(LPVOID lpParam)
 	BYTE seq = 0;
 
 
-	StenturaRequest* open = CreateRequest(seq, 0xA, (BYTE*)REAL_FILE, strnlen_s(REAL_FILE, 100)+1, 'A'); // note - not sending terminating null -- is this correct?
+	StenturaRequest* open = CreateRequest(seq, 0xA, (BYTE*)REAL_FILE, strnlen_s(REAL_FILE, 100), 'A'); // note - not sending terminating null -- is this correct?
 	StenturaResponse response;
 	BYTE* rdata = NULL;
 
-	if (!ReadResponseCyle(seq, open, &response, rdata, true)) {
-		MessageBox(NULL, TEXT("Failed to open realtime file on Stentura"), TEXT("Error"), MB_OK);
-		free(open);
-		SetEvent(handoff);
-		return 0;
+	if (!ReadResponseCyle(seq, open, &response, rdata, true, true)) {
+		MessageBox(NULL, TEXT("Failed to open realtime file on Stentura ... attempting to continue"), TEXT("Error"), MB_OK);
+		//free(open);
+		//SetEvent(handoff);
+		//return 0;
 	}
 
 	// I have decided to ignore errors for the moment
@@ -394,6 +402,8 @@ DWORD WINAPI Stentura(LPVOID lpParam)
 	//	return 0;
 	//}
 	
+	free(open);
+
 	WORD block = 0;
 	WORD bt = 0;
 	std::vector<DWORD> data;
