@@ -26,13 +26,14 @@
 #include "DView.h"
 #include "pview.h"
 #include "basicserial.h"
+#include "broadcast.h"
 
 using namespace Gdiplus;
 #pragma comment (lib,"Gdiplus.lib")
 
 
 #define MAX_LOADSTRING 100
-#define CONTROL_HEIGHT 260
+#define CONTROL_HEIGHT 280
 
 HINSTANCE hInst;								// current instance
 TCHAR szTitle[MAX_LOADSTRING];					// The title bar text
@@ -169,6 +170,8 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 		}
 	}
 
+	CloseServer();
+
 	if (projectdata.dlg != NULL) {
 		SendMessage(projectdata.dlg, WM_CLOSE, 0, 0);
 		projectdata.dlg = NULL;
@@ -180,6 +183,7 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
 	CoUninitialize();
 
 	setMode(0);
+	
 
 	sharedData.running = FALSE;
 	SetEvent(sharedData.newentry);
@@ -249,6 +253,7 @@ void movecontrols(int offset) {
 
 	SetWindowPos(controls.bdict, 0, 5, 245 - 20 - offset, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 	SetWindowPos(controls.bproj, 0, 5, 265 - 20 - offset, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+	SetWindowPos(controls.bserver, 0, 5, 285 - 20 - offset, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 
 }
 
@@ -414,6 +419,11 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 		WS_TABSTOP | WS_CHILD | BS_PUSHBUTTON | WS_VISIBLE,
 		5, 55 - 20, controls.width - 50, 20, controls.scontainer, NULL, hInstance, NULL);
 	SendMessage(controls.bproj, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), (LPARAM)true);
+
+	controls.bserver = CreateWindow(L"BUTTON", L"Broadcast Text",
+		WS_TABSTOP | WS_CHILD | BS_PUSHBUTTON | WS_VISIBLE,
+		5, 55 - 20, controls.width - 50, 20, controls.scontainer, NULL, hInstance, NULL);
+	SendMessage(controls.bserver, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), (LPARAM)true);
 
 	controls.sscroll = CreateWindow(L"ScrollBar", L"",
 		WS_TABSTOP | WS_CHILD | SBS_VERT,
@@ -1247,6 +1257,15 @@ LRESULT CALLBACK StaticProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 						   }
 						   else if (b == controls.bproj) {
 							   LaunchProjDlg(hInst);
+						   }
+						   else if (b == controls.bserver) {
+							   if (ServerRunning()) {
+								   CloseServer();
+							   }
+							   else {
+								   CreateThread(NULL, 0, RunServer, NULL, 0, NULL);
+								   SetWindowText(controls.bserver, TEXT("Stop Broadcast"));
+							   }
 						   }
 		}
 

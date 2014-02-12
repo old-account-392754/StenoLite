@@ -32,6 +32,7 @@ struct cstruct {
 	HWND rdnone;
 	HWND bdict;
 	HWND bproj;
+	HWND bserver;
 	HWND scontainer;
 	HWND sscroll;
 	HWND mestroke;

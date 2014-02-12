@@ -182,7 +182,7 @@ void setMode(int mode) {
 		}
 		if (result == IDOK) {
 			// open with a 1.5 second time out
-			if (openCom(settings.port, CBR_9600, 1500) != INVALID_HANDLE_VALUE) {
+			if (openCom(settings.port, CBR_9600, 1000) != INVALID_HANDLE_VALUE) {
 				CreateThread(NULL, 0, Stentura, NULL, 0, NULL);
 			}
 			else {

@@ -42,6 +42,34 @@ struct StenturaResponse
 };
 #pragma pack(pop)
 
+tstring reqtostr(StenturaRequest* r) {
+	tstring result;
+	result += TEXT("lead: ") + std::to_wstring(r->lead) +TEXT("\r\n");
+	result += TEXT("seq: ") + std::to_wstring(r->seq) + TEXT("\r\n");
+	result += TEXT("length: ") + std::to_wstring(r->length) + TEXT("\r\n");
+	result += TEXT("action: ") + std::to_wstring(r->action) + TEXT("\r\n");
+	result += TEXT("p1: ") + std::to_wstring(r->p1) + TEXT("\r\n");
+	result += TEXT("p2: ") + std::to_wstring(r->p2) + TEXT("\r\n");
+	result += TEXT("p3: ") + std::to_wstring(r->p3) + TEXT("\r\n");
+	result += TEXT("p4: ") + std::to_wstring(r->p4) + TEXT("\r\n");
+	result += TEXT("p5: ") + std::to_wstring(r->p5) + TEXT("\r\n");
+	result += TEXT("checksum: ") + std::to_wstring(r->checksum) + TEXT("\r\n");
+	BYTE* off;
+	if (r->length > sizeof(StenturaRequest)) {
+		result += TEXT("data: ");
+		off = (BYTE*)r + sizeof(StenturaRequest);
+		unsigned int i = 0;
+		for (; i < r->length - sizeof(StenturaRequest)-sizeof(WORD); i++) {
+			result += off[i];
+		}
+		result += TEXT("\r\ndata checksum: ");
+		WORD* wptr = (WORD*)&(off[i]);
+		result += std::to_wstring(*wptr);
+	}
+
+	return result;
+}
+
 void InitEvents() {
 	running = false;
 	readevent = CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -50,12 +78,13 @@ void InitEvents() {
 }
 
 void EndThreads() {
-	if (running) {
-		running = false;
-		SetEvent(shutoff);
-		WaitForSingleObject(handoff, INFINITE);
-		WaitForSingleObject(shutoff, 1); // to ensure that the shutoff event is reset
+	running = false;
+	SetEvent(shutoff);
+	WaitForSingleObject(handoff, INFINITE);
+	WaitForSingleObject(shutoff, 1); // to ensure that the shutoff event is reset'
+	if (com != INVALID_HANDLE_VALUE) {
 		CloseHandle(com);
+		com = INVALID_HANDLE_VALUE;
 	}
 }
 
@@ -112,8 +141,6 @@ StenturaRequest* CreateRequest(BYTE seq, WORD action, BYTE* data, unsigned int d
 		result = (StenturaRequest*)malloc(sizeof(StenturaRequest)+datalen + sizeof(WORD));
 		result->length = sizeof(StenturaRequest)+datalen + sizeof(WORD);
 	}
-
-	//MessageBox(NULL, (std::to_wstring(sizeof(StenturaRequest)) + TEXT(":") + std::to_wstring(((LONGLONG)result - (LONGLONG)&(result->checksum)))).c_str(), TEXT("SIZE"), MB_OK);
 
 	result->lead = 0x01;
 	result->seq = seq;
@@ -172,6 +199,15 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 		return false;
 	}
 
+	if (!FlushFileBuffers(com)) {
+		DWORD err = GetLastError();
+		TCHAR lpMsgBuf[500] = TEXT("\0");
+		FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), lpMsgBuf, 500, NULL);
+		MessageBox(NULL, (tstring(TEXT("Could not flush buffers: ")) + lpMsgBuf).c_str(), (TEXT("Error ") + std::to_wstring(err)).c_str(), MB_OK);
+		return false;
+	}
+
+	//MessageBox(NULL, reqtostr(request).c_str(), TEXT("check"), MB_OK);
 
 	read = 0;
 	do{
@@ -193,19 +229,22 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 
 	// timed out -- stentura protocal is to re-send request
 	int retries = 0;
-	while (read == 0 && running && retries < 3 && !first) {
+	while (read == 0 && running && retries < 3) {
 		memset(&overlap, 0, sizeof(overlap));
 		overlap.hEvent = readevent;
 		WriteFile(com, request, request->length, NULL, &overlap);
 		WaitForMultipleObjects(2, harray, FALSE, INFINITE);
 		GetOverlappedResult(com, &overlap, &read, FALSE);
-		
-		if (read < request->length) {
-			MessageBox(NULL, TEXT("Unable to send full request"), TEXT("Error"), MB_OK);
+
+		if (!running) {
 			return false;
 		}
 
-		if (!running) {
+		if (!FlushFileBuffers(com)) {
+			DWORD err = GetLastError();
+			TCHAR lpMsgBuf[500] = TEXT("\0");
+			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), lpMsgBuf, 500, NULL);
+			MessageBox(NULL, (tstring(TEXT("Could not flush buffers: ")) + lpMsgBuf).c_str(), (TEXT("Error ") + std::to_wstring(err)).c_str(), MB_OK);
 			return false;
 		}
 
@@ -232,10 +271,13 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 	if (retries == 3) {
 		//refused to respond
 		// like plover, we now ignore a failure to respond to an open request
-		if (first)
-			return true;
-		MessageBox(NULL, TEXT("Stentura refused to respond to request"), TEXT("Error"), MB_OK);
-		running = false;
+		if (!first) {
+			MessageBox(NULL, TEXT("Stentura refused to respond to request"), TEXT("Error"), MB_OK);
+			running = false;
+		}
+		else {
+			seq++;
+		}
 		return false;
 	}
 
@@ -264,7 +306,7 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 		return false;
 	}
 
-	if (response->seq == seq && response->action == request->action) {
+	if (response->seq == request->seq && response->action == request->action) {
 		
 		//valid response recieved for the request
 		seq++;
@@ -278,8 +320,8 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 		seq++;
 
 		if (showerror) {
-			if (response->seq != (seq-1))
-				MessageBox(NULL, (TEXT("Incorrect packet #: ") + std::to_wstring(seq-1) + TEXT("!=") + std::to_wstring(response->seq)).c_str(), TEXT("Error"), MB_OK);
+			if (response->seq != request->seq)
+				MessageBox(NULL, (TEXT("Incorrect packet #: ") + std::to_wstring(request->seq) + TEXT("!=") + std::to_wstring(response->seq)).c_str(), TEXT("Error"), MB_OK);
 			else
 				MessageBox(NULL, (TEXT("Incorrect action: ") + std::to_wstring(request->action) + TEXT("!=") + std::to_wstring(response->action)).c_str(), TEXT("Error"), MB_OK);
 		}
@@ -380,8 +422,10 @@ DWORD WINAPI Stentura(LPVOID lpParam)
 {
 	BYTE seq = 0;
 
+	//MessageBox(NULL, std::to_wstring(StenturaChecksum((BYTE*)REAL_FILE, strnlen_s(REAL_FILE, 100))).c_str(), TEXT("check"), MB_OK);
 
 	StenturaRequest* open = CreateRequest(seq, 0xA, (BYTE*)REAL_FILE, strnlen_s(REAL_FILE, 100), 'A'); // note - not sending terminating null -- is this correct?
+	
 	StenturaResponse response;
 	BYTE* rdata = NULL;
 
@@ -658,6 +702,7 @@ HANDLE openCom(tstring port, int baud, int timeoutms) {
 	if (com != INVALID_HANDLE_VALUE) {
 		DCB dcbstruct;
 		memset(&dcbstruct, 0, sizeof(DCB));
+		GetCommState(com, &dcbstruct);
 		dcbstruct.DCBlength = sizeof(DCB);
 
 		dcbstruct.fBinary = TRUE;
@@ -665,6 +710,9 @@ HANDLE openCom(tstring port, int baud, int timeoutms) {
 		dcbstruct.Parity = NOPARITY;
 		dcbstruct.ByteSize = 8;
 		dcbstruct.StopBits = ONESTOPBIT;
+		dcbstruct.fRtsControl = RTS_CONTROL_DISABLE;
+		dcbstruct.fInX = FALSE;
+		dcbstruct.fOutX = FALSE;
 	
 		if (SetCommState(com, &dcbstruct)) {
 			COMMTIMEOUTS timeouts;
@@ -672,6 +720,12 @@ HANDLE openCom(tstring port, int baud, int timeoutms) {
 			timeouts.ReadTotalTimeoutConstant = timeoutms;
 			//timeouts.WriteTotalTimeoutConstant = timeoutms;
 			SetCommTimeouts(com, &timeouts);
+
+			FlushFileBuffers(com);
+			PurgeComm(com, PURGE_TXABORT | PURGE_RXABORT | PURGE_TXCLEAR | PURGE_RXCLEAR);
+			COMSTAT     comStat;
+			DWORD       dwErrorFlags;
+			ClearCommError(com, &dwErrorFlags, &comStat);
 
 			running = true;
 		}

@@ -58,13 +58,14 @@
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
-      <AdditionalIncludeDirectories>C:\BDB\build_windows;C:\Boost\include\boost-1_55;C:\Program Files %28x86%29\Oracle\Berkeley DB 12cR1 6.0.20\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Boost\include\boost-1_55; D:\documents\VCPP\cpp-netlib-0.11.0-final\;D:\documents\VCPP\opencodecs_0.85.17777_src\src\lib\helper\common; D:\documents\VCPP\opencodecs_0.85.17777_src\src\lib\core\directshow\libDirectshowAbstracts;C:\Program Files\Microsoft SDKs\Windows\v7.1\Samples\multimedia\directshow\baseclasses;C:\Program Files %28x86%29\Oracle\Berkeley DB 12cR1 6.0.20\include;D:\documents\VCPP\opencodecs_0.85.17777_src\src\lib\codecs\vorbis\filters\dsfVorbisDecoder;C:\Boost\include\boost-1_55</AdditionalIncludeDirectories>
+      <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Strmiids.lib; comdlg32.lib; libdb_stl60.lib; libdb60.lib; ComCtl32.lib; kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\BDB\build_windows\Win32\Release;C:\Boost\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cppnetlib-client-connections.lib; cppnetlib-server-parsers.lib; cppnetlib-uri.lib; webmmux_2008.lib; dsfVorbisDecoder.lib; mf.lib; Strmiids.lib; comdlg32.lib; libdb60.lib; ComCtl32.lib; kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\documents\VCPP\cpp-netlib-0.11.0-final\boost\libs\network\src\Debug; C:\Boost\lib; C:\BDB\build_windows\Win32\Release;D:\documents\VCPP\opencodecs_0.85.17777_src\sln\oggdsf_vs2008\Win32\Release</AdditionalLibraryDirectories>
       <Version>0.8</Version>
     </Link>
   </ItemDefinitionGroup>
@@ -77,9 +78,9 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <CompileAsManaged>true</CompileAsManaged>
+      <CompileAsManaged>false</CompileAsManaged>
       <ExceptionHandling>Async</ExceptionHandling>
-      <AdditionalIncludeDirectories>D:\documents\VCPP\opencodecs_0.85.17777_src\src\lib\helper\common; D:\documents\VCPP\opencodecs_0.85.17777_src\src\lib\core\directshow\libDirectshowAbstracts;C:\Program Files\Microsoft SDKs\Windows\v7.1\Samples\multimedia\directshow\baseclasses;C:\Program Files %28x86%29\Oracle\Berkeley DB 12cR1 6.0.20\include;D:\documents\VCPP\opencodecs_0.85.17777_src\src\lib\codecs\vorbis\filters\dsfVorbisDecoder;C:\Boost\include\boost-1_55</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Boost\include\boost-1_55; D:\documents\VCPP\cpp-netlib-0.11.0-final\;D:\documents\VCPP\opencodecs_0.85.17777_src\src\lib\helper\common; D:\documents\VCPP\opencodecs_0.85.17777_src\src\lib\core\directshow\libDirectshowAbstracts;C:\Program Files\Microsoft SDKs\Windows\v7.1\Samples\multimedia\directshow\baseclasses;C:\Program Files %28x86%29\Oracle\Berkeley DB 12cR1 6.0.20\include;D:\documents\VCPP\opencodecs_0.85.17777_src\src\lib\codecs\vorbis\filters\dsfVorbisDecoder;C:\Boost\include\boost-1_55</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
     </ClCompile>
@@ -88,8 +89,8 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>webmmux_2008.lib; dsfVorbisDecoder.lib; mf.lib; Strmiids.lib; comdlg32.lib; libdb60.lib; ComCtl32.lib; kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\BDB\build_windows\Win32\Release;D:\documents\VCPP\opencodecs_0.85.17777_src\sln\oggdsf_vs2008\Win32\Release</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cppnetlib-client-connections.lib; cppnetlib-server-parsers.lib; cppnetlib-uri.lib; webmmux_2008.lib; dsfVorbisDecoder.lib; mf.lib; Strmiids.lib; comdlg32.lib; libdb60.lib; ComCtl32.lib; kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\documents\VCPP\cpp-netlib-0.11.0-final\boost\libs\network\src\Release; C:\Boost\lib; C:\BDB\build_windows\Win32\Release;D:\documents\VCPP\opencodecs_0.85.17777_src\sln\oggdsf_vs2008\Win32\Release</AdditionalLibraryDirectories>
       <Version>0.8</Version>
       <GenerateWindowsMetadata>true</GenerateWindowsMetadata>
     </Link>
@@ -106,6 +107,7 @@
   <ItemGroup>
     <ClInclude Include="addendings.h" />
     <ClInclude Include="basicserial.h" />
+    <ClInclude Include="broadcast.h" />
     <ClInclude Include="DView.h" />
     <ClInclude Include="fileops.h" />
     <ClInclude Include="globals.h" />
@@ -125,6 +127,7 @@
   <ItemGroup>
     <ClCompile Include="addendings.cpp" />
     <ClCompile Include="basicserial.cpp" />
+    <ClCompile Include="broadcast.cpp" />
     <ClCompile Include="DView.cpp" />
     <ClCompile Include="fileops.cpp" />
     <ClCompile Include="globals.cpp" />

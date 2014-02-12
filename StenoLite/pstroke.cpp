@@ -15,6 +15,7 @@
 #include "pview.h"
 #include <Richedit.h>
 #include "resource.h"
+#include "broadcast.h"
 
 void InnerProcess(unsigned __int8* stroke, std::list<singlestroke*>::iterator &insert, std::list<singlestroke*> * target, const ULONGLONG &thetime);
 bool spaceafter(std::list<singlestroke*>::iterator it, std::list<singlestroke*>* target, bool erase);
@@ -780,6 +781,13 @@ void deleteandspace(const int& del, const int &space) {
 		deleteN(del);
 		spaceN(space);
 	}
+	if (ServerRunning()) {
+		std::string allspaces;
+		for (int j = 0; j < space; j++)
+			allspaces += ' ';
+		AddNewEvent(del, allspaces);
+	}
+
 }
 
 void deletess(singlestroke* t) {
@@ -866,6 +874,10 @@ void sendstandard(const tstring& txt, singlestroke* s, std::list<singlestroke*>:
 		
 		SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_REPLACESEL, FALSE, (LPARAM)(s->textout->text.c_str()));
 		projectdata.settingsel = false;
+	}
+
+	if (ServerRunning()) {
+		AddNewEvent(prependspace, ttostr(s->textout->text));
 	}
 }
 
