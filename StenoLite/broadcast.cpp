@@ -362,6 +362,8 @@ DWORD WINAPI ReadInNewEvents(LPVOID lparam) {
 server* myserver = NULL;
 
 DWORD WINAPI RunServer(LPVOID lparam) {
+	int port = (int)lparam;
+
 	finishedread = CreateEvent(NULL, FALSE, FALSE, NULL);
 	closeevent = CreateEvent(NULL, FALSE, FALSE, NULL);
 	addednewevent = CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -378,7 +380,7 @@ DWORD WINAPI RunServer(LPVOID lparam) {
 	server::options options(myhandler);
 	options.thread_pool(boost::make_shared<boost::network::utils::thread_pool>(2));
 	try {
-		myserver = new server(options.address("0.0.0.0").port("8089"));
+		myserver = new server(options.address("0.0.0.0").port(std::to_string(port)));
 
 		boost::thread t1(boost::bind(&server::run, myserver));
 		boost::thread t2(boost::bind(&server::run, myserver));

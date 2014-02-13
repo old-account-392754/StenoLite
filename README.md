@@ -1,21 +1,23 @@
 # StenoLite
 
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.9-beta/StenoLiteSetup.msi">Latest installer</a><br>
-<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.9-beta/StenoLite099.zip">Mobile version</a><br>
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.10-beta/StenoLiteSetup.msi">Latest installer</a><br>
+<a href="https://github.com/boborama/StenoLite/releases/download/v0.9.10-beta/StenoLite0910.zip">Mobile version</a><br>
 <br>
 Originally a <a href="http://github.com/plover/plover">plover</a> clone; you can import/convert your plover dictionary.
 
 #### It has the following limitations:
 
 Windows only (XP with SP3 or newer)<br>
-Currently the Gemini, Passport, and Stentura serial modes are untested
+Currently the Gemini, Passport, and Stentura serial modes are untested/buggy
 
 #### But it does have the following features:
 
-Built-in dictionary look up as you type, with two search modes<br>
+Works with the Treal, any device with the Baron TX/TX Bolt protocol, and any NKRO keyboard<br>
 Integrated audio recording and playback synchronized with your writing -- audio files saved as a reasonably sized .ogg<br>
+Broadcast text as you create it to any device with an internet browser<br>
 Built-in project viewer/editor--create and edit text in a more natural way<br>
 Built-in dictionary viewer/editor<br>
+Built-in dictionary look up as you type, with two search modes<br>
 Comes with a simple steno tutor program<br>
 Fast load times and a small RAM footprint<br>
 Support for non-English stenograph keyboard layouts<br>
@@ -27,7 +29,6 @@ Push and pop commands: use a single stroke for closing quotations, parenthesis, 
 ### Upcoming Features
 
 More bug fixes (as bugs are found)<br>
-Live broadcast of text over http
 
 ### Desired Features (but not currently under development)
 

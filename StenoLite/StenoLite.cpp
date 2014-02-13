@@ -1082,6 +1082,68 @@ LRESULT CALLBACK TabProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, 
 	return 0;
 }
 
+INT_PTR CALLBACK IpSettings(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM wParam, _In_  LPARAM lParam) {
+	switch (uMsg)
+	{
+	case WM_INITDIALOG:
+	{
+		SetWindowText(GetDlgItem(hwndDlg, IDC_PORT), TEXT("80"));
+
+
+		char ac[80];
+		if (gethostname(ac, sizeof(ac)) == SOCKET_ERROR) {
+			MessageBox(hwndDlg, TEXT("Error getting local host name"), TEXT("Error"), MB_OK);
+			EndDialog(hwndDlg, IDCANCEL);
+			return FALSE;
+		}
+
+		struct hostent *phe = gethostbyname(ac);
+		if (phe == 0) {
+			MessageBox(hwndDlg, TEXT("Error finding local host"), TEXT("Error"), MB_OK);
+			EndDialog(hwndDlg, IDCANCEL);
+			return FALSE;
+		}
+
+		tstring iplist;
+		static const std::string home("127.0.0.1");
+		for (int i = 0; phe->h_addr_list[i] != 0; ++i) {
+			struct in_addr addr;
+			memcpy(&addr, phe->h_addr_list[i], sizeof(struct in_addr));
+			char* caddr = inet_ntoa(addr);
+			if (home.compare(caddr) != 0) {
+				iplist += strtotstr(caddr);
+				iplist += TEXT("\r\n");
+			}
+		}
+
+		SetWindowText(GetDlgItem(hwndDlg, IDC_IP), iplist.c_str());
+	}
+		return TRUE;
+	case WM_CLOSE:
+		EndDialog(hwndDlg, IDCANCEL);
+		return TRUE;
+	case WM_COMMAND:
+		if (HIWORD(wParam) == BN_CLICKED) {
+			switch (LOWORD(wParam))
+			{
+			case IDOK:
+			{
+				//settings.port = getWinStr(GetDlgItem(hwndDlg, IDC_COMPORT));
+				tstring port = getWinStr(GetDlgItem(hwndDlg, IDC_PORT));
+				CreateThread(NULL, 0, RunServer, (LPVOID)(_wtoi(port.c_str())), 0, NULL);
+				SetWindowText(controls.bserver, TEXT("Stop Broadcast"));
+				EndDialog(hwndDlg, IDOK);
+			}
+				return TRUE;
+			case IDCANCEL:
+				EndDialog(hwndDlg, IDCANCEL);
+				return TRUE;
+			}
+		}
+	}
+	return FALSE;
+}
+
 LRESULT CALLBACK StaticProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
 	int wmId, wmEvent;
@@ -1263,8 +1325,9 @@ LRESULT CALLBACK StaticProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 								   CloseServer();
 							   }
 							   else {
-								   CreateThread(NULL, 0, RunServer, NULL, 0, NULL);
-								   SetWindowText(controls.bserver, TEXT("Stop Broadcast"));
+								   DialogBox(hInst, MAKEINTRESOURCE(IDD_IP), controls.main, IpSettings);
+								   //CreateThread(NULL, 0, RunServer, NULL, 0, NULL);
+								   //SetWindowText(controls.bserver, TEXT("Stop Broadcast"));
 							   }
 						   }
 		}

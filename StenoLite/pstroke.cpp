@@ -1361,6 +1361,9 @@ void processSingleStroke(unsigned __int8* stroke, ULONGLONG& thetime) {
 						crng.cpMin--;
 					altered = true;
 				}
+				if (ServerRunning()) {
+					AddNewEvent(crng.cpMax - crng.cpMin, "");
+				}
 
 				if (altered)
 					SendMessage(GetDlgItem(projectdata.dlg, IDC_MAINTEXT), EM_EXSETSEL, NULL, (LPARAM)&crng);
