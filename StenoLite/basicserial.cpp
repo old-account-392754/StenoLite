@@ -161,7 +161,9 @@ StenturaRequest* CreateRequest(BYTE seq, WORD action, BYTE* data, unsigned int d
 	return result;
 }
 
-bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* response, BYTE* &rdata, bool first = false, bool showerror = false) {
+bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* response, BYTE* &rdata, bool first = false, bool showerror = false, bool retry = true) {
+	PurgeComm(com, PURGE_TXABORT | PURGE_RXABORT | PURGE_TXCLEAR | PURGE_RXCLEAR);
+
 	HANDLE harray[2] = { readevent, shutoff };
 	OVERLAPPED overlap;
 	DWORD read = 0;
@@ -327,12 +329,25 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 		}
 		seq++;
 
-		if (showerror) {
-			if (response->seq != request->seq)
-				MessageBox(NULL, (TEXT("Incorrect packet #: ") + std::to_wstring(request->seq) + TEXT("!=") + std::to_wstring(response->seq)).c_str(), TEXT("Error"), MB_OK);
-			else
-				MessageBox(NULL, (TEXT("Incorrect action: ") + std::to_wstring(request->action) + TEXT("!=") + std::to_wstring(response->action)).c_str(), TEXT("Error"), MB_OK);
-		}
+			if (response->seq != request->seq) {
+				if (showerror && !retry)
+					MessageBox(NULL, (TEXT("Incorrect packet #: ") + std::to_wstring(request->seq) + TEXT("!=") + std::to_wstring(response->seq)).c_str(), TEXT("Error"), MB_OK);
+				seq = response->seq + 1;
+				if (retry) {
+					request->seq = seq;
+					ReadResponseCyle(seq, request, response, rdata, first, showerror, false);
+				}
+
+			}
+			else {
+				if (showerror && !retry)
+					MessageBox(NULL, (TEXT("Incorrect action: ") + std::to_wstring(request->action) + TEXT("!=") + std::to_wstring(response->action)).c_str(), TEXT("Error"), MB_OK);
+				if (retry) {
+					request->seq = seq;
+					ReadResponseCyle(seq, request, response, rdata, first, showerror, false);
+				}
+			}
+		
 		return false;
 	}
 }
@@ -428,7 +443,7 @@ BYTE reverse_byte(BYTE x)
 
 DWORD WINAPI Stentura(LPVOID lpParam)
 {
-	BYTE seq = 0;
+	static BYTE seq = 0;
 
 	//MessageBox(NULL, std::to_wstring(StenturaChecksum((BYTE*)REAL_FILE, strnlen_s(REAL_FILE, 100))).c_str(), TEXT("check"), MB_OK);
 
@@ -473,9 +488,9 @@ DWORD WINAPI Stentura(LPVOID lpParam)
 				easeofuse.keys = (*i);
 				if ((easeofuse.each[0] & 0xC0) == 0xC0 && (easeofuse.each[1] & 0xC0) == 0xC0 && (easeofuse.each[2] & 0xC0) == 0xC0 && (easeofuse.each[3] & 0xC0) == 0xC0) {
 					*cast = ((DWORD)reverse_byte(easeofuse.each[0] & 0x0F) >> 4) |
-						((DWORD)reverse_byte(easeofuse.each[2] & 0x3F) << 2) |
-						((DWORD)reverse_byte(easeofuse.each[3] & 0x3F) << 8) |
-						((DWORD)reverse_byte(easeofuse.each[4] & 0x3F) << 14); //!!! ugly
+						((DWORD)reverse_byte(easeofuse.each[1] & 0x3F) << 2) |
+						((DWORD)reverse_byte(easeofuse.each[2] & 0x3F) << 8) |
+						((DWORD)reverse_byte(easeofuse.each[3] & 0x3F) << 14); //!!! ugly
 					if ((easeofuse.each[0] & 0x10) != 0) {
 						inputstate.stroke[2] |= 0x40;
 					}
@@ -712,7 +727,6 @@ HANDLE openCom(tstring port, int baud, int timeoutms) {
 			actualport = TEXT("\\\\.\\") + port;
 		}
 	}
-	MessageBox(NULL, actualport.c_str(), TEXT("PORT"), MB_OK);
 
 	com = CreateFile(actualport.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
 

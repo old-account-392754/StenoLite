@@ -1,3 +1,7 @@
+0.9.12
+fixes to incorrect key processing on Stentura
+improved robustness in dealing with unexpected responses on Stentura
+
 0.9.11
 fixed XP compatibility for SLTutor and audio codex
 improved serial code by modeling it off the python serial package (which is known to work for plover)
