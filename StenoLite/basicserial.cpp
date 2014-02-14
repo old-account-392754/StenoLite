@@ -209,6 +209,11 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 
 	//MessageBox(NULL, reqtostr(request).c_str(), TEXT("check"), MB_OK);
 
+	//clear any errors before read
+	COMSTAT     comStat;
+	DWORD       dwErrorFlags;
+	ClearCommError(com, &dwErrorFlags, &comStat);
+
 	read = 0;
 	do{
 		memset(&overlap, 0, sizeof(overlap));
@@ -249,6 +254,9 @@ bool ReadResponseCyle(BYTE &seq, StenturaRequest* request, StenturaResponse* res
 		}
 
 		read = 0;
+
+		//clear any errors before read
+		ClearCommError(com, &dwErrorFlags, &comStat);
 
 		do{
 			memset(&overlap, 0, sizeof(overlap));
@@ -696,33 +704,76 @@ DWORD WINAPI Passport(LPVOID lpParam)
 
 
 HANDLE openCom(tstring port, int baud, int timeoutms) {
+	//port.
+	tstring actualport = port;
+	if (port.find(TEXT("COM")) == 0 && port.length() >= 4) {
+		int num = _wtoi(port.substr(3).c_str());
+		if (num > 8) {
+			actualport = TEXT("\\\\.\\") + port;
+		}
+	}
+	MessageBox(NULL, actualport.c_str(), TEXT("PORT"), MB_OK);
 
-	com = CreateFile(port.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+	com = CreateFile(actualport.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
 
 	if (com != INVALID_HANDLE_VALUE) {
+
+		if (!SetupComm(com, 4096, 4096)) {
+			DWORD err = GetLastError();
+			TCHAR lpMsgBuf[500] = TEXT("\0");
+			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), lpMsgBuf, 500, NULL);
+			MessageBox(NULL, (tstring(TEXT("Could not setup com: ")) + lpMsgBuf).c_str(), (TEXT("Error ") + std::to_wstring(err)).c_str(), MB_OK);
+		}
+
+		COMMTIMEOUTS timeouts;
+		memset(&timeouts, 0, sizeof(timeouts));
+		timeouts.ReadTotalTimeoutConstant = timeoutms;
+		//timeouts.WriteTotalTimeoutConstant = timeoutms;
+		if (!SetCommTimeouts(com, &timeouts)) {
+			DWORD err = GetLastError();
+			TCHAR lpMsgBuf[500] = TEXT("\0");
+			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), lpMsgBuf, 500, NULL);
+			MessageBox(NULL, (tstring(TEXT("Could not set com timeouts: ")) + lpMsgBuf).c_str(), (TEXT("Error ") + std::to_wstring(err)).c_str(), MB_OK);
+		}
+
+		if (!SetCommMask(com, EV_ERR)) {
+			DWORD err = GetLastError();
+			TCHAR lpMsgBuf[500] = TEXT("\0");
+			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), lpMsgBuf, 500, NULL);
+			MessageBox(NULL, (tstring(TEXT("Could not set com mask: ")) + lpMsgBuf).c_str(), (TEXT("Error ") + std::to_wstring(err)).c_str(), MB_OK);
+		}
+
 		DCB dcbstruct;
 		memset(&dcbstruct, 0, sizeof(DCB));
-		GetCommState(com, &dcbstruct);
 		dcbstruct.DCBlength = sizeof(DCB);
+
+		if (!GetCommState(com, &dcbstruct)) {
+			DWORD err = GetLastError();
+			TCHAR lpMsgBuf[500] = TEXT("\0");
+			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), lpMsgBuf, 500, NULL);
+			MessageBox(NULL, (tstring(TEXT("Could not get com state: ")) + lpMsgBuf).c_str(), (TEXT("Error ") + std::to_wstring(err)).c_str(), MB_OK);
+		}
+		
 
 		dcbstruct.fBinary = TRUE;
 		dcbstruct.BaudRate = baud;
 		dcbstruct.Parity = NOPARITY;
+		dcbstruct.fParity = 0;
 		dcbstruct.ByteSize = 8;
 		dcbstruct.StopBits = ONESTOPBIT;
-		dcbstruct.fRtsControl = RTS_CONTROL_DISABLE;
+		dcbstruct.fRtsControl = RTS_CONTROL_ENABLE;
 		dcbstruct.fInX = FALSE;
 		dcbstruct.fOutX = FALSE;
-	
-		if (SetCommState(com, &dcbstruct)) {
-			COMMTIMEOUTS timeouts;
-			memset(&timeouts, 0, sizeof(timeouts));
-			timeouts.ReadTotalTimeoutConstant = timeoutms;
-			//timeouts.WriteTotalTimeoutConstant = timeoutms;
-			SetCommTimeouts(com, &timeouts);
+		dcbstruct.fDtrControl = DTR_CONTROL_ENABLE;
+		dcbstruct.fOutxCtsFlow = FALSE;
+		dcbstruct.fNull = FALSE;
+		dcbstruct.fErrorChar = FALSE;
+		dcbstruct.fAbortOnError = FALSE;
 
-			FlushFileBuffers(com);
+		if (SetCommState(com, &dcbstruct)) {
+			//FlushFileBuffers(com);
 			PurgeComm(com, PURGE_TXABORT | PURGE_RXABORT | PURGE_TXCLEAR | PURGE_RXCLEAR);
+
 			COMSTAT     comStat;
 			DWORD       dwErrorFlags;
 			ClearCommError(com, &dwErrorFlags, &comStat);

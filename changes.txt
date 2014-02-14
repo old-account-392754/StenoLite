@@ -1,3 +1,7 @@
+0.9.11
+fixed XP compatibility for SLTutor and audio codex
+improved serial code by modeling it off the python serial package (which is known to work for plover)
+
 0.9.10
 added broadcast text functionality
 tweaks to COM usage, including FlushBuffer
