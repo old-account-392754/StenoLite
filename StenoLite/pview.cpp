@@ -1451,12 +1451,7 @@ bool loadProject(const tstring &file) {
 		unsigned __int8 bom[3] = "\0\0";
 		ReadFile(hfile, bom, 3, &bytes, NULL);
 		if (bom[0] != 239 || bom[1] != 187 || bom[2] != 191) {
-			cline += bom[0];
-			cline += bom[1];
-			cline += bom[2];
-			std::string::iterator end_pos = std::remove_if(cline.begin(), cline.end(), isReturn);
-			cline.erase(end_pos, cline.end());
-
+			SetFilePointer(hfile, 0, NULL, FILE_BEGIN);
 		}
 		DB_TXN* trans = NULL;
 		projectdata.d->env->txn_begin(projectdata.d->env, NULL, &trans, DB_TXN_BULK);

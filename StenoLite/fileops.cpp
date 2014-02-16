@@ -16,6 +16,8 @@
 
 TCHAR pathbuffer[MAX_PATH];
 
+std::string texttortf(std::string &textin);
+
 bool isReturn(char value) {
 	return value == '\r' || value =='\n';
 }
@@ -579,6 +581,9 @@ void addPentry(dictionary* d, const tstring &stroke, const std::string &text, DB
 		const static std::regex cap("\\-\\|");
 		newtext = std::regex_replace(newtext, cap, "\\+");
 
+		const static std::regex lower("\\{>\\}");
+		newtext = std::regex_replace(newtext, lower, "\\-");
+
 		const static std::regex amper("\\{\\&([^}]*)\\}");
 		newtext = std::regex_replace(newtext, amper, "&$1&");
 
@@ -670,7 +675,8 @@ void SaveRTF(dictionary* d, const tstring &file, HWND progress) {
 			}
 			writestr(hfile, ttostr(acc));
 			writestr(hfile, "}");
-			writestr(hfile, (char*)(strin.data));
+			std::string temp = (char*)(strin.data);
+			writestr(hfile, texttortf(temp));
 			writestr(hfile, "\n");
 
 			result = startcursor->get(startcursor, &keyin, &strin, DB_NEXT);
@@ -792,12 +798,7 @@ void LoadPloverJson(dictionary* d, const tstring &file, HWND progress) {
 		unsigned __int8 bom[3] = "\0\0";
 		ReadFile(hfile, bom, 3, &bytes, NULL);
 		if (bom[0] != 239 || bom[1] != 187 || bom[2] != 191) {
-			cline += bom[0];
-			cline += bom[1];
-			cline += bom[2];
-			std::string::iterator end_pos = std::remove_if(cline.begin(), cline.end(), isReturn);
-			cline.erase(end_pos, cline.end());
-
+			SetFilePointer(hfile, 0, NULL, FILE_BEGIN);
 		}
 
 		int totalb = 0;
@@ -862,12 +863,7 @@ void LoadJson(dictionary* d, const tstring &file, HWND progress, bool overwrite)
 		unsigned __int8 bom[3] = "\0\0";
 		ReadFile(hfile, bom, 3, &bytes, NULL);
 		if (bom[0] != 239 || bom[1] != 187 || bom[2] != 191) {
-			cline += bom[0];
-			cline += bom[1];
-			cline += bom[2];
-			std::string::iterator end_pos = std::remove_if(cline.begin(), cline.end(), isReturn);
-			cline.erase(end_pos, cline.end());
-
+			SetFilePointer(hfile, 0, NULL, FILE_BEGIN);
 		}
 
 		int totalb = 0;
@@ -905,13 +901,181 @@ void LoadJson(dictionary* d, const tstring &file, HWND progress, bool overwrite)
  
 }
 
+std::string rtftexttotext(const std::string &textin, bool &replaced, bool inconf = false) {
+	if (textin.length() == 0)
+		return textin;
+	else if (textin[0] == '^') {
+		return "\\^" + rtftexttotext(textin.substr(1), replaced, inconf);
+	}
+	else if (textin[0] == '&') {
+		return "\\&" + rtftexttotext(textin.substr(1), replaced, inconf);
+	}
+	else if (textin[0] == '}') {
+		return rtftexttotext(textin.substr(1), replaced, inconf);
+	}
+	else if (textin[0] == '{') {
+		std::string enclosed;
+		bool esc = false;
+		int i = 1;
+		unsigned int count = 1;
+		for (; i < textin.length(); i++) {
+			if (esc) {
+				esc = false;
+				enclosed += textin[i];
+			}
+			else if (textin[i] == '\\') {
+				esc = true;
+				enclosed += '\\';
+			}
+			else if (textin[i] == '{') {
+				enclosed += '{';
+				count++;
+			}
+			else if (textin[i] == '}') {
+				count--;
+				if (count == 0)
+					break;
+				enclosed += '}';
+			}
+			else {
+				enclosed += textin[i];
+			}
+		}
+		if (i < textin.length())
+			return rtftexttotext(enclosed, replaced, inconf) + rtftexttotext(textin.substr(i + 1), replaced, inconf);
+		return rtftexttotext(enclosed, replaced, inconf);
+	}
+	else if (textin.compare(0, 2, "\\_") == 0) {
+		return "-" + textin.substr(2);
+	}
+	else if(textin.compare(0,7,"\\cxfing") == 0) {
+		int loc = 7;
+		if (textin.length() > 7) {
+			if (textin[7] == ' ')
+				loc++;
+		}
+		return "&"+textin.substr(loc)+"&";
+	}
+	else if (textin.compare(0, 5, "\\cxds") == 0) {
+		int loc = 5;
+		if (textin.length() > 5) {
+			if (textin[5] == ' ')
+				loc++;
+		}
+		return "^" + rtftexttotext(textin.substr(loc), replaced, inconf);
+	}
+	else if (textin.compare(0, 5, "\\cxfc") == 0) {
+		int loc = 5;
+		if (textin.length() > 5) {
+			if (textin[5] == ' ')
+				loc++;
+		}
+		return "\\+" + rtftexttotext(textin.substr(loc), replaced, inconf);
+	}
+	else if (textin.compare(0, 5, "\\cxfl") == 0) {
+		int loc = 5;
+		if (textin.length() > 5) {
+			if (textin[5] == ' ')
+				loc++;
+		}
+		return "\\-" + rtftexttotext(textin.substr(loc), replaced, inconf);
+	}
+	else if (textin.compare(0, 5, "\\cxp/") == 0) {
+		return "^/^";
+	}
+	else if (textin.compare(0, 6, "\\cxp\\_") == 0) {
+		return "^-^";
+	}
+	else if (textin.compare(0, 4, "\\cxp") == 0) {
+		return "^" + trimstr(textin.substr(4), " ");
+	}
+	else if (textin.compare(0, 2, "\\\\") == 0) {
+		return "\\" + rtftexttotext(textin.substr(2), replaced, inconf);
+	}
+	else if (textin.compare(0, 2, "\\{") == 0) {
+		return "{" + rtftexttotext(textin.substr(2), replaced, inconf);
+	}
+	else if (textin.compare(0, 2, "\\}") == 0) {
+		return "}" + rtftexttotext(textin.substr(2), replaced, inconf);
+	}
+	else if (textin.compare(0, 2, "\\~") == 0) {
+		return " " + rtftexttotext(textin.substr(2), replaced, inconf);
+	}
+	else if (textin.compare(0, 10, "\\*\\deleted") == 0) {
+		return "";
+	}
+	else if (textin.compare(0, 7, "\\cxconf") == 0) {
+		int loc = 7;
+		if (textin.length() > 7) {
+			if (textin[7] == ' ')
+				loc++;
+		}
+		return rtftexttotext(textin.substr(loc), replaced, true);
+	}
+	else if (textin.compare(0, 4, "\\cxc") == 0) {
+		if (!replaced) {
+			replaced = true;
+			int loc = 4;
+			if (textin.length() > 4) {
+				if (textin[4] == ' ')
+					loc++;
+			}
+			return rtftexttotext(textin.substr(loc), replaced, false);
+		}
+		return "";
+	}
+	else{
+		if (inconf) {
+			if (textin[0] == '[' || textin[0] == '|' || textin[0] == ']')
+				return rtftexttotext(textin.substr(1), replaced, inconf);
+		}
+		return textin[0] + rtftexttotext(textin.substr(1), replaced, inconf);
+	}
+}
+
+std::string texttortf(std::string &textin) {
+	if (textin.length() == 0) {
+		return textin;
+	}
+	else if (textin[0] == '{') {
+		return "\\{" + texttortf(textin.substr(1));
+	}
+	else if (textin[0] == '}') {
+		return "\\}" + texttortf(textin.substr(1));
+	}
+	else if (textin[0] == ' ') {
+		return "\\~" + texttortf(textin.substr(1));
+	}
+	else if (textin[0] == '^') {
+		return "\\cxds " + texttortf(textin.substr(1));
+	}
+	else if (textin.length() == 1) {
+		return textin;
+	}
+	else if (textin[0] == '\\' && textin[1] == '^') {
+		return "^" + texttortf(textin.substr(2));
+	}
+	else if (textin[0] == '\\' && textin[1] == '&') {
+		return "&" + texttortf(textin.substr(2));
+	}
+	else if (textin[0] == '\\' && textin[1] == '+') {
+		return "\\cxfc " + texttortf(textin.substr(2));
+	}
+	else if (textin[0] == '\\' && textin[1] == '-') {
+		return "\\cxfl " + texttortf(textin.substr(2));
+	}
+	else if (textin[0] == '&' && textin[textin.length() - 1] == '&') {
+		return "{\\cxfing " + textin.substr(1, textin.length() - 2) + "}";
+	}
+	else {
+		return textin[0] + texttortf(textin.substr(1));
+	}
+}
+
 void LoadRTF(dictionary* d, const tstring &file, HWND progress, bool overwrite) {
 	//{\*\cxs STROKETEXT}ENTRYTEXT
 	HANDLE hfile = CreateFile(file.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, 0, NULL);
-	std::regex parsertf(".*\\{\\\\\\*\\\\cxs (.+?)\\}(.+)$");
-	std::cmatch m;
-
-
+	std::regex parsertf(".*?\\{\\\\\\*\\\\cxs (.+?)\\}(.+?)(?=\\{\\\\\\*\\\\cxs|$)");
 
 	if (hfile != INVALID_HANDLE_VALUE) {
 		DWORD fsize = GetFileSize(hfile, NULL);
@@ -934,12 +1098,7 @@ void LoadRTF(dictionary* d, const tstring &file, HWND progress, bool overwrite) 
 		unsigned __int8 bom[3] = "\0\0";
 		ReadFile(hfile, bom, 3, &bytes, NULL);
 		if (bom[0] != 239 || bom[1] != 187 || bom[2] != 191) {
-			cline += bom[0];
-			cline += bom[1];
-			cline += bom[2];
-			std::string::iterator end_pos = std::remove_if(cline.begin(), cline.end(), isReturn);
-			cline.erase(end_pos, cline.end());
-
+			SetFilePointer(hfile, 0, NULL, FILE_BEGIN);
 		}
 
 		int totalb = 0;
@@ -951,8 +1110,16 @@ void LoadRTF(dictionary* d, const tstring &file, HWND progress, bool overwrite) 
 			std::string::size_type r = cline.find("\n");
 			if (r != std::string::npos) {
 				cline.erase(r, 1);
-				if (std::regex_match(cline.c_str(), m, parsertf)) {
-					addentry(d, strtotstr(m[1].str()), m[2].str(), trans, overwrite);
+				std::string s = cline.c_str();
+				std::smatch m;
+				while (std::regex_search(s, m, parsertf)) {
+					
+				//if (std::regex_match(cline.c_str(), m, parsertf)) {
+					bool btemp = false;
+					std::string temp = rtftexttotext(trimstr(m[2].str(), " "), btemp);
+					addentry(d, strtotstr(m[1].str()), temp, trans, overwrite);
+				//}
+					s = m.suffix();
 				}
 				cline.clear();
 				if (progress) {
@@ -965,8 +1132,16 @@ void LoadRTF(dictionary* d, const tstring &file, HWND progress, bool overwrite) 
 			ReadFile(hfile, &c, 1, &bytes, NULL);
 		}
 
-		if (std::regex_match(cline.c_str(), m, parsertf)) {
-			addentry(d, strtotstr(m[1].str()), m[2].str(), trans, overwrite);
+		std::string s = cline.c_str();
+		std::smatch m;
+		while (std::regex_search(s, m, parsertf)) {
+		//if (std::regex_match(cline.c_str(), m, parsertf)) {
+			bool btemp = false;
+			std::string temp = rtftexttotext(trimstr(m[2].str(), " "), btemp);
+
+			addentry(d, strtotstr(m[1].str()), temp, trans, overwrite);
+		//}
+			s = m.suffix();
 		}
 
 		trans->commit(trans, 0);

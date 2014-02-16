@@ -444,32 +444,40 @@ BYTE reverse_byte(BYTE x)
 DWORD WINAPI Stentura(LPVOID lpParam)
 {
 	static BYTE seq = 0;
+	static bool alreadyopened = false;
 
 	//MessageBox(NULL, std::to_wstring(StenturaChecksum((BYTE*)REAL_FILE, strnlen_s(REAL_FILE, 100))).c_str(), TEXT("check"), MB_OK);
 
-	StenturaRequest* open = CreateRequest(seq, 0xA, (BYTE*)REAL_FILE, strnlen_s(REAL_FILE, 100), 'A'); // note - not sending terminating null -- is this correct?
-	
-	StenturaResponse response;
-	BYTE* rdata = NULL;
 
-	if (!ReadResponseCyle(seq, open, &response, rdata, true, true)) {
-		MessageBox(NULL, TEXT("Failed to open realtime file on Stentura ... attempting to continue"), TEXT("Error"), MB_OK);
-		//free(open);
-		//SetEvent(handoff);
-		//return 0;
+	if (!alreadyopened) {
+		StenturaRequest* open = CreateRequest(seq, 0xA, (BYTE*)REAL_FILE, strnlen_s(REAL_FILE, 100), 'A'); // note - not sending terminating null -- is this correct?
+
+		StenturaResponse response;
+		BYTE* rdata = NULL;
+
+		if (!ReadResponseCyle(seq, open, &response, rdata, true, true)) {
+			MessageBox(NULL, TEXT("Failed to open realtime file on Stentura ... attempting to continue"), TEXT("Error"), MB_OK);
+			//free(open);
+			//SetEvent(handoff);
+			//return 0;
+		}
+		else {
+			alreadyopened = true;
+		}
+
+
+		// I have decided to ignore errors for the moment
+		//if (response.error != 0) {
+		//	MessageBox(NULL, TEXT("Stentura reported an error on opening file REALTIME.000"), TEXT("Error"), MB_OK);
+		//	free(open);
+		//	if (rdata != NULL)
+		//		free(rdata);
+		//	SetEvent(handoff);
+		//	return 0;
+		//}
+
+		free(open);
 	}
-
-	// I have decided to ignore errors for the moment
-	//if (response.error != 0) {
-	//	MessageBox(NULL, TEXT("Stentura reported an error on opening file REALTIME.000"), TEXT("Error"), MB_OK);
-	//	free(open);
-	//	if (rdata != NULL)
-	//		free(rdata);
-	//	SetEvent(handoff);
-	//	return 0;
-	//}
-	
-	free(open);
 
 	WORD block = 0;
 	WORD bt = 0;
