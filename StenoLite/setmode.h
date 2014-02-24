@@ -5,6 +5,7 @@
 
 void setMode(int mode);
 void setDictionary(dictionary* d);
+void SetupHook(HWND target);
 
 #endif
 

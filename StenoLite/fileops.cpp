@@ -916,7 +916,7 @@ std::string rtftexttotext(const std::string &textin, bool &replaced, bool inconf
 	else if (textin[0] == '{') {
 		std::string enclosed;
 		bool esc = false;
-		int i = 1;
+		unsigned int i = 1;
 		unsigned int count = 1;
 		for (; i < textin.length(); i++) {
 			if (esc) {

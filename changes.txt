@@ -1,3 +1,6 @@
+1.0.1
+Added single window keyboard input mode
+
 1.0.0
 Improved .rtf import/export
 fixes to turning on/off the Stentura input method

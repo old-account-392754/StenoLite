@@ -98,6 +98,7 @@ struct sdata  {
 	ULONGLONG totalprogress;
 	ULONGLONG currentprogress;
 	bool sevenorbetter;
+	bool grabwind;
 };
 
 

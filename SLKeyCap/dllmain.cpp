@@ -24,6 +24,7 @@ DWORD WINAPI SendStroke(LPVOID lpParam) {
 
 static LPVOID lpvMem = NULL;      // pointer to shared memory
 static HANDLE hMapObject = NULL;  // handle to file mapping
+static HWND target = NULL;
 #define MEM_SIZE 256
 
 
@@ -96,13 +97,18 @@ extern "C" {          // we need to export the C interface
 #endif
 
 // SetSharedMem sets the contents of the shared memory 
-__declspec(dllexport) VOID __cdecl SetSharedMem(unsigned __int8 buf[256]) {
+__declspec(dllexport) VOID __cdecl SetSharedMem(unsigned __int8 buf[256], HWND t) {
+	target = t;
 	memcpy(lpvMem, buf, MEM_SIZE);
 	}
 
 __declspec(dllexport) LRESULT CALLBACK HookKeys(_In_  int nCode, _In_  WPARAM wParam, _In_  LPARAM lParam) {
 	if (nCode < 0 || lpvMem == NULL) {
 		return CallNextHookEx(NULL, nCode, wParam, lParam);
+	}
+	if (target != NULL) {
+		if (target != GetForegroundWindow()) 
+			return CallNextHookEx(NULL, nCode, wParam, lParam);
 	}
 	switch (wParam) {
 	case WM_KEYDOWN:

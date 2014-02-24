@@ -64,12 +64,49 @@ INT_PTR CALLBACK ComSettings(_In_  HWND hwndDlg, _In_  UINT uMsg, _In_  WPARAM w
 	return FALSE;
 }
 
+void SetupHook(HWND target) {
+	TCHAR pathbuffer[MAX_PATH];
+	GetModuleFileName(NULL, pathbuffer, MAX_PATH);
+
+	const static tregex rx(TEXT("\\\\[^\\\\]*$"));
+	tstring file = std::regex_replace(pathbuffer, rx, TEXT("\\SLKeyCap.dll"));
+
+	HMODULE dll = NULL;
+	dll = LoadLibrary(file.c_str());
+	if (dll == NULL) {
+		MessageBox(NULL, TEXT("Could not load capture dll\r\nKeyboard mode will not function"), TEXT("Error"), MB_OK);
+	}
+	else {
+
+		HOOKPROC addr = NULL;
+		addr = (HOOKPROC)GetProcAddress(dll, "_HookKeys@12");
+		if (addr == NULL) {
+			MessageBox(NULL, TEXT("Could load hook function\r\nKeyboard mode will not function"), TEXT("Error"), MB_OK);
+		}
+		else {
+			VOID(__cdecl *setmem)(unsigned __int8[256], HWND) = (VOID(__cdecl *)(unsigned __int8[256], HWND))GetProcAddress(dll, "SetSharedMem");
+			if (setmem == NULL) {
+				MessageBox(NULL, TEXT("Could load setmem\r\nKeyboard mode will not function"), TEXT("Error"), MB_OK);
+			}
+			setmem(settings.map, target);
+
+			inputstate.handle = SetWindowsHookEx(WH_KEYBOARD_LL, addr, dll, 0);
+			if (inputstate.handle == NULL) {
+				DWORD err = GetLastError();
+				TCHAR lpMsgBuf[500] = TEXT("\0");
+				FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), lpMsgBuf, 500, NULL);
+				MessageBox(NULL, (tstring(TEXT("Could not hook keyboard\r\nKeyboard mode will not function\r\nError: ")) + lpMsgBuf).c_str(), (TEXT("Error ") + std::to_wstring(err)).c_str(), MB_OK);
+			}
+		}
+	}
+}
+
 void setMode(int mode) {
 	static int cmode = 0;
 	if (cmode == 0) {
 
 	}
-	else if (cmode == 1) {
+	else if (cmode == 1 || cmode == 7) {
 		UnhookWindowsHookEx(inputstate.handle);
 	}
 	else if (cmode == 2) {
@@ -85,37 +122,7 @@ void setMode(int mode) {
 
 	}
 	else if (cmode == 1) {
-		TCHAR pathbuffer[MAX_PATH];
-		GetModuleFileName(NULL, pathbuffer, MAX_PATH);
-
-		const static tregex rx(TEXT("\\\\[^\\\\]*$"));
-		tstring file = std::regex_replace(pathbuffer, rx, TEXT("\\SLKeyCap.dll"));
-
-		HMODULE dll = NULL;
-		dll = LoadLibrary(file.c_str());
-		if (dll == NULL) {
-			MessageBox(NULL, TEXT("Could not load capture dll\r\nKeyboard mode will not function"), TEXT("Error"), MB_OK);
-		}
-		else {
-
-			HOOKPROC addr = NULL;
-			addr = (HOOKPROC)GetProcAddress(dll, "_HookKeys@12");
-			if (addr == NULL) {
-				MessageBox(NULL, TEXT("Could load hook function\r\nKeyboard mode will not function"), TEXT("Error"), MB_OK);
-			}
-			else {
-				VOID(__cdecl *setmem)(unsigned __int8[256]) = (VOID(__cdecl *)(unsigned __int8[256]))GetProcAddress(dll, "SetSharedMem");
-				if (setmem == NULL) {
-					MessageBox(NULL, TEXT("Could load setmem\r\nKeyboard mode will not function"), TEXT("Error"), MB_OK);
-				}
-				setmem(settings.map);
-
-				inputstate.handle = SetWindowsHookEx(WH_KEYBOARD_LL, addr, dll, 0);
-				if (inputstate.handle == NULL) {
-					MessageBox(NULL, TEXT("Could not hook keyboard\r\nKeyboard mode will not function"), TEXT("Error"), MB_OK);
-				}
-			}
-		}
+		SetupHook(NULL);
 	}
 	else if (cmode == 2) {
 		RAWINPUTDEVICE Rid;
@@ -190,5 +197,10 @@ void setMode(int mode) {
 				SendMessage(controls.inputs, CB_SETCURSEL, (WPARAM)0, (LPARAM)0);
 			}
 		}
+	}
+	else if (cmode == 7) {
+		MessageBox(controls.main, TEXT("Select window to associate StenoLite with"), TEXT(""), MB_OK | MB_ICONINFORMATION);
+		SetForegroundWindow(controls.main);
+		sharedData.grabwind = true;
 	}
 }
