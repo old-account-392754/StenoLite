@@ -1,3 +1,7 @@
+1.0.2
+Fixed bug caused by closing a minimized window
+Fixed resize bug in dictionary tab
+
 1.0.1
 Added single window keyboard input mode
 

@@ -1009,20 +1009,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			return DefWindowProc(hWnd, message, wParam, lParam);
 			break;
 		case WM_MOVE:
-			RECT rt;
-			GetWindowRect(hWnd, &rt);
-			settings.xpos = rt.left;
-			settings.ypos = rt.top;
+		{
+			WINDOWPLACEMENT wp;
+			wp.length = sizeof(wp);
+			GetWindowPlacement(hWnd, &wp);
+			if (wp.showCmd == SW_SHOWNORMAL) {
+				RECT rt;
+				GetWindowRect(hWnd, &rt);
+				settings.xpos = rt.left;
+				settings.ypos = rt.top;
+			}
+		}
 			break;
 		case WM_SIZE:
 			if (wParam == SIZE_MINIMIZED) {
 				return 0;
 			}
+			RECT rt;
 			GetClientRect(hWnd, &rt);
 			SetWindowPos(controls.hTab, NULL, 0, 0, rt.right, rt.bottom, SWP_NOMOVE);
 			TabCtrl_AdjustRect(controls.hTab, FALSE, &rt);
 			SetWindowPos(controls.scontainer, NULL, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, 0);
 			SetWindowPos(controls.mestroke, NULL, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, 0);
+			SetWindowPos(controls.mesuggest, NULL, rt.left, rt.top, rt.right - rt.left, rt.bottom - rt.top, 0);
 			if (controls.lineheight > 0) {
 				controls.numlines = (rt.bottom - rt.top) / controls.lineheight;
 				int lines = SendMessage(controls.mestroke, EM_GETLINECOUNT, 0, 0);
