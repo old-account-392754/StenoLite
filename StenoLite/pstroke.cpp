@@ -895,14 +895,16 @@ tstring grabWordText(std::list<singlestroke*>::iterator &insert, std::list<singl
 				break;
 			}
 		}
-		result = (*temp)->textout->text + result;
-		if ((*temp)->textout != (*insert)->textout) {
-			if ((*temp)->textout != prev) {
-				prev = (*temp)->textout;
+
+		if ((*temp)->textout != prev) {
+			result = (*temp)->textout->text + result;
+
+			prev = (*temp)->textout;
+			if ((*temp)->textout != (*insert)->textout) {
 				delete (*temp)->textout;
 			}
-			(*temp)->textout = (*insert)->textout;
 		}
+		(*temp)->textout = (*insert)->textout;
 
 		if (result.length() > 0) {
 			if (iswhitespace(result[0])) {
@@ -924,6 +926,7 @@ void transformandresend(unsigned __int8* stroke, std::list<singlestroke*>::itera
 	textoutput *tx = (*insert)->textout;
 
 	int oldlen = word.length();
+
 	if (word.length() > 0)
 		if (word[0] == TEXT(' ')) {
 			word.erase(word.begin());
